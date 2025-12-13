@@ -16,8 +16,8 @@ export default function Sidebar() {
     <aside className="w-64 bg-gray-900 min-h-screen fixed left-0 top-0">
       {/* Logo */}
       <div className="h-16 flex items-center px-6 border-b border-gray-800">
-        <span className="text-xl font-light tracking-widest text-white">
-          LUMIÈRE
+        <span className="text-xl font-medium tracking-wide text-white">
+          Cookies
         </span>
         <span className="ml-2 text-xs text-gray-500">ADMIN</span>
       </div>
@@ -55,7 +55,7 @@ export default function Sidebar() {
           </div>
           <div className="ml-3">
             <p className="text-sm text-white">관리자</p>
-            <p className="text-xs text-gray-500">admin@lumiere.kr</p>
+            <p className="text-xs text-gray-500">admin@cookies.kr</p>
           </div>
         </div>
       </div>

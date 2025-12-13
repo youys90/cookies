@@ -3,6 +3,7 @@ import { Noto_Sans_KR } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { CartProvider } from "@/contexts/CartContext";
 
 const notoSansKr = Noto_Sans_KR({
   subsets: ["latin"],
@@ -10,8 +11,8 @@ const notoSansKr = Noto_Sans_KR({
 });
 
 export const metadata: Metadata = {
-  title: "LUMIÈRE - Premium Jewelry",
-  description: "프리미엄 주얼리 브랜드 루미에르",
+  title: "Cookies - 쿠키즈 주얼리",
+  description: "특별한 주얼리 브랜드 쿠키즈",
 };
 
 export default function RootLayout({
@@ -22,9 +23,11 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <body className={`${notoSansKr.className} antialiased`}>
-        <Header />
-        <main className="min-h-screen">{children}</main>
-        <Footer />
+        <CartProvider>
+          <Header />
+          <main className="min-h-screen">{children}</main>
+          <Footer />
+        </CartProvider>
       </body>
     </html>
   );

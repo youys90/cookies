@@ -1,12 +1,44 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Banner from "@/components/Banner";
 import ProductCard from "@/components/ProductCard";
-import { products, categories } from "@/data/products";
+import { supabase } from "@/lib/supabase";
+
+interface Product {
+  id: number;
+  name: string;
+  price: number;
+  original_price?: number;
+  image: string;
+  category: string;
+  description?: string;
+}
+
+const categories = ["전체", "목걸이", "귀걸이", "반지", "팔찌"];
 
 export default function Home() {
+  const [products, setProducts] = useState<Product[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("전체");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  const fetchProducts = async () => {
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('상품 조회 실패:', error);
+    } else {
+      setProducts(data || []);
+    }
+    setLoading(false);
+  };
 
   const filteredProducts = selectedCategory === "전체"
     ? products
@@ -24,7 +56,7 @@ export default function Home() {
           <h2 className="text-2xl font-light tracking-widest text-gray-900 mb-2">
             COLLECTION
           </h2>
-          <p className="text-sm text-gray-500">루미에르의 특별한 컬렉션</p>
+          <p className="text-sm text-gray-500">쿠키즈의 특별한 컬렉션</p>
         </div>
 
         {/* Category Filter */}
@@ -45,11 +77,17 @@ export default function Home() {
         </div>
 
         {/* Product Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
-          {filteredProducts.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
+        {loading ? (
+          <div className="text-center text-gray-500">로딩 중...</div>
+        ) : filteredProducts.length === 0 ? (
+          <div className="text-center text-gray-500">등록된 상품이 없습니다.</div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
+            {filteredProducts.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        )}
       </section>
 
       {/* About Section */}

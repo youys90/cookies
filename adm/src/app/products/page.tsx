@@ -2,12 +2,45 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useState } from "react";
-import { products as initialProducts, categories, Product } from "@/data/products";
+import { useState, useEffect } from "react";
+import { categories } from "@/data/products";
+import { supabase } from "@/lib/supabase";
+
+interface Product {
+  id: number;
+  name: string;
+  name_en?: string;
+  price: number;
+  original_price?: number;
+  image: string;
+  category: string;
+  description?: string;
+  stock?: number;
+  status?: string;
+}
 
 export default function ProductsPage() {
-  const [productList, setProductList] = useState<Product[]>(initialProducts);
+  const [productList, setProductList] = useState<Product[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("전체");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  const fetchProducts = async () => {
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('상품 조회 실패:', error);
+    } else {
+      setProductList(data || []);
+    }
+    setLoading(false);
+  };
 
   const formatPrice = (price: number) => {
     return price.toLocaleString("ko-KR") + "원";
@@ -17,9 +50,18 @@ export default function ProductsPage() {
     ? productList
     : productList.filter((p) => p.category === selectedCategory);
 
-  const handleDelete = (id: number) => {
+  const handleDelete = async (id: number) => {
     if (confirm("정말 삭제하시겠습니까?")) {
-      setProductList((prev) => prev.filter((p) => p.id !== id));
+      const { error } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        alert('삭제 실패: ' + error.message);
+      } else {
+        setProductList((prev) => prev.filter((p) => p.id !== id));
+      }
     }
   };
 
@@ -71,6 +113,11 @@ export default function ProductsPage() {
 
       {/* Table */}
       <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+        {loading ? (
+          <div className="p-8 text-center text-gray-500">로딩 중...</div>
+        ) : filteredProducts.length === 0 ? (
+          <div className="p-8 text-center text-gray-500">등록된 상품이 없습니다.</div>
+        ) : (
         <table className="w-full">
           <thead className="bg-gray-50 border-b border-gray-100">
             <tr>
@@ -97,7 +144,7 @@ export default function ProductsPage() {
                     </div>
                     <div className="ml-4">
                       <p className="text-sm font-medium text-gray-900">{product.name}</p>
-                      <p className="text-xs text-gray-500">{product.nameEn}</p>
+                      <p className="text-xs text-gray-500">{product.name_en || ''}</p>
                     </div>
                   </div>
                 </td>
@@ -106,8 +153,8 @@ export default function ProductsPage() {
                 </td>
                 <td className="px-6 py-4">
                   <p className="text-sm font-medium text-gray-900">{formatPrice(product.price)}</p>
-                  {product.originalPrice && (
-                    <p className="text-xs text-gray-400 line-through">{formatPrice(product.originalPrice)}</p>
+                  {product.original_price && (
+                    <p className="text-xs text-gray-400 line-through">{formatPrice(product.original_price)}</p>
                   )}
                 </td>
                 <td className="px-6 py-4">
@@ -151,6 +198,7 @@ export default function ProductsPage() {
             ))}
           </tbody>
         </table>
+        )}
       </div>
     </div>
   );

@@ -9,8 +9,8 @@ const notoSansKr = Noto_Sans_KR({
 });
 
 export const metadata: Metadata = {
-  title: "LUMIÈRE Admin",
-  description: "루미에르 관리자 페이지",
+  title: "Cookies Admin",
+  description: "쿠키즈 관리자 페이지",
 };
 
 export default function RootLayout({
