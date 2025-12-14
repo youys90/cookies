@@ -30,6 +30,7 @@ export default function AccountPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [newPasswordConfirm, setNewPasswordConfirm] = useState("");
   const [newPhone, setNewPhone] = useState("");
   const [createLoading, setCreateLoading] = useState(false);
   const [createMessage, setCreateMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -77,6 +78,11 @@ export default function AccountPage() {
       return;
     }
 
+    if (newPassword !== newPasswordConfirm) {
+      setCreateMessage({ type: "error", text: "비밀번호가 일치하지 않습니다." });
+      return;
+    }
+
     if (newPhone.length < 13) {
       setCreateMessage({ type: "error", text: "전화번호를 올바르게 입력해주세요." });
       return;
@@ -90,6 +96,7 @@ export default function AccountPage() {
       setCreateMessage({ type: "success", text: result.message });
       setNewUsername("");
       setNewPassword("");
+      setNewPasswordConfirm("");
       setNewPhone("");
       loadUsers();
       setTimeout(() => {
@@ -260,6 +267,19 @@ export default function AccountPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
+                  비밀번호 확인 <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="password"
+                  value={newPasswordConfirm}
+                  onChange={(e) => setNewPasswordConfirm(e.target.value)}
+                  placeholder="비밀번호 재입력"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   전화번호 <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -286,6 +306,7 @@ export default function AccountPage() {
                     setCreateMessage(null);
                     setNewUsername("");
                     setNewPassword("");
+                    setNewPasswordConfirm("");
                     setNewPhone("");
                   }}
                   className="flex-1 py-2.5 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50"

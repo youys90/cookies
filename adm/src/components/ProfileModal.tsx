@@ -56,7 +56,7 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
   const loadProfile = async () => {
     const profile = await getProfile();
     if (profile) {
-      setPhone(profile.phone || "");
+      setPhone(formatPhoneNumber(profile.phone || ""));
     }
   };
 
