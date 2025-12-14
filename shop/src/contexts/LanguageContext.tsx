@@ -36,6 +36,43 @@ const translations: Record<Language, Record<string, string>> = {
     "category.etc": "その他（ETC）",
     "category.staffOnly": "🔒 スタッフ専用",
 
+    // Sub-category
+    "subcat.all": "すべて",
+    // 악세사리
+    "subcat.earrings": "ピアス",
+    "subcat.necklace": "ネックレス",
+    "subcat.ring": "リング",
+    "subcat.bracelet": "ブレスレット",
+    // 헤어
+    "subcat.hairpin": "ヘアピン",
+    "subcat.clippin": "クリップピン",
+    "subcat.hairband": "ヘアゴム",
+    "subcat.headband": "ヘアバンド",
+    // 겨울상품
+    "subcat.gloves": "手袋",
+    "subcat.scarf": "マフラー",
+    "subcat.beanie": "ビーニー",
+    "subcat.knithat": "ニット帽",
+    // 키링
+    "subcat.bagkeyring": "バッグキーリング",
+    "subcat.charkeyring": "キャラクターキーリング",
+    "subcat.strap": "ストラップ",
+    // 안경
+    "subcat.fashionglass": "ファッション眼鏡",
+    "subcat.sunglass": "サングラス",
+    "subcat.glasscase": "眼鏡ケース",
+    // 패션잡화
+    "subcat.pouch": "ポーチ",
+    "subcat.minibag": "ミニバッグ",
+    "subcat.wallet": "財布",
+    "subcat.socks": "靴下",
+    "subcat.cap": "キャップ",
+    // 기타
+    "subcat.season": "シーズン限定",
+    "subcat.event": "イベント商品",
+    "subcat.test": "テスト商品",
+    "subcat.etc": "その他",
+
     // Home
     "home.collection": "Cookiesの特別なコレクション",
     "home.noProducts": "登録された商品がありません",
@@ -114,6 +151,43 @@ const translations: Record<Language, Record<string, string>> = {
     "category.fashion": "패션잡화",
     "category.etc": "기타",
     "category.staffOnly": "🔒 스태프 전용",
+
+    // Sub-category
+    "subcat.all": "전체",
+    // 악세사리
+    "subcat.earrings": "귀걸이",
+    "subcat.necklace": "목걸이",
+    "subcat.ring": "반지",
+    "subcat.bracelet": "팔찌",
+    // 헤어
+    "subcat.hairpin": "헤어핀",
+    "subcat.clippin": "집게핀",
+    "subcat.hairband": "머리끈",
+    "subcat.headband": "헤어밴드",
+    // 겨울상품
+    "subcat.gloves": "장갑",
+    "subcat.scarf": "머플러",
+    "subcat.beanie": "비니",
+    "subcat.knithat": "니트모자",
+    // 키링
+    "subcat.bagkeyring": "가방 키링",
+    "subcat.charkeyring": "캐릭터 키링",
+    "subcat.strap": "스트랩",
+    // 안경
+    "subcat.fashionglass": "패션안경",
+    "subcat.sunglass": "선글라스",
+    "subcat.glasscase": "안경케이스",
+    // 패션잡화
+    "subcat.pouch": "파우치",
+    "subcat.minibag": "미니백",
+    "subcat.wallet": "지갑",
+    "subcat.socks": "양말",
+    "subcat.cap": "캡모자",
+    // 기타
+    "subcat.season": "시즌 한정",
+    "subcat.event": "이벤트 상품",
+    "subcat.test": "테스트 상품",
+    "subcat.etc": "기타",
 
     // Home
     "home.collection": "쿠키즈의 특별한 컬렉션",

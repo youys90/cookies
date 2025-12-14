@@ -19,6 +19,7 @@ interface Product {
   category: string;
   category_ja?: string;
   category_ko?: string;
+  sub_category?: string;
   description?: string;
 }
 
@@ -27,6 +28,7 @@ export default function Home() {
   const searchParams = useSearchParams();
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const [selectedSubCategory, setSelectedSubCategory] = useState("all");
   const [loading, setLoading] = useState(true);
   const [showStaffModal, setShowStaffModal] = useState(false);
   const [hasStaffAccess, setHasStaffAccess] = useState(false);
@@ -43,6 +45,28 @@ export default function Home() {
     fashion: "ファッション雑貨",
     etc: "その他（ETC）",
     staffOnly: "🔒 スタッフ専用"
+  };
+
+  // 하위 카테고리 (카테고리 키 -> 하위 카테고리 키 배열)
+  const subCategoryKeys: Record<string, string[]> = {
+    accessory: ["earrings", "necklace", "ring", "bracelet", "etc"],
+    hair: ["hairpin", "clippin", "hairband", "headband", "etc"],
+    winter: ["gloves", "scarf", "beanie", "knithat", "etc"],
+    keyring: ["bagkeyring", "charkeyring", "strap", "etc"],
+    eyewear: ["fashionglass", "sunglass", "glasscase", "etc"],
+    fashion: ["pouch", "minibag", "wallet", "socks", "cap", "etc"],
+    etc: ["season", "event", "test", "etc"],
+  };
+
+  // 하위 카테고리 키 -> DB 값 (일본어)
+  const subCategoryMap: Record<string, string> = {
+    earrings: "ピアス", necklace: "ネックレス", ring: "リング", bracelet: "ブレスレット",
+    hairpin: "ヘアピン", clippin: "クリップピン", hairband: "ヘアゴム", headband: "ヘアバンド",
+    gloves: "手袋", scarf: "マフラー", beanie: "ビーニー", knithat: "ニット帽",
+    bagkeyring: "バッグキーリング", charkeyring: "キャラクターキーリング", strap: "ストラップ",
+    fashionglass: "ファッション眼鏡", sunglass: "サングラス", glasscase: "眼鏡ケース",
+    pouch: "ポーチ", minibag: "ミニバッグ", wallet: "財布", socks: "靴下", cap: "キャップ",
+    season: "シーズン限定", event: "イベント商品", test: "テスト商品", etc: "その他",
   };
 
   useEffect(() => {
@@ -78,23 +102,39 @@ export default function Home() {
     if (catKey === "staffOnly") {
       if (hasStaffAccess) {
         setSelectedCategory(catKey);
+        setSelectedSubCategory("all");
       } else {
         setShowStaffModal(true);
       }
     } else {
       setSelectedCategory(catKey);
+      setSelectedSubCategory("all");
     }
+  };
+
+  const handleSubCategoryClick = (subCatKey: string) => {
+    setSelectedSubCategory(subCatKey);
   };
 
   const handleStaffAccessSuccess = () => {
     setHasStaffAccess(true);
     setShowStaffModal(false);
     setSelectedCategory("staffOnly");
+    setSelectedSubCategory("all");
   };
 
-  const filteredProducts = selectedCategory === "all"
+  // 상위 카테고리로 먼저 필터
+  const categoryFilteredProducts = selectedCategory === "all"
     ? products.filter((p) => p.category !== "🔒 スタッフ専用") // all에서는 스태프 전용 제외
     : products.filter((p) => p.category === categoryMap[selectedCategory]);
+
+  // 하위 카테고리로 추가 필터
+  const filteredProducts = selectedSubCategory === "all"
+    ? categoryFilteredProducts
+    : categoryFilteredProducts.filter((p) => p.sub_category === subCategoryMap[selectedSubCategory]);
+
+  // 현재 선택된 카테고리의 하위 카테고리 목록
+  const currentSubCategories = subCategoryKeys[selectedCategory] || [];
 
   return (
     <div>
@@ -112,7 +152,7 @@ export default function Home() {
         </div>
 
         {/* Category Filter - 스크롤 가능 */}
-        <div className="flex justify-start md:justify-center overflow-x-auto pb-2 mb-12 -mx-4 px-4 md:mx-0 md:px-0">
+        <div className="flex justify-start md:justify-center overflow-x-auto pb-2 mb-4 -mx-4 px-4 md:mx-0 md:px-0">
           <div className="flex space-x-3 md:space-x-4">
             {categoryKeys.map((catKey) => (
               <button
@@ -129,6 +169,40 @@ export default function Home() {
             ))}
           </div>
         </div>
+
+        {/* Sub-category Filter - 하위 카테고리가 있을 때만 표시 */}
+        {currentSubCategories.length > 0 && (
+          <div className="flex justify-start md:justify-center overflow-x-auto pb-2 mb-12 -mx-4 px-4 md:mx-0 md:px-0">
+            <div className="flex space-x-2 md:space-x-3">
+              <button
+                onClick={() => handleSubCategoryClick("all")}
+                className={`px-3 py-1.5 text-xs tracking-wide transition-colors whitespace-nowrap rounded-full ${
+                  selectedSubCategory === "all"
+                    ? "bg-gray-900 text-white"
+                    : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                }`}
+              >
+                {t("subcat.all")}
+              </button>
+              {currentSubCategories.map((subCatKey) => (
+                <button
+                  key={subCatKey}
+                  onClick={() => handleSubCategoryClick(subCatKey)}
+                  className={`px-3 py-1.5 text-xs tracking-wide transition-colors whitespace-nowrap rounded-full ${
+                    selectedSubCategory === subCatKey
+                      ? "bg-gray-900 text-white"
+                      : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                  }`}
+                >
+                  {t(`subcat.${subCatKey}`)}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 하위 카테고리 없으면 mb-12 유지 */}
+        {currentSubCategories.length === 0 && <div className="mb-8" />}
 
         {/* Product Grid */}
         {loading ? (

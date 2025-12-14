@@ -8,6 +8,14 @@ interface ProfileModalProps {
   onClose: () => void;
 }
 
+// 전화번호 포맷팅 함수 (숫자만 입력, 자동 하이픈)
+const formatPhoneNumber = (value: string): string => {
+  const numbers = value.replace(/[^0-9]/g, "");
+  if (numbers.length <= 3) return numbers;
+  if (numbers.length <= 7) return `${numbers.slice(0, 3)}-${numbers.slice(3)}`;
+  return `${numbers.slice(0, 3)}-${numbers.slice(3, 7)}-${numbers.slice(7, 11)}`;
+};
+
 export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
   const { username, changePassword, resetPasswordForUser, updatePhone, getProfile } = useAuth();
 
@@ -54,6 +62,17 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
 
   const handlePhoneSave = async () => {
     setPhoneMessage(null);
+
+    if (!phone) {
+      setPhoneMessage({ type: "error", text: "전화번호를 입력해주세요." });
+      return;
+    }
+
+    if (phone.length < 13) {
+      setPhoneMessage({ type: "error", text: "전화번호를 올바르게 입력해주세요." });
+      return;
+    }
+
     setPhoneLoading(true);
     const result = await updatePhone(phone);
     setPhoneLoading(false);
@@ -171,12 +190,15 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
 
               {/* 전화번호 */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">전화번호</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  전화번호 <span className="text-red-500">*</span>
+                </label>
                 <input
                   type="tel"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  onChange={(e) => setPhone(formatPhoneNumber(e.target.value))}
                   placeholder="010-0000-0000"
+                  maxLength={13}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
                 />
               </div>

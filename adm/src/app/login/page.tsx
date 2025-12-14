@@ -6,6 +6,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import bcrypt from "bcryptjs";
 
+// 전화번호 포맷팅 함수 (숫자만 입력, 자동 하이픈)
+const formatPhoneNumber = (value: string): string => {
+  const numbers = value.replace(/[^0-9]/g, "");
+  if (numbers.length <= 3) return numbers;
+  if (numbers.length <= 7) return `${numbers.slice(0, 3)}-${numbers.slice(3)}`;
+  return `${numbers.slice(0, 3)}-${numbers.slice(3, 7)}-${numbers.slice(7, 11)}`;
+};
+
 export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -37,8 +45,8 @@ export default function LoginPage() {
   };
 
   const handleFindId = async () => {
-    if (!findPhone) {
-      setFindResult({ type: "error", text: "전화번호를 입력해주세요." });
+    if (!findPhone || findPhone.length < 13) {
+      setFindResult({ type: "error", text: "전화번호를 올바르게 입력해주세요." });
       return;
     }
 
@@ -65,8 +73,12 @@ export default function LoginPage() {
   };
 
   const handleFindPw = async () => {
-    if (!findUsername || !findPhone) {
-      setFindResult({ type: "error", text: "아이디와 전화번호를 입력해주세요." });
+    if (!findUsername) {
+      setFindResult({ type: "error", text: "아이디를 입력해주세요." });
+      return;
+    }
+    if (!findPhone || findPhone.length < 13) {
+      setFindResult({ type: "error", text: "전화번호를 올바르게 입력해주세요." });
       return;
     }
 
@@ -192,8 +204,9 @@ export default function LoginPage() {
               <input
                 type="tel"
                 value={findPhone}
-                onChange={(e) => setFindPhone(e.target.value)}
-                placeholder="전화번호 (예: 010-0000-0000)"
+                onChange={(e) => setFindPhone(formatPhoneNumber(e.target.value))}
+                placeholder="010-0000-0000"
+                maxLength={13}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
               />
 
@@ -245,8 +258,9 @@ export default function LoginPage() {
               <input
                 type="tel"
                 value={findPhone}
-                onChange={(e) => setFindPhone(e.target.value)}
-                placeholder="전화번호 (예: 010-0000-0000)"
+                onChange={(e) => setFindPhone(formatPhoneNumber(e.target.value))}
+                placeholder="010-0000-0000"
+                maxLength={13}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
               />
 

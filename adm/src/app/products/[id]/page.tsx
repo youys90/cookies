@@ -8,6 +8,29 @@ import { supabase } from "@/lib/supabase";
 const categoriesJa = ["アクセサリー", "ヘアアクセサリー", "冬物アイテム", "キーリング", "メガネ／サングラス", "ファッション雑貨", "その他（ETC）", "🔒 スタッフ専用"];
 const categoriesKo = ["악세사리", "헤어", "겨울상품", "키링", "안경/선글라스", "패션잡화", "기타", "🔒 스태프 전용"];
 
+// 하위 카테고리 (상위 카테고리 인덱스 기준)
+const subCategoriesKo: Record<number, string[]> = {
+  0: ["귀걸이", "목걸이", "반지", "팔찌", "기타"],
+  1: ["헤어핀", "집게핀", "머리끈", "헤어밴드", "기타"],
+  2: ["장갑", "머플러", "비니", "니트모자", "기타"],
+  3: ["가방 키링", "캐릭터 키링", "스트랩", "기타"],
+  4: ["패션안경", "선글라스", "안경케이스", "기타"],
+  5: ["파우치", "미니백", "지갑", "양말", "캡모자", "기타"],
+  6: ["시즌 한정", "이벤트 상품", "테스트 상품", "기타"],
+  7: [],
+};
+
+const subCategoriesJa: Record<number, string[]> = {
+  0: ["ピアス", "ネックレス", "リング", "ブレスレット", "その他"],
+  1: ["ヘアピン", "クリップピン", "ヘアゴム", "ヘアバンド", "その他"],
+  2: ["手袋", "マフラー", "ビーニー", "ニット帽", "その他"],
+  3: ["バッグキーリング", "キャラクターキーリング", "ストラップ", "その他"],
+  4: ["ファッション眼鏡", "サングラス", "眼鏡ケース", "その他"],
+  5: ["ポーチ", "ミニバッグ", "財布", "靴下", "キャップ", "その他"],
+  6: ["シーズン限定", "イベント商品", "テスト商品", "その他"],
+  7: [],
+};
+
 interface Product {
   id: number;
   name: string;
@@ -19,6 +42,7 @@ interface Product {
   category: string;
   category_ja?: string;
   category_ko?: string;
+  sub_category?: string;
   description?: string;
   description_ja?: string;
   description_ko?: string;
@@ -44,10 +68,15 @@ export default function EditProductPage() {
     originalPrice: "",
     categoryJa: categoriesJa[0],
     categoryKo: categoriesKo[0],
+    subCategoryJa: "",
+    subCategoryKo: "",
     descriptionJa: "",
     descriptionKo: "",
     stock: "",
   });
+
+  // 현재 선택된 상위 카테고리 인덱스
+  const getCategoryIndex = () => categoriesJa.indexOf(formData.categoryJa);
 
   useEffect(() => {
     fetchProduct();
@@ -67,6 +96,11 @@ export default function EditProductPage() {
     }
 
     const product = data as Product;
+    const catIdx = categoriesJa.indexOf(product.category_ja || product.category || categoriesJa[0]);
+    const subCatsJa = subCategoriesJa[catIdx] || [];
+    const subCatsKo = subCategoriesKo[catIdx] || [];
+    const subCatJaIdx = subCatsJa.indexOf(product.sub_category || "");
+
     setFormData({
       nameJa: product.name_ja || product.name || "",
       nameKo: product.name_ko || "",
@@ -74,6 +108,8 @@ export default function EditProductPage() {
       originalPrice: product.original_price ? String(product.original_price) : "",
       categoryJa: product.category_ja || product.category || categoriesJa[0],
       categoryKo: product.category_ko || categoriesKo[0],
+      subCategoryJa: product.sub_category || subCatsJa[0] || "",
+      subCategoryKo: subCatJaIdx >= 0 ? subCatsKo[subCatJaIdx] : subCatsKo[0] || "",
       descriptionJa: product.description_ja || product.description || "",
       descriptionKo: product.description_ko || "",
       stock: product.stock ? String(product.stock) : "",
@@ -211,6 +247,7 @@ export default function EditProductPage() {
         category: finalData.categoryJa || finalData.categoryKo,
         category_ja: finalData.categoryJa,
         category_ko: finalData.categoryKo,
+        sub_category: finalData.subCategoryJa || null,
         image: imageUrl,
         description: finalData.descriptionJa || finalData.descriptionKo,
         description_ja: finalData.descriptionJa,
@@ -342,10 +379,14 @@ export default function EditProductPage() {
                 value={formData.categoryJa}
                 onChange={(e) => {
                   const idx = categoriesJa.indexOf(e.target.value);
+                  const newSubCatsJa = subCategoriesJa[idx] || [];
+                  const newSubCatsKo = subCategoriesKo[idx] || [];
                   setFormData({
                     ...formData,
                     categoryJa: e.target.value,
-                    categoryKo: idx >= 0 ? categoriesKo[idx] : formData.categoryKo
+                    categoryKo: idx >= 0 ? categoriesKo[idx] : formData.categoryKo,
+                    subCategoryJa: newSubCatsJa[0] || "",
+                    subCategoryKo: newSubCatsKo[0] || "",
                   });
                 }}
                 className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-base"
@@ -363,10 +404,14 @@ export default function EditProductPage() {
                 value={formData.categoryKo}
                 onChange={(e) => {
                   const idx = categoriesKo.indexOf(e.target.value);
+                  const newSubCatsJa = subCategoriesJa[idx] || [];
+                  const newSubCatsKo = subCategoriesKo[idx] || [];
                   setFormData({
                     ...formData,
                     categoryKo: e.target.value,
-                    categoryJa: idx >= 0 ? categoriesJa[idx] : formData.categoryJa
+                    categoryJa: idx >= 0 ? categoriesJa[idx] : formData.categoryJa,
+                    subCategoryJa: newSubCatsJa[0] || "",
+                    subCategoryKo: newSubCatsKo[0] || "",
                   });
                 }}
                 className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-base"
@@ -377,6 +422,60 @@ export default function EditProductPage() {
               </select>
             </div>
           </div>
+
+          {/* 하위 카테고리 */}
+          {(subCategoriesJa[getCategoryIndex()] || []).length > 0 && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  하위 카테고리 (日本語)
+                </label>
+                <select
+                  value={formData.subCategoryJa}
+                  onChange={(e) => {
+                    const catIdx = getCategoryIndex();
+                    const subCatsJa = subCategoriesJa[catIdx] || [];
+                    const subCatsKo = subCategoriesKo[catIdx] || [];
+                    const subIdx = subCatsJa.indexOf(e.target.value);
+                    setFormData({
+                      ...formData,
+                      subCategoryJa: e.target.value,
+                      subCategoryKo: subIdx >= 0 ? subCatsKo[subIdx] : formData.subCategoryKo,
+                    });
+                  }}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-base"
+                >
+                  {(subCategoriesJa[getCategoryIndex()] || []).map((sub) => (
+                    <option key={sub} value={sub}>{sub}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  하위 카테고리 (한국어)
+                </label>
+                <select
+                  value={formData.subCategoryKo}
+                  onChange={(e) => {
+                    const catIdx = getCategoryIndex();
+                    const subCatsJa = subCategoriesJa[catIdx] || [];
+                    const subCatsKo = subCategoriesKo[catIdx] || [];
+                    const subIdx = subCatsKo.indexOf(e.target.value);
+                    setFormData({
+                      ...formData,
+                      subCategoryKo: e.target.value,
+                      subCategoryJa: subIdx >= 0 ? subCatsJa[subIdx] : formData.subCategoryJa,
+                    });
+                  }}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-base"
+                >
+                  {(subCategoriesKo[getCategoryIndex()] || []).map((sub) => (
+                    <option key={sub} value={sub}>{sub}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div>
