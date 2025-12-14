@@ -1,28 +1,30 @@
 "use client";
 
 import { useState, useEffect } from "react";
-
-const banners = [
-  {
-    id: 1,
-    title: "NEW ARRIVAL",
-    subtitle: "2025 COLLECTION",
-    description: "쿠키즈의 새로운 컬렉션을 만나보세요",
-    bg: "bg-gradient-to-r from-rose-100 to-pink-100",
-    textColor: "text-gray-800"
-  },
-  {
-    id: 2,
-    title: "SPECIAL SALE",
-    subtitle: "UP TO 30% OFF",
-    description: "시즌 오프 특별 할인",
-    bg: "bg-gradient-to-r from-gray-900 to-gray-700",
-    textColor: "text-white"
-  }
-];
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function Banner() {
+  const { t } = useLanguage();
   const [current, setCurrent] = useState(0);
+
+  const banners = [
+    {
+      id: 1,
+      title: "NEW ARRIVAL",
+      subtitle: "2025 COLLECTION",
+      descriptionKey: "banner.newArrival",
+      bg: "bg-gradient-to-r from-rose-100 to-pink-100",
+      textColor: "text-gray-800"
+    },
+    {
+      id: 2,
+      title: "SPECIAL SALE",
+      subtitle: "UP TO 30% OFF",
+      descriptionKey: "banner.sale",
+      bg: "bg-gradient-to-r from-gray-900 to-gray-700",
+      textColor: "text-white"
+    }
+  ];
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -42,7 +44,7 @@ export default function Banner() {
             {banner.title}
           </h1>
           <p className="text-sm md:text-base opacity-80 mb-6 md:mb-8">
-            {banner.description}
+            {t(banner.descriptionKey)}
           </p>
           <button className={`px-6 md:px-8 py-3 md:py-3 border ${banner.textColor === 'text-white' ? 'border-white hover:bg-white hover:text-gray-900' : 'border-gray-800 hover:bg-gray-800 hover:text-white'} text-sm tracking-wide transition-colors min-h-[44px]`}>
             SHOP NOW

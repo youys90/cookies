@@ -6,27 +6,50 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useCart } from "@/contexts/CartContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface Product {
   id: number;
   name: string;
-  name_en?: string;
+  name_ja?: string;
+  name_ko?: string;
   price: number;
   original_price?: number;
   image: string;
   category: string;
+  category_ja?: string;
+  category_ko?: string;
   description?: string;
+  description_ja?: string;
+  description_ko?: string;
 }
 
 export default function ProductDetail() {
   const params = useParams();
   const router = useRouter();
   const { addToCart } = useCart();
+  const { language, t, formatPrice } = useLanguage();
   const productId = Number(params.id);
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
+
+  // 언어별 상품 정보 가져오기
+  const getProductName = (p: Product) => {
+    if (language === "ja") return p.name_ja || p.name;
+    return p.name_ko || p.name;
+  };
+
+  const getProductCategory = (p: Product) => {
+    if (language === "ja") return p.category_ja || p.category;
+    return p.category_ko || p.category;
+  };
+
+  const getProductDescription = (p: Product) => {
+    if (language === "ja") return p.description_ja || p.description;
+    return p.description_ko || p.description;
+  };
 
   useEffect(() => {
     fetchProduct();
@@ -47,10 +70,6 @@ export default function ProductDetail() {
     setLoading(false);
   };
 
-  const formatPrice = (price: number) => {
-    return price.toLocaleString("ko-KR") + "원";
-  };
-
   const handleAddToCart = () => {
     if (product) {
       addToCart({
@@ -68,7 +87,7 @@ export default function ProductDetail() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-gray-500">로딩 중...</p>
+        <p className="text-gray-500">{t("common.loading")}</p>
       </div>
     );
   }
@@ -76,7 +95,7 @@ export default function ProductDetail() {
   if (!product) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-gray-500">상품을 찾을 수 없습니다.</p>
+        <p className="text-gray-500">{t("product.notFound")}</p>
       </div>
     );
   }
@@ -88,9 +107,9 @@ export default function ProductDetail() {
         <ol className="flex items-center space-x-2 text-gray-400">
           <li><Link href="/" className="hover:text-gray-600">Home</Link></li>
           <li>/</li>
-          <li><Link href={`/?category=${product.category}`} className="hover:text-gray-600">{product.category}</Link></li>
+          <li><Link href={`/?category=${product.category}`} className="hover:text-gray-600">{getProductCategory(product)}</Link></li>
           <li>/</li>
-          <li className="text-gray-900">{product.name}</li>
+          <li className="text-gray-900">{getProductName(product)}</li>
         </ol>
       </nav>
 
@@ -114,11 +133,8 @@ export default function ProductDetail() {
 
         {/* Product Info */}
         <div className="flex flex-col">
-          <p className="text-sm text-gray-400 tracking-wide mb-2">{product.category}</p>
-          <h1 className="text-2xl font-light text-gray-900 mb-2">{product.name}</h1>
-          {product.name_en && (
-            <p className="text-sm text-gray-500 mb-6">{product.name_en}</p>
-          )}
+          <p className="text-sm text-gray-400 tracking-wide mb-2">{getProductCategory(product)}</p>
+          <h1 className="text-2xl font-light text-gray-900 mb-6">{getProductName(product)}</h1>
 
           {/* Price */}
           <div className="flex items-center space-x-3 mb-6">
@@ -133,13 +149,13 @@ export default function ProductDetail() {
           </div>
 
           {/* Description */}
-          {product.description && (
-            <p className="text-gray-600 mb-8">{product.description}</p>
+          {getProductDescription(product) && (
+            <p className="text-gray-600 mb-8">{getProductDescription(product)}</p>
           )}
 
           {/* Quantity */}
           <div className="flex items-center space-x-4 mb-6">
-            <span className="text-sm text-gray-600">수량</span>
+            <span className="text-sm text-gray-600">{t("product.quantity")}</span>
             <div className="flex items-center border border-gray-200 rounded">
               <button
                 onClick={() => setQuantity(Math.max(1, quantity - 1))}
@@ -167,7 +183,7 @@ export default function ProductDetail() {
                   : "bg-gray-900 text-white hover:bg-gray-800"
               }`}
             >
-              {added ? "담기 완료!" : "장바구니 담기"}
+              {added ? t("product.addedToCart") : t("product.addToCart")}
             </button>
             <button className="px-6 py-4 border border-gray-200 text-gray-600 hover:border-gray-400 transition-colors">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -182,7 +198,7 @@ export default function ProductDetail() {
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
               </svg>
-              <span>5만원 이상 무료배송 | 평일 오후 2시 이전 주문 시 당일 발송</span>
+              <span>{t("product.deliveryInfo")}</span>
             </div>
           </div>
         </div>

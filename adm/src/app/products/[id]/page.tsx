@@ -1,20 +1,42 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useRef, useEffect } from "react";
+import { useRouter, useParams } from "next/navigation";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 
 const categoriesJa = ["ネックレス", "ピアス", "リング", "ブレスレット"];
 const categoriesKo = ["목걸이", "귀걸이", "반지", "팔찌"];
 
-export default function NewProductPage() {
+interface Product {
+  id: number;
+  name: string;
+  name_ja?: string;
+  name_ko?: string;
+  price: number;
+  original_price?: number;
+  image: string;
+  category: string;
+  category_ja?: string;
+  category_ko?: string;
+  description?: string;
+  description_ja?: string;
+  description_ko?: string;
+  stock?: number;
+}
+
+export default function EditProductPage() {
   const router = useRouter();
+  const params = useParams();
+  const productId = params.id as string;
+
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [translating, setTranslating] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [originalImage, setOriginalImage] = useState<string>("");
   const [formData, setFormData] = useState({
     nameJa: "",
     nameKo: "",
@@ -27,16 +49,39 @@ export default function NewProductPage() {
     stock: "",
   });
 
-  // 잠금 상태: 자동 번역된 필드는 잠김
-  const [locked, setLocked] = useState({
-    nameJa: false,
-    nameKo: false,
-    descriptionJa: false,
-    descriptionKo: false,
-  });
+  useEffect(() => {
+    fetchProduct();
+  }, [productId]);
 
-  // 주 입력 언어 (먼저 입력한 쪽)
-  const [primaryLang, setPrimaryLang] = useState<'ja' | 'ko' | null>(null);
+  const fetchProduct = async () => {
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .eq('id', productId)
+      .single();
+
+    if (error || !data) {
+      alert('상품을 찾을 수 없습니다.');
+      router.push('/products');
+      return;
+    }
+
+    const product = data as Product;
+    setFormData({
+      nameJa: product.name_ja || product.name || "",
+      nameKo: product.name_ko || "",
+      price: String(product.price || ""),
+      originalPrice: product.original_price ? String(product.original_price) : "",
+      categoryJa: product.category_ja || product.category || categoriesJa[0],
+      categoryKo: product.category_ko || categoriesKo[0],
+      descriptionJa: product.description_ja || product.description || "",
+      descriptionKo: product.description_ko || "",
+      stock: product.stock ? String(product.stock) : "",
+    });
+    setOriginalImage(product.image);
+    setImagePreview(product.image);
+    setLoading(false);
+  };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -71,7 +116,6 @@ export default function NewProductPage() {
     return data.publicUrl;
   };
 
-  // Lingva API 번역 함수
   const translateText = async (text: string, from: string, to: string): Promise<string> => {
     if (!text.trim()) return "";
     try {
@@ -84,19 +128,17 @@ export default function NewProductPage() {
     }
   };
 
-  // 자동 번역 실행 (입력 시 자동 호출)
+  // 개별 필드 번역
   const autoTranslate = async (field: 'name' | 'description', sourceLang: 'ja' | 'ko', value: string) => {
     if (!value.trim()) return;
 
-    const from = sourceLang;
     const to = sourceLang === 'ja' ? 'ko' : 'ja';
     const targetField = field + (to === 'ja' ? 'Ja' : 'Ko') as keyof typeof formData;
 
     setTranslating(true);
     try {
-      const translated = await translateText(value, from, to);
+      const translated = await translateText(value, sourceLang, to);
       setFormData(prev => ({ ...prev, [targetField]: translated }));
-      setLocked(prev => ({ ...prev, [targetField]: true }));
 
       // 카테고리도 자동 매칭
       if (field === 'name') {
@@ -109,95 +151,17 @@ export default function NewProductPage() {
         }
       }
     } catch (error) {
-      console.error('자동 번역 실패:', error);
+      console.error('번역 실패:', error);
     }
     setTranslating(false);
-  };
-
-  // 필드 잠금 해제
-  const unlockField = (field: keyof typeof locked) => {
-    if (locked[field]) {
-      if (confirm('자동 번역된 내용을 수정하시겠습니까?')) {
-        setLocked(prev => ({ ...prev, [field]: false }));
-      }
-    }
-  };
-
-  // 입력 핸들러 (자동 번역 트리거)
-  const handleInputChange = (field: 'nameJa' | 'nameKo' | 'descriptionJa' | 'descriptionKo', value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-
-    // 주 언어 설정 (처음 입력한 쪽)
-    if (!primaryLang && value.trim()) {
-      const lang = field.endsWith('Ja') ? 'ja' : 'ko';
-      setPrimaryLang(lang);
-    }
-  };
-
-  // 입력 완료 시 자동 번역 (onBlur)
-  const handleInputBlur = async (field: 'nameJa' | 'nameKo' | 'descriptionJa' | 'descriptionKo') => {
-    const value = formData[field];
-    if (!value.trim()) return;
-
-    const isJa = field.endsWith('Ja');
-    const baseField = field.replace(/Ja$|Ko$/, '') as 'name' | 'description';
-    const targetField = baseField + (isJa ? 'Ko' : 'Ja') as keyof typeof formData;
-
-    // 상대 필드가 비어있거나 잠겨있으면 자동 번역
-    if (!formData[targetField] || locked[targetField as keyof typeof locked]) {
-      await autoTranslate(baseField, isJa ? 'ja' : 'ko', value);
-    }
-  };
-
-  // 번역 버튼 (수동 전체 번역)
-  const manualTranslate = async () => {
-    const hasJa = formData.nameJa.trim();
-    const hasKo = formData.nameKo.trim();
-
-    if (!hasJa && !hasKo) {
-      alert('번역할 텍스트를 입력하세요');
-      return;
-    }
-
-    // 일본어 기준으로 한국어 재번역
-    if (hasJa) {
-      setTranslating(true);
-      try {
-        const [nameKo, descKo] = await Promise.all([
-          translateText(formData.nameJa, 'ja', 'ko'),
-          formData.descriptionJa ? translateText(formData.descriptionJa, 'ja', 'ko') : '',
-        ]);
-        const catIdx = categoriesJa.indexOf(formData.categoryJa);
-        setFormData(prev => ({
-          ...prev,
-          nameKo,
-          descriptionKo: descKo,
-          categoryKo: catIdx >= 0 ? categoriesKo[catIdx] : categoriesKo[0],
-        }));
-        setLocked(prev => ({ ...prev, nameKo: true, descriptionKo: true }));
-      } catch (error) {
-        alert('번역 중 오류가 발생했습니다');
-      }
-      setTranslating(false);
-    }
-  };
-
-  // 번역 버튼 텍스트
-  const getTranslateButtonText = () => {
-    if (translating) return '번역 중...';
-    if (formData.nameJa.trim()) return '🇯🇵 → 🇰🇷 재번역';
-    if (formData.nameKo.trim()) return '🇰🇷 → 🇯🇵 재번역';
-    return '번역';
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setUploading(true);
 
-    // 자동 번역: 한쪽만 입력된 경우 다른 쪽 자동 번역
     let finalData = { ...formData };
 
-    // 일본어만 있고 한국어 없으면 → 한국어 자동 번역
     if (formData.nameJa && !formData.nameKo) {
       const [nameKo, descKo] = await Promise.all([
         translateText(formData.nameJa, 'ja', 'ko'),
@@ -210,9 +174,7 @@ export default function NewProductPage() {
         descriptionKo: descKo,
         categoryKo: catIdx >= 0 ? categoriesKo[catIdx] : categoriesKo[0],
       };
-    }
-    // 한국어만 있고 일본어 없으면 → 일본어 자동 번역
-    else if (formData.nameKo && !formData.nameJa) {
+    } else if (formData.nameKo && !formData.nameJa) {
       const [nameJa, descJa] = await Promise.all([
         translateText(formData.nameKo, 'ko', 'ja'),
         formData.descriptionKo ? translateText(formData.descriptionKo, 'ko', 'ja') : '',
@@ -226,7 +188,7 @@ export default function NewProductPage() {
       };
     }
 
-    let imageUrl = '/images/default.jpg';
+    let imageUrl = originalImage;
 
     if (imageFile) {
       const uploadedUrl = await uploadImage(imageFile);
@@ -241,7 +203,7 @@ export default function NewProductPage() {
 
     const { error } = await supabase
       .from('products')
-      .insert({
+      .update({
         name: finalData.nameJa || finalData.nameKo,
         name_ja: finalData.nameJa,
         name_ko: finalData.nameKo,
@@ -253,35 +215,41 @@ export default function NewProductPage() {
         description: finalData.descriptionJa || finalData.descriptionKo,
         description_ja: finalData.descriptionJa,
         description_ko: finalData.descriptionKo,
-      });
+      })
+      .eq('id', productId);
 
     setUploading(false);
 
     if (error) {
-      alert('등록 실패: ' + error.message);
+      alert('수정 실패: ' + error.message);
       return;
     }
 
-    alert('상품이 등록되었습니다!');
+    alert('상품이 수정되었습니다!');
     router.push('/products');
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-gray-500">로딩 중...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="pb-8">
-      {/* Header */}
       <div className="mb-6">
-        <h1 className="text-xl md:text-2xl font-medium text-gray-900">상품 등록</h1>
-        <p className="text-sm text-gray-500 mt-1">새로운 상품을 등록합니다 (일본어/한국어)</p>
+        <h1 className="text-xl md:text-2xl font-medium text-gray-900">상품 수정</h1>
+        <p className="text-sm text-gray-500 mt-1">상품 정보를 수정합니다 (일본어/한국어)</p>
       </div>
 
-      {/* Form */}
       <form onSubmit={handleSubmit} className="max-w-2xl">
         <div className="bg-white rounded-xl shadow-sm p-4 md:p-6 space-y-5">
 
-          {/* 이미지 업로드 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              상품 이미지 <span className="text-red-500">*</span>
+              상품 이미지
             </label>
             <div
               onClick={() => fileInputRef.current?.click()}
@@ -302,7 +270,6 @@ export default function NewProductPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
                   <p className="text-sm text-gray-500">클릭하여 이미지 선택</p>
-                  <p className="text-xs text-gray-400 mt-1">JPG, PNG (최대 5MB)</p>
                 </div>
               )}
             </div>
@@ -313,33 +280,6 @@ export default function NewProductPage() {
               onChange={handleImageChange}
               className="hidden"
             />
-            {imagePreview && (
-              <button
-                type="button"
-                onClick={() => {
-                  setImagePreview(null);
-                  setImageFile(null);
-                }}
-                className="mt-2 text-sm text-red-500 hover:text-red-600"
-              >
-                이미지 삭제
-              </button>
-            )}
-          </div>
-
-          {/* 번역 버튼 */}
-          <div className="p-3 bg-gray-50 rounded-lg">
-            <button
-              type="button"
-              onClick={manualTranslate}
-              disabled={translating}
-              className="w-full px-4 py-2.5 text-sm bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 disabled:bg-gray-400 transition-colors"
-            >
-              {getTranslateButtonText()}
-            </button>
-            <p className="text-xs text-gray-400 mt-2 text-center">
-              입력 완료 후 포커스 빠지면 자동 번역됩니다
-            </p>
           </div>
 
           {/* 상품명 - 일본어 */}
@@ -393,7 +333,6 @@ export default function NewProductPage() {
             </div>
           </div>
 
-          {/* 카테고리 - 일본어/한국어 */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -439,7 +378,6 @@ export default function NewProductPage() {
             </div>
           </div>
 
-          {/* 가격 */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -468,7 +406,6 @@ export default function NewProductPage() {
             </div>
           </div>
 
-          {/* 재고 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               재고 수량
@@ -532,14 +469,13 @@ export default function NewProductPage() {
             </div>
           </div>
 
-          {/* Buttons */}
           <div className="flex flex-col sm:flex-row gap-3 pt-4">
             <button
               type="submit"
               disabled={uploading}
               className="w-full sm:w-auto px-6 py-3 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-800 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
-              {uploading ? '등록 중...' : '등록하기'}
+              {uploading ? '수정 중...' : '수정하기'}
             </button>
             <button
               type="button"
