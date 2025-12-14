@@ -27,10 +27,14 @@ const translations: Record<Language, Record<string, string>> = {
 
     // Category
     "category.all": "すべて",
-    "category.necklace": "ネックレス",
-    "category.earrings": "ピアス",
-    "category.rings": "リング",
-    "category.bracelet": "ブレスレット",
+    "category.accessory": "アクセサリー",
+    "category.hair": "ヘアアクセサリー",
+    "category.winter": "冬物アイテム",
+    "category.keyring": "キーリング",
+    "category.eyewear": "メガネ／サングラス",
+    "category.fashion": "ファッション雑貨",
+    "category.etc": "その他（ETC）",
+    "category.staffOnly": "🔒 スタッフ専用",
 
     // Home
     "home.collection": "Cookiesの特別なコレクション",
@@ -81,6 +85,14 @@ const translations: Record<Language, Record<string, string>> = {
     // Common
     "common.loading": "読み込み中...",
     "common.error": "エラーが発生しました",
+    "common.cancel": "キャンセル",
+    "common.confirm": "確認",
+
+    // Staff
+    "staff.title": "スタッフ専用エリア",
+    "staff.description": "アクセスするにはパスワードを入力してください",
+    "staff.placeholder": "パスワード",
+    "staff.error": "パスワードが正しくありません",
   },
   ko: {
     // Header
@@ -94,10 +106,14 @@ const translations: Record<Language, Record<string, string>> = {
 
     // Category
     "category.all": "전체",
-    "category.necklace": "목걸이",
-    "category.earrings": "귀걸이",
-    "category.rings": "반지",
-    "category.bracelet": "팔찌",
+    "category.accessory": "악세사리",
+    "category.hair": "헤어",
+    "category.winter": "겨울상품",
+    "category.keyring": "키링",
+    "category.eyewear": "안경/선글라스",
+    "category.fashion": "패션잡화",
+    "category.etc": "기타",
+    "category.staffOnly": "🔒 스태프 전용",
 
     // Home
     "home.collection": "쿠키즈의 특별한 컬렉션",
@@ -148,6 +164,14 @@ const translations: Record<Language, Record<string, string>> = {
     // Common
     "common.loading": "로딩 중...",
     "common.error": "오류가 발생했습니다",
+    "common.cancel": "취소",
+    "common.confirm": "확인",
+
+    // Staff
+    "staff.title": "스태프 전용 구역",
+    "staff.description": "접근하려면 비밀번호를 입력하세요",
+    "staff.placeholder": "비밀번호",
+    "staff.error": "비밀번호가 올바르지 않습니다",
   },
 };
 

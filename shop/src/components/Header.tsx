@@ -37,21 +37,24 @@ export default function Header() {
           </Link>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex space-x-8">
+          <nav className="hidden md:flex space-x-6">
             <Link href="/" className="text-gray-600 hover:text-gray-900 text-sm tracking-wide">
               {t("nav.home")}
             </Link>
-            <Link href="/?category=ネックレス" className="text-gray-600 hover:text-gray-900 text-sm tracking-wide">
-              {t("nav.necklace")}
+            <Link href="/?category=accessory" className="text-gray-600 hover:text-gray-900 text-sm tracking-wide">
+              {t("category.accessory")}
             </Link>
-            <Link href="/?category=ピアス" className="text-gray-600 hover:text-gray-900 text-sm tracking-wide">
-              {t("nav.earrings")}
+            <Link href="/?category=hair" className="text-gray-600 hover:text-gray-900 text-sm tracking-wide">
+              {t("category.hair")}
             </Link>
-            <Link href="/?category=リング" className="text-gray-600 hover:text-gray-900 text-sm tracking-wide">
-              {t("nav.rings")}
+            <Link href="/?category=winter" className="text-gray-600 hover:text-gray-900 text-sm tracking-wide">
+              {t("category.winter")}
             </Link>
-            <Link href="/?category=ブレスレット" className="text-gray-600 hover:text-gray-900 text-sm tracking-wide">
-              {t("nav.bracelet")}
+            <Link href="/?category=keyring" className="text-gray-600 hover:text-gray-900 text-sm tracking-wide">
+              {t("category.keyring")}
+            </Link>
+            <Link href="/?category=fashion" className="text-gray-600 hover:text-gray-900 text-sm tracking-wide">
+              {t("category.fashion")}
             </Link>
           </nav>
 
@@ -115,32 +118,53 @@ export default function Header() {
               {t("nav.home")}
             </Link>
             <Link
-              href="/?category=ネックレス"
+              href="/?category=accessory"
               onClick={() => setMobileMenuOpen(false)}
               className="block py-3 text-gray-600 text-base border-t border-gray-50"
             >
-              {t("nav.necklace")}
+              {t("category.accessory")}
             </Link>
             <Link
-              href="/?category=ピアス"
+              href="/?category=hair"
               onClick={() => setMobileMenuOpen(false)}
               className="block py-3 text-gray-600 text-base border-t border-gray-50"
             >
-              {t("nav.earrings")}
+              {t("category.hair")}
             </Link>
             <Link
-              href="/?category=リング"
+              href="/?category=winter"
               onClick={() => setMobileMenuOpen(false)}
               className="block py-3 text-gray-600 text-base border-t border-gray-50"
             >
-              {t("nav.rings")}
+              {t("category.winter")}
             </Link>
             <Link
-              href="/?category=ブレスレット"
+              href="/?category=keyring"
               onClick={() => setMobileMenuOpen(false)}
               className="block py-3 text-gray-600 text-base border-t border-gray-50"
             >
-              {t("nav.bracelet")}
+              {t("category.keyring")}
+            </Link>
+            <Link
+              href="/?category=eyewear"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block py-3 text-gray-600 text-base border-t border-gray-50"
+            >
+              {t("category.eyewear")}
+            </Link>
+            <Link
+              href="/?category=fashion"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block py-3 text-gray-600 text-base border-t border-gray-50"
+            >
+              {t("category.fashion")}
+            </Link>
+            <Link
+              href="/?category=etc"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block py-3 text-gray-600 text-base border-t border-gray-50"
+            >
+              {t("category.etc")}
             </Link>
           </nav>
         </div>

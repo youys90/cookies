@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { Noto_Sans_KR } from "next/font/google";
 import "./globals.css";
-import Sidebar from "@/components/Sidebar";
+import { AuthProvider } from "@/contexts/AuthContext";
+import LayoutContent from "@/components/LayoutContent";
+import DevBanner from "@/components/DevBanner";
 
 const notoSansKr = Noto_Sans_KR({
   subsets: ["latin"],
@@ -21,8 +23,10 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <body className={`${notoSansKr.className} antialiased bg-gray-100`}>
-        <Sidebar />
-        <main className="ml-64 min-h-screen p-8">{children}</main>
+        <DevBanner />
+        <AuthProvider>
+          <LayoutContent>{children}</LayoutContent>
+        </AuthProvider>
       </body>
     </html>
   );

@@ -3,6 +3,7 @@ import { Noto_Sans_KR, Noto_Sans_JP } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import DevBanner from "@/components/DevBanner";
 import { CartProvider } from "@/contexts/CartContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 
@@ -31,6 +32,7 @@ export default function RootLayout({
   return (
     <html lang="ja">
       <body className={`${notoSansKr.variable} ${notoSansJp.variable} font-sans antialiased`}>
+        <DevBanner />
         <LanguageProvider>
           <CartProvider>
             <Header />

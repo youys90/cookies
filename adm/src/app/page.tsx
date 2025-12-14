@@ -9,7 +9,7 @@ interface Product {
   name: string;
   category: string;
   stock?: number;
-  status?: string;
+  is_active?: boolean;
 }
 
 export default function Dashboard() {
@@ -23,7 +23,7 @@ export default function Dashboard() {
   const fetchProducts = async () => {
     const { data, error } = await supabase
       .from('products')
-      .select('id, name, category, stock, status')
+      .select('id, name, category, stock, is_active')
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -35,7 +35,7 @@ export default function Dashboard() {
   };
 
   const totalProducts = products.length;
-  const activeProducts = products.filter((p) => p.status === "active").length;
+  const activeProducts = products.filter((p) => p.is_active !== false).length;
   const totalStock = products.reduce((sum, p) => sum + (p.stock || 0), 0);
   const outOfStock = products.filter((p) => (p.stock || 0) === 0).length;
 

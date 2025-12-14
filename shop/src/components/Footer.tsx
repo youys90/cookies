@@ -59,6 +59,9 @@ export default function Footer() {
           <p className="text-gray-400 text-xs">
             {t("footer.copyright")}
           </p>
+          <Link href="/?staff=1" className="text-gray-300 hover:text-gray-400 text-xs mt-2 inline-block">
+            Staff
+          </Link>
         </div>
       </div>
     </footer>

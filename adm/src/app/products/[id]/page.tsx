@@ -5,8 +5,8 @@ import { useRouter, useParams } from "next/navigation";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 
-const categoriesJa = ["ネックレス", "ピアス", "リング", "ブレスレット"];
-const categoriesKo = ["목걸이", "귀걸이", "반지", "팔찌"];
+const categoriesJa = ["アクセサリー", "ヘアアクセサリー", "冬物アイテム", "キーリング", "メガネ／サングラス", "ファッション雑貨", "その他（ETC）", "🔒 スタッフ専用"];
+const categoriesKo = ["악세사리", "헤어", "겨울상품", "키링", "안경/선글라스", "패션잡화", "기타", "🔒 스태프 전용"];
 
 interface Product {
   id: number;
@@ -101,7 +101,7 @@ export default function EditProductPage() {
     const filePath = `products/${fileName}`;
 
     const { error: uploadError } = await supabase.storage
-      .from('products')
+      .from('product-images')
       .upload(filePath, file);
 
     if (uploadError) {
@@ -110,7 +110,7 @@ export default function EditProductPage() {
     }
 
     const { data } = supabase.storage
-      .from('products')
+      .from('product-images')
       .getPublicUrl(filePath);
 
     return data.publicUrl;

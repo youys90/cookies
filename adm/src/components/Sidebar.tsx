@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useAuth } from "@/contexts/AuthContext";
 
 const menuItems = [
   { name: "대시보드", href: "/", icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" },
@@ -11,6 +12,7 @@ const menuItems = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const { username, logout } = useAuth();
 
   return (
     <aside className="w-64 bg-gray-900 min-h-screen fixed left-0 top-0">
@@ -22,8 +24,34 @@ export default function Sidebar() {
         <span className="ml-2 text-xs text-gray-500">ADMIN</span>
       </div>
 
+      {/* User - 상단 */}
+      <div className="px-4 py-4 border-b border-gray-800">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center">
+            <div className="w-9 h-9 bg-gray-700 rounded-full flex items-center justify-center">
+              <span className="text-xs text-white font-medium">
+                {username?.slice(0, 2).toUpperCase() || "AD"}
+              </span>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-white font-medium">{username || "관리자"}</p>
+              <p className="text-xs text-gray-500">관리자</p>
+            </div>
+          </div>
+          <button
+            onClick={logout}
+            className="p-2 text-gray-400 hover:text-white transition-colors"
+            title="로그아웃"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
       {/* Menu */}
-      <nav className="mt-6 px-3">
+      <nav className="mt-4 px-3">
         {menuItems.map((item) => {
           const isActive = pathname === item.href ||
             (item.href !== "/" && pathname.startsWith(item.href));
@@ -46,19 +74,6 @@ export default function Sidebar() {
           );
         })}
       </nav>
-
-      {/* User */}
-      <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-800">
-        <div className="flex items-center">
-          <div className="w-8 h-8 bg-gray-700 rounded-full flex items-center justify-center">
-            <span className="text-xs text-white">AD</span>
-          </div>
-          <div className="ml-3">
-            <p className="text-sm text-white">관리자</p>
-            <p className="text-xs text-gray-500">admin@cookies.kr</p>
-          </div>
-        </div>
-      </div>
     </aside>
   );
 }

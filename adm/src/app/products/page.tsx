@@ -16,7 +16,7 @@ interface Product {
   category: string;
   description?: string;
   stock?: number;
-  status?: string;
+  is_active?: boolean;
 }
 
 export default function ProductsPage() {
@@ -65,12 +65,22 @@ export default function ProductsPage() {
     }
   };
 
-  const toggleStatus = (id: number) => {
+  const toggleStatus = async (id: number, currentStatus: boolean) => {
+    const newStatus = !currentStatus;
+
+    const { error } = await supabase
+      .from('products')
+      .update({ is_active: newStatus })
+      .eq('id', id);
+
+    if (error) {
+      alert('상태 변경 실패: ' + error.message);
+      return;
+    }
+
     setProductList((prev) =>
       prev.map((p) =>
-        p.id === id
-          ? { ...p, status: p.status === "active" ? "inactive" : "active" }
-          : p
+        p.id === id ? { ...p, is_active: newStatus } : p
       )
     );
   };
@@ -164,14 +174,14 @@ export default function ProductsPage() {
                 </td>
                 <td className="px-6 py-4">
                   <button
-                    onClick={() => toggleStatus(product.id)}
+                    onClick={() => toggleStatus(product.id, product.is_active ?? true)}
                     className={`px-2 py-1 text-xs rounded-full ${
-                      product.status === "active"
+                      product.is_active !== false
                         ? "bg-green-100 text-green-800"
                         : "bg-gray-100 text-gray-600"
                     }`}
                   >
-                    {product.status === "active" ? "판매중" : "판매중지"}
+                    {product.is_active !== false ? "판매중" : "판매중지"}
                   </button>
                 </td>
                 <td className="px-6 py-4 text-right">

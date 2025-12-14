@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import Banner from "@/components/Banner";
 import ProductCard from "@/components/ProductCard";
+import StaffPasswordModal from "@/components/StaffPasswordModal";
 import { supabase } from "@/lib/supabase";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -22,27 +24,45 @@ interface Product {
 
 export default function Home() {
   const { language, t } = useLanguage();
+  const searchParams = useSearchParams();
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [loading, setLoading] = useState(true);
+  const [showStaffModal, setShowStaffModal] = useState(false);
+  const [hasStaffAccess, setHasStaffAccess] = useState(false);
 
-  const categoryKeys = ["all", "necklace", "earrings", "rings", "bracelet"];
+  // 카테고리 (staffOnly 포함 - 비밀번호 기능은 나중에)
+  const categoryKeys = ["all", "accessory", "hair", "winter", "keyring", "eyewear", "fashion", "etc", "staffOnly"];
   const categoryMap: Record<string, string> = {
     all: "all",
-    necklace: "목걸이",
-    earrings: "귀걸이",
-    rings: "반지",
-    bracelet: "팔찌"
+    accessory: "アクセサリー",
+    hair: "ヘアアクセサリー",
+    winter: "冬物アイテム",
+    keyring: "キーリング",
+    eyewear: "メガネ／サングラス",
+    fashion: "ファッション雑貨",
+    etc: "その他（ETC）",
+    staffOnly: "🔒 スタッフ専用"
   };
 
   useEffect(() => {
     fetchProducts();
-  }, []);
+    // 세션 스토리지에서 스태프 접근 권한 확인
+    const staffAccess = sessionStorage.getItem("staff_access");
+    if (staffAccess === "true") {
+      setHasStaffAccess(true);
+    }
+    // URL에 ?staff=1 있으면 비밀번호 모달 표시
+    if (searchParams.get("staff") === "1" && staffAccess !== "true") {
+      setShowStaffModal(true);
+    }
+  }, [searchParams]);
 
   const fetchProducts = async () => {
     const { data, error } = await supabase
       .from('products')
       .select('*')
+      .eq('is_active', true)  // 판매중인 상품만
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -53,8 +73,27 @@ export default function Home() {
     setLoading(false);
   };
 
+  const handleCategoryClick = (catKey: string) => {
+    // staffOnly 카테고리 클릭 시 접근 권한 확인
+    if (catKey === "staffOnly") {
+      if (hasStaffAccess) {
+        setSelectedCategory(catKey);
+      } else {
+        setShowStaffModal(true);
+      }
+    } else {
+      setSelectedCategory(catKey);
+    }
+  };
+
+  const handleStaffAccessSuccess = () => {
+    setHasStaffAccess(true);
+    setShowStaffModal(false);
+    setSelectedCategory("staffOnly");
+  };
+
   const filteredProducts = selectedCategory === "all"
-    ? products
+    ? products.filter((p) => p.category !== "🔒 スタッフ専用") // all에서는 스태프 전용 제외
     : products.filter((p) => p.category === categoryMap[selectedCategory]);
 
   return (
@@ -72,21 +111,23 @@ export default function Home() {
           <p className="text-sm text-gray-500">{t("home.collection")}</p>
         </div>
 
-        {/* Category Filter */}
-        <div className="flex justify-center space-x-4 mb-12">
-          {categoryKeys.map((catKey) => (
-            <button
-              key={catKey}
-              onClick={() => setSelectedCategory(catKey)}
-              className={`px-4 py-2 text-sm tracking-wide transition-colors ${
-                selectedCategory === catKey
-                  ? "text-gray-900 border-b-2 border-gray-900"
-                  : "text-gray-400 hover:text-gray-600"
-              }`}
-            >
-              {t(`category.${catKey}`)}
-            </button>
-          ))}
+        {/* Category Filter - 스크롤 가능 */}
+        <div className="flex justify-start md:justify-center overflow-x-auto pb-2 mb-12 -mx-4 px-4 md:mx-0 md:px-0">
+          <div className="flex space-x-3 md:space-x-4">
+            {categoryKeys.map((catKey) => (
+              <button
+                key={catKey}
+                onClick={() => handleCategoryClick(catKey)}
+                className={`px-3 md:px-4 py-2 text-sm tracking-wide transition-colors whitespace-nowrap ${
+                  selectedCategory === catKey
+                    ? "text-gray-900 border-b-2 border-gray-900"
+                    : "text-gray-400 hover:text-gray-600"
+                }`}
+              >
+                {t(`category.${catKey}`)}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Product Grid */}
@@ -137,6 +178,13 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* Staff Password Modal */}
+      <StaffPasswordModal
+        isOpen={showStaffModal}
+        onClose={() => setShowStaffModal(false)}
+        onSuccess={handleStaffAccessSuccess}
+      />
     </div>
   );
 }
