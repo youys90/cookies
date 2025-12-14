@@ -151,14 +151,14 @@ export default function Home() {
           <p className="text-sm text-gray-500">{t("home.collection")}</p>
         </div>
 
-        {/* Category Filter - 스크롤 가능 */}
-        <div className="flex justify-start md:justify-center overflow-x-auto pb-2 mb-4 -mx-4 px-4 md:mx-0 md:px-0">
-          <div className="flex space-x-3 md:space-x-4">
+        {/* Category Filter - 모바일: wrap, PC: 가로 */}
+        <div className="flex justify-center mb-4">
+          <div className="flex flex-wrap justify-center gap-2 md:gap-4">
             {categoryKeys.map((catKey) => (
               <button
                 key={catKey}
                 onClick={() => handleCategoryClick(catKey)}
-                className={`px-3 md:px-4 py-2 text-sm tracking-wide transition-colors whitespace-nowrap ${
+                className={`px-3 md:px-4 py-2 text-sm tracking-wide transition-colors ${
                   selectedCategory === catKey
                     ? "text-gray-900 border-b-2 border-gray-900"
                     : "text-gray-400 hover:text-gray-600"
@@ -172,11 +172,11 @@ export default function Home() {
 
         {/* Sub-category Filter - 하위 카테고리가 있을 때만 표시 */}
         {currentSubCategories.length > 0 && (
-          <div className="flex justify-start md:justify-center overflow-x-auto pb-2 mb-12 -mx-4 px-4 md:mx-0 md:px-0">
-            <div className="flex space-x-2 md:space-x-3">
+          <div className="flex justify-center mb-12">
+            <div className="flex flex-wrap justify-center gap-2">
               <button
                 onClick={() => handleSubCategoryClick("all")}
-                className={`px-3 py-1.5 text-xs tracking-wide transition-colors whitespace-nowrap rounded-full ${
+                className={`px-3 py-1.5 text-xs tracking-wide transition-colors rounded-full ${
                   selectedSubCategory === "all"
                     ? "bg-gray-900 text-white"
                     : "bg-gray-100 text-gray-500 hover:bg-gray-200"
@@ -188,7 +188,7 @@ export default function Home() {
                 <button
                   key={subCatKey}
                   onClick={() => handleSubCategoryClick(subCatKey)}
-                  className={`px-3 py-1.5 text-xs tracking-wide transition-colors whitespace-nowrap rounded-full ${
+                  className={`px-3 py-1.5 text-xs tracking-wide transition-colors rounded-full ${
                     selectedSubCategory === subCatKey
                       ? "bg-gray-900 text-white"
                       : "bg-gray-100 text-gray-500 hover:bg-gray-200"
