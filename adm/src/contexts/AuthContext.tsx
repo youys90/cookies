@@ -5,15 +5,27 @@ import { useRouter, usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import bcrypt from "bcryptjs";
 
+interface AdminUser {
+  id: number;
+  username: string;
+  phone: string | null;
+  created_at: string;
+}
+
 interface AuthContextType {
   isLoggedIn: boolean;
   username: string | null;
+  isAdmin: boolean;  // admin 계정인지 여부
   login: (username: string, password: string) => Promise<boolean>;
   logout: () => void;
   changePassword: (currentPassword: string, newPassword: string) => Promise<{ success: boolean; message: string }>;
-  resetPassword: () => Promise<{ success: boolean; message: string; defaultPassword?: string }>;
+  resetPasswordForUser: (targetUsername: string) => Promise<{ success: boolean; message: string; defaultPassword?: string }>;
   updatePhone: (phone: string) => Promise<{ success: boolean; message: string }>;
   getProfile: () => Promise<{ username: string; phone: string | null } | null>;
+  // 계정 관리 (admin 전용)
+  getAllUsers: () => Promise<AdminUser[]>;
+  createUser: (username: string, password: string, phone?: string) => Promise<{ success: boolean; message: string }>;
+  deleteUser: (targetUsername: string) => Promise<{ success: boolean; message: string }>;
   loading: boolean;
 }
 
@@ -22,6 +34,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [username, setUsername] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
@@ -32,6 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (savedUser) {
       setIsLoggedIn(true);
       setUsername(savedUser);
+      setIsAdmin(savedUser === "admin");
     }
     setLoading(false);
   }, []);
@@ -73,6 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setIsLoggedIn(true);
       setUsername(data.username);
+      setIsAdmin(data.username === "admin");
       localStorage.setItem("admin_user", data.username);
       return true;
     } catch (error) {
@@ -132,9 +147,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const resetPassword = async (): Promise<{ success: boolean; message: string; defaultPassword?: string }> => {
+  const resetPasswordForUser = async (targetUsername: string): Promise<{ success: boolean; message: string; defaultPassword?: string }> => {
     if (!username) {
       return { success: false, message: "로그인이 필요합니다." };
+    }
+
+    // 본인 비밀번호 초기화 또는 admin이 다른 사용자 초기화
+    if (targetUsername !== username && !isAdmin) {
+      return { success: false, message: "권한이 없습니다." };
     }
 
     const defaultPassword = "Cookies12#$";
@@ -145,9 +165,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { error } = await supabase
         .from("admin_users")
         .update({ password: hashedPassword, updated_at: new Date().toISOString() })
-        .eq("username", username);
+        .eq("username", targetUsername);
 
       if (error) {
+        console.error("비밀번호 초기화 에러:", error);
         return { success: false, message: "비밀번호 초기화에 실패했습니다." };
       }
 
@@ -198,15 +219,117 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // 계정 관리 함수들 (admin 전용)
+  const getAllUsers = async (): Promise<AdminUser[]> => {
+    if (!isAdmin) return [];
+
+    try {
+      const { data, error } = await supabase
+        .from("admin_users")
+        .select("id, username, phone, created_at")
+        .order("created_at", { ascending: true });
+
+      if (error) {
+        console.error("사용자 목록 조회 실패:", error);
+        return [];
+      }
+
+      return data || [];
+    } catch {
+      return [];
+    }
+  };
+
+  const createUser = async (newUsername: string, password: string, phone?: string): Promise<{ success: boolean; message: string }> => {
+    if (!isAdmin) {
+      return { success: false, message: "권한이 없습니다." };
+    }
+
+    try {
+      // 중복 체크
+      const { data: existing } = await supabase
+        .from("admin_users")
+        .select("username")
+        .eq("username", newUsername)
+        .single();
+
+      if (existing) {
+        return { success: false, message: "이미 존재하는 아이디입니다." };
+      }
+
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      const { error } = await supabase
+        .from("admin_users")
+        .insert({
+          username: newUsername,
+          password: hashedPassword,
+          phone: phone || null,
+        });
+
+      if (error) {
+        console.error("계정 생성 에러:", error);
+        return { success: false, message: "계정 생성에 실패했습니다." };
+      }
+
+      return { success: true, message: "계정이 생성되었습니다." };
+    } catch (error) {
+      console.error("계정 생성 실패:", error);
+      return { success: false, message: "오류가 발생했습니다." };
+    }
+  };
+
+  const deleteUser = async (targetUsername: string): Promise<{ success: boolean; message: string }> => {
+    if (!isAdmin) {
+      return { success: false, message: "권한이 없습니다." };
+    }
+
+    if (targetUsername === "admin") {
+      return { success: false, message: "admin 계정은 삭제할 수 없습니다." };
+    }
+
+    try {
+      const { error } = await supabase
+        .from("admin_users")
+        .delete()
+        .eq("username", targetUsername);
+
+      if (error) {
+        console.error("계정 삭제 에러:", error);
+        return { success: false, message: "계정 삭제에 실패했습니다." };
+      }
+
+      return { success: true, message: "계정이 삭제되었습니다." };
+    } catch (error) {
+      console.error("계정 삭제 실패:", error);
+      return { success: false, message: "오류가 발생했습니다." };
+    }
+  };
+
   const logout = () => {
     setIsLoggedIn(false);
     setUsername(null);
+    setIsAdmin(false);
     localStorage.removeItem("admin_user");
     router.push("/login");
   };
 
   return (
-    <AuthContext.Provider value={{ isLoggedIn, username, login, logout, changePassword, resetPassword, updatePhone, getProfile, loading }}>
+    <AuthContext.Provider value={{
+      isLoggedIn,
+      username,
+      isAdmin,
+      login,
+      logout,
+      changePassword,
+      resetPasswordForUser,
+      updatePhone,
+      getProfile,
+      getAllUsers,
+      createUser,
+      deleteUser,
+      loading
+    }}>
       {children}
     </AuthContext.Provider>
   );

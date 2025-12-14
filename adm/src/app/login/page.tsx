@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/lib/supabase";
+import bcrypt from "bcryptjs";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
@@ -11,6 +13,13 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const { login } = useAuth();
+
+  // 아이디/비번 찾기 모달
+  const [showFindModal, setShowFindModal] = useState<"id" | "pw" | null>(null);
+  const [findPhone, setFindPhone] = useState("");
+  const [findUsername, setFindUsername] = useState("");
+  const [findResult, setFindResult] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [findLoading, setFindLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,6 +34,83 @@ export default function LoginPage() {
       setError("아이디 또는 비밀번호가 올바르지 않습니다.");
     }
     setLoading(false);
+  };
+
+  const handleFindId = async () => {
+    if (!findPhone) {
+      setFindResult({ type: "error", text: "전화번호를 입력해주세요." });
+      return;
+    }
+
+    setFindLoading(true);
+    setFindResult(null);
+
+    try {
+      const { data, error } = await supabase
+        .from("admin_users")
+        .select("username")
+        .eq("phone", findPhone)
+        .single();
+
+      if (error || !data) {
+        setFindResult({ type: "error", text: "등록된 전화번호가 없습니다." });
+      } else {
+        setFindResult({ type: "success", text: `아이디: ${data.username}` });
+      }
+    } catch {
+      setFindResult({ type: "error", text: "오류가 발생했습니다." });
+    }
+
+    setFindLoading(false);
+  };
+
+  const handleFindPw = async () => {
+    if (!findUsername || !findPhone) {
+      setFindResult({ type: "error", text: "아이디와 전화번호를 입력해주세요." });
+      return;
+    }
+
+    setFindLoading(true);
+    setFindResult(null);
+
+    try {
+      const { data, error } = await supabase
+        .from("admin_users")
+        .select("username")
+        .eq("username", findUsername)
+        .eq("phone", findPhone)
+        .single();
+
+      if (error || !data) {
+        setFindResult({ type: "error", text: "일치하는 계정이 없습니다." });
+      } else {
+        // 비밀번호 초기화
+        const defaultPassword = "Cookies12#$";
+        const hashedPassword = await bcrypt.hash(defaultPassword, 10);
+
+        const { error: updateError } = await supabase
+          .from("admin_users")
+          .update({ password: hashedPassword })
+          .eq("username", findUsername);
+
+        if (updateError) {
+          setFindResult({ type: "error", text: "비밀번호 초기화에 실패했습니다." });
+        } else {
+          setFindResult({ type: "success", text: `비밀번호가 초기화되었습니다.\n새 비밀번호: ${defaultPassword}` });
+        }
+      }
+    } catch {
+      setFindResult({ type: "error", text: "오류가 발생했습니다." });
+    }
+
+    setFindLoading(false);
+  };
+
+  const closeFindModal = () => {
+    setShowFindModal(null);
+    setFindPhone("");
+    setFindUsername("");
+    setFindResult(null);
   };
 
   return (
@@ -76,7 +162,123 @@ export default function LoginPage() {
             {loading ? "로그인 중..." : "로그인"}
           </button>
         </form>
+
+        {/* 아이디/비번 찾기 링크 */}
+        <div className="flex justify-center space-x-4 mt-6 text-sm">
+          <button
+            onClick={() => setShowFindModal("id")}
+            className="text-gray-500 hover:text-gray-700"
+          >
+            아이디 찾기
+          </button>
+          <span className="text-gray-300">|</span>
+          <button
+            onClick={() => setShowFindModal("pw")}
+            className="text-gray-500 hover:text-gray-700"
+          >
+            비밀번호 찾기
+          </button>
+        </div>
       </div>
+
+      {/* 아이디 찾기 모달 */}
+      {showFindModal === "id" && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-sm mx-4">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">아이디 찾기</h3>
+            <p className="text-sm text-gray-500 mb-4">가입 시 등록한 전화번호를 입력하세요.</p>
+
+            <div className="space-y-4">
+              <input
+                type="tel"
+                value={findPhone}
+                onChange={(e) => setFindPhone(e.target.value)}
+                placeholder="전화번호 (예: 010-0000-0000)"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
+              />
+
+              {findResult && (
+                <div className={`p-3 rounded-lg text-sm whitespace-pre-line ${
+                  findResult.type === "success"
+                    ? "bg-green-50 text-green-700"
+                    : "bg-red-50 text-red-700"
+                }`}>
+                  {findResult.text}
+                </div>
+              )}
+
+              <div className="flex space-x-3">
+                <button
+                  onClick={closeFindModal}
+                  className="flex-1 py-2.5 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50"
+                >
+                  닫기
+                </button>
+                <button
+                  onClick={handleFindId}
+                  disabled={findLoading}
+                  className="flex-1 py-2.5 bg-gray-900 text-white rounded-lg hover:bg-gray-800 disabled:bg-gray-400"
+                >
+                  {findLoading ? "조회 중..." : "조회"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 비밀번호 찾기 모달 */}
+      {showFindModal === "pw" && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-sm mx-4">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">비밀번호 찾기</h3>
+            <p className="text-sm text-gray-500 mb-4">아이디와 전화번호를 입력하면 비밀번호가 초기화됩니다.</p>
+
+            <div className="space-y-4">
+              <input
+                type="text"
+                value={findUsername}
+                onChange={(e) => setFindUsername(e.target.value)}
+                placeholder="아이디"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
+              />
+              <input
+                type="tel"
+                value={findPhone}
+                onChange={(e) => setFindPhone(e.target.value)}
+                placeholder="전화번호 (예: 010-0000-0000)"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
+              />
+
+              {findResult && (
+                <div className={`p-3 rounded-lg text-sm whitespace-pre-line ${
+                  findResult.type === "success"
+                    ? "bg-green-50 text-green-700"
+                    : "bg-red-50 text-red-700"
+                }`}>
+                  {findResult.text}
+                </div>
+              )}
+
+              <div className="flex space-x-3">
+                <button
+                  onClick={closeFindModal}
+                  className="flex-1 py-2.5 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50"
+                >
+                  닫기
+                </button>
+                <button
+                  onClick={handleFindPw}
+                  disabled={findLoading}
+                  className="flex-1 py-2.5 bg-gray-900 text-white rounded-lg hover:bg-gray-800 disabled:bg-gray-400"
+                >
+                  {findLoading ? "처리 중..." : "비밀번호 초기화"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
