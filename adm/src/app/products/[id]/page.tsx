@@ -244,6 +244,8 @@ export default function EditProductPage() {
         name_ja: finalData.nameJa,
         name_ko: finalData.nameKo,
         price: Number(finalData.price),
+        original_price: finalData.originalPrice ? Number(finalData.originalPrice) : null,
+        stock: finalData.stock ? Number(finalData.stock) : null,
         category: finalData.categoryJa || finalData.categoryKo,
         category_ja: finalData.categoryJa,
         category_ko: finalData.categoryKo,
