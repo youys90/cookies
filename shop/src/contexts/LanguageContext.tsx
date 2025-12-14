@@ -252,6 +252,33 @@ const translations: Record<Language, Record<string, string>> = {
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [language, setLanguageState] = useState<Language>("ja");
   const [mounted, setMounted] = useState(false);
+  const [jpyToKrw, setJpyToKrw] = useState<number>(9); // 기본값 9원
+
+  // 환율 가져오기 (하루 1회 캐싱)
+  const fetchExchangeRate = async () => {
+    const cached = localStorage.getItem("exchangeRate");
+    const cachedDate = localStorage.getItem("exchangeRateDate");
+    const today = new Date().toDateString();
+
+    // 오늘 이미 가져왔으면 캐시 사용
+    if (cached && cachedDate === today) {
+      setJpyToKrw(parseFloat(cached));
+      return;
+    }
+
+    try {
+      const res = await fetch("https://open.er-api.com/v6/latest/JPY");
+      const data = await res.json();
+      if (data.rates?.KRW) {
+        const rate = data.rates.KRW;
+        setJpyToKrw(rate);
+        localStorage.setItem("exchangeRate", String(rate));
+        localStorage.setItem("exchangeRateDate", today);
+      }
+    } catch (error) {
+      console.error("환율 조회 실패, 기본값 사용:", error);
+    }
+  };
 
   useEffect(() => {
     setMounted(true);
@@ -259,6 +286,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     if (saved && (saved === "ja" || saved === "ko")) {
       setLanguageState(saved);
     }
+    fetchExchangeRate();
   }, []);
 
   const setLanguage = (lang: Language) => {
@@ -274,7 +302,9 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     if (language === "ja") {
       return `¥${price.toLocaleString("ja-JP")}`;
     } else {
-      return `₩${price.toLocaleString("ko-KR")}`;
+      // 엔화 → 원화 변환 (실시간 환율 적용)
+      const krwPrice = Math.round(price * jpyToKrw);
+      return `₩${krwPrice.toLocaleString("ko-KR")}`;
     }
   };
 
