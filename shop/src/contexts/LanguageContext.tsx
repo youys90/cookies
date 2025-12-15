@@ -124,6 +124,7 @@ const translations: Record<Language, Record<string, string>> = {
     "common.error": "エラーが発生しました",
     "common.cancel": "キャンセル",
     "common.confirm": "確認",
+    "common.back": "戻る",
 
     // Staff
     "staff.title": "スタッフ専用エリア",
@@ -240,6 +241,7 @@ const translations: Record<Language, Record<string, string>> = {
     "common.error": "오류가 발생했습니다",
     "common.cancel": "취소",
     "common.confirm": "확인",
+    "common.back": "뒤로가기",
 
     // Staff
     "staff.title": "스태프 전용 구역",

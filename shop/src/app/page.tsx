@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import Banner from "@/components/Banner";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 import ProductCard from "@/components/ProductCard";
 import StaffPasswordModal from "@/components/StaffPasswordModal";
 import { supabase } from "@/lib/supabase";
@@ -140,6 +141,9 @@ export default function Home() {
     <div>
       {/* Banner */}
       <Banner />
+
+      {/* Language Switcher - 배너 바로 아래 */}
+      <LanguageSwitcher />
 
       {/* Products Section */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">

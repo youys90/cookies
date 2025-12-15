@@ -7,7 +7,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function Header() {
   const { totalItems } = useCart();
-  const { language, setLanguage, t } = useLanguage();
+  const { t } = useLanguage();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
@@ -60,30 +60,6 @@ export default function Header() {
 
           {/* Right Icons */}
           <div className="flex items-center space-x-1 md:space-x-3">
-            {/* Language Toggle - Slide Switch */}
-            <div className="flex items-center bg-gray-100 rounded-full p-0.5">
-              <button
-                onClick={() => setLanguage("ja")}
-                className={`px-2 py-1 text-xs font-medium rounded-full transition-all ${
-                  language === "ja"
-                    ? "bg-white text-gray-900 shadow-sm"
-                    : "text-gray-500 hover:text-gray-700"
-                }`}
-              >
-                JP
-              </button>
-              <button
-                onClick={() => setLanguage("ko")}
-                className={`px-2 py-1 text-xs font-medium rounded-full transition-all ${
-                  language === "ko"
-                    ? "bg-white text-gray-900 shadow-sm"
-                    : "text-gray-500 hover:text-gray-700"
-                }`}
-              >
-                KR
-              </button>
-            </div>
-
             {/* Search */}
             <button className="p-3 text-gray-600 hover:text-gray-900" aria-label={t("nav.search")}>
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
