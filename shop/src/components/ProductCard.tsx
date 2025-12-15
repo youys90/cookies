@@ -42,7 +42,7 @@ export default function ProductCard({ product }: ProductCardProps) {
   };
 
   return (
-    <Link href={`/product/${product.id}`} className="group">
+    <Link href={`/products/${product.id}`} className="group">
       <div className="relative aspect-square overflow-hidden bg-gray-100 rounded-lg">
         <Image
           src={product.image}

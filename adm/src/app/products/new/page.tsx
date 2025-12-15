@@ -10,34 +10,42 @@ const categoriesKo = ["악세사리", "헤어", "겨울상품", "키링", "안�
 
 // 하위 카테고리 (상위 카테고리 인덱스 기준)
 const subCategoriesKo: Record<number, string[]> = {
-  0: ["귀걸이", "목걸이", "반지", "팔찌", "기타"],  // 악세사리
-  1: ["헤어핀", "집게핀", "머리끈", "헤어밴드", "기타"],  // 헤어
-  2: ["장갑", "머플러", "비니", "니트모자", "기타"],  // 겨울상품
-  3: ["가방 키링", "캐릭터 키링", "스트랩", "기타"],  // 키링
-  4: ["패션안경", "선글라스", "안경케이스", "기타"],  // 안경/선글라스
-  5: ["파우치", "미니백", "지갑", "양말", "캡모자", "기타"],  // 패션잡화
-  6: ["시즌 한정", "이벤트 상품", "테스트 상품", "기타"],  // 기타
-  7: [],  // 스태프 전용
+  0: ["귀걸이", "목걸이", "반지", "팔찌", "기타"],
+  1: ["헤어핀", "집게핀", "머리끈", "헤어밴드", "기타"],
+  2: ["장갑", "머플러", "비니", "니트모자", "기타"],
+  3: ["가방 키링", "캐릭터 키링", "스트랩", "기타"],
+  4: ["패션안경", "선글라스", "안경케이스", "기타"],
+  5: ["파우치", "미니백", "지갑", "양말", "캡모자", "기타"],
+  6: ["시즌 한정", "이벤트 상품", "테스트 상품", "기타"],
+  7: [],
 };
 
 const subCategoriesJa: Record<number, string[]> = {
-  0: ["ピアス", "ネックレス", "リング", "ブレスレット", "その他"],  // アクセサリー
-  1: ["ヘアピン", "クリップピン", "ヘアゴム", "ヘアバンド", "その他"],  // ヘアアクセサリー
-  2: ["手袋", "マフラー", "ビーニー", "ニット帽", "その他"],  // 冬物アイテム
-  3: ["バッグキーリング", "キャラクターキーリング", "ストラップ", "その他"],  // キーリング
-  4: ["ファッション眼鏡", "サングラス", "眼鏡ケース", "その他"],  // メガネ／サングラス
-  5: ["ポーチ", "ミニバッグ", "財布", "靴下", "キャップ", "その他"],  // ファッション雑貨
-  6: ["シーズン限定", "イベント商品", "テスト商品", "その他"],  // その他（ETC）
-  7: [],  // スタッフ専用
+  0: ["ピアス", "ネックレス", "リング", "ブレスレット", "その他"],
+  1: ["ヘアピン", "クリップピン", "ヘアゴム", "ヘアバンド", "その他"],
+  2: ["手袋", "マフラー", "ビーニー", "ニット帽", "その他"],
+  3: ["バッグキーリング", "キャラクターキーリング", "ストラップ", "その他"],
+  4: ["ファッション眼鏡", "サングラス", "眼鏡ケース", "その他"],
+  5: ["ポーチ", "ミニバッグ", "財布", "靴下", "キャップ", "その他"],
+  6: ["シーズン限定", "イベント商品", "テスト商品", "その他"],
+  7: [],
 };
+
+interface ImageItem {
+  file: File | null;
+  preview: string;
+  url?: string; // 업로드 후 URL
+}
 
 export default function NewProductPage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [translating, setTranslating] = useState(false);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [imageFile, setImageFile] = useState<File | null>(null);
+
+  // 다중 이미지 상태
+  const [images, setImages] = useState<ImageItem[]>([]);
+
   const [formData, setFormData] = useState({
     nameJa: "",
     nameKo: "",
@@ -52,35 +60,70 @@ export default function NewProductPage() {
     stock: "",
   });
 
-  // 현재 선택된 상위 카테고리 인덱스
   const getCategoryIndex = () => categoriesJa.indexOf(formData.categoryJa);
 
-  // 잠금 상태: 자동 번역된 필드는 잠김
-  const [locked, setLocked] = useState({
-    nameJa: false,
-    nameKo: false,
-    descriptionJa: false,
-    descriptionKo: false,
-  });
-
-  // 주 입력 언어 (먼저 입력한 쪽)
-  const [primaryLang, setPrimaryLang] = useState<'ja' | 'ko' | null>(null);
-
+  // 다중 이미지 선택
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setImageFile(file);
+    const files = e.target.files;
+    if (!files) return;
+
+    const newImages: ImageItem[] = [];
+    Array.from(files).forEach((file) => {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setImagePreview(reader.result as string);
+        newImages.push({
+          file,
+          preview: reader.result as string,
+        });
+        // 모든 파일 처리 완료 후 상태 업데이트
+        if (newImages.length === files.length) {
+          setImages((prev) => [...prev, ...newImages]);
+        }
       };
       reader.readAsDataURL(file);
-    }
+    });
   };
 
+  // 이미지 삭제
+  const removeImage = (index: number) => {
+    setImages((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // 이미지 순서 변경 (위로)
+  const moveImageUp = (index: number) => {
+    if (index === 0) return;
+    setImages((prev) => {
+      const newImages = [...prev];
+      [newImages[index - 1], newImages[index]] = [newImages[index], newImages[index - 1]];
+      return newImages;
+    });
+  };
+
+  // 이미지 순서 변경 (아래로)
+  const moveImageDown = (index: number) => {
+    if (index === images.length - 1) return;
+    setImages((prev) => {
+      const newImages = [...prev];
+      [newImages[index], newImages[index + 1]] = [newImages[index + 1], newImages[index]];
+      return newImages;
+    });
+  };
+
+  // 메인 이미지로 설정 (첫 번째로 이동)
+  const setAsMain = (index: number) => {
+    if (index === 0) return;
+    setImages((prev) => {
+      const newImages = [...prev];
+      const [item] = newImages.splice(index, 1);
+      newImages.unshift(item);
+      return newImages;
+    });
+  };
+
+  // 이미지 업로드
   const uploadImage = async (file: File): Promise<string | null> => {
     const fileExt = file.name.split('.').pop();
-    const fileName = `${Date.now()}.${fileExt}`;
+    const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
     const filePath = `products/${fileName}`;
 
     const { error: uploadError } = await supabase.storage
@@ -99,6 +142,24 @@ export default function NewProductPage() {
     return data.publicUrl;
   };
 
+  // 모든 이미지 업로드
+  const uploadAllImages = async (): Promise<string[]> => {
+    const uploadedUrls: string[] = [];
+
+    for (const img of images) {
+      if (img.file) {
+        const url = await uploadImage(img.file);
+        if (url) {
+          uploadedUrls.push(url);
+        }
+      } else if (img.url) {
+        uploadedUrls.push(img.url);
+      }
+    }
+
+    return uploadedUrls;
+  };
+
   // Lingva API 번역 함수
   const translateText = async (text: string, from: string, to: string): Promise<string> => {
     if (!text.trim()) return "";
@@ -112,7 +173,7 @@ export default function NewProductPage() {
     }
   };
 
-  // 자동 번역 실행 (입력 시 자동 호출)
+  // 자동 번역
   const autoTranslate = async (field: 'name' | 'description', sourceLang: 'ja' | 'ko', value: string) => {
     if (!value.trim()) return;
 
@@ -124,9 +185,7 @@ export default function NewProductPage() {
     try {
       const translated = await translateText(value, from, to);
       setFormData(prev => ({ ...prev, [targetField]: translated }));
-      setLocked(prev => ({ ...prev, [targetField]: true }));
 
-      // 카테고리도 자동 매칭
       if (field === 'name') {
         if (sourceLang === 'ja') {
           const catIdx = categoriesJa.indexOf(formData.categoryJa);
@@ -142,42 +201,7 @@ export default function NewProductPage() {
     setTranslating(false);
   };
 
-  // 필드 잠금 해제
-  const unlockField = (field: keyof typeof locked) => {
-    if (locked[field]) {
-      if (confirm('자동 번역된 내용을 수정하시겠습니까?')) {
-        setLocked(prev => ({ ...prev, [field]: false }));
-      }
-    }
-  };
-
-  // 입력 핸들러 (자동 번역 트리거)
-  const handleInputChange = (field: 'nameJa' | 'nameKo' | 'descriptionJa' | 'descriptionKo', value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-
-    // 주 언어 설정 (처음 입력한 쪽)
-    if (!primaryLang && value.trim()) {
-      const lang = field.endsWith('Ja') ? 'ja' : 'ko';
-      setPrimaryLang(lang);
-    }
-  };
-
-  // 입력 완료 시 자동 번역 (onBlur)
-  const handleInputBlur = async (field: 'nameJa' | 'nameKo' | 'descriptionJa' | 'descriptionKo') => {
-    const value = formData[field];
-    if (!value.trim()) return;
-
-    const isJa = field.endsWith('Ja');
-    const baseField = field.replace(/Ja$|Ko$/, '') as 'name' | 'description';
-    const targetField = baseField + (isJa ? 'Ko' : 'Ja') as keyof typeof formData;
-
-    // 상대 필드가 비어있거나 잠겨있으면 자동 번역
-    if (!formData[targetField] || locked[targetField as keyof typeof locked]) {
-      await autoTranslate(baseField, isJa ? 'ja' : 'ko', value);
-    }
-  };
-
-  // 번역 버튼 (수동 전체 번역)
+  // 번역 버튼
   const manualTranslate = async () => {
     const hasJa = formData.nameJa.trim();
     const hasKo = formData.nameKo.trim();
@@ -187,7 +211,6 @@ export default function NewProductPage() {
       return;
     }
 
-    // 일본어 기준으로 한국어 재번역
     if (hasJa) {
       setTranslating(true);
       try {
@@ -202,7 +225,6 @@ export default function NewProductPage() {
           descriptionKo: descKo,
           categoryKo: catIdx >= 0 ? categoriesKo[catIdx] : categoriesKo[0],
         }));
-        setLocked(prev => ({ ...prev, nameKo: true, descriptionKo: true }));
       } catch (error) {
         alert('번역 중 오류가 발생했습니다');
       }
@@ -210,7 +232,6 @@ export default function NewProductPage() {
     }
   };
 
-  // 번역 버튼 텍스트
   const getTranslateButtonText = () => {
     if (translating) return '번역 중...';
     if (formData.nameJa.trim()) return '🇯🇵 → 🇰🇷 재번역';
@@ -220,12 +241,16 @@ export default function NewProductPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (images.length === 0) {
+      alert('최소 1개의 이미지를 등록해주세요');
+      return;
+    }
+
     setUploading(true);
 
-    // 자동 번역: 한쪽만 입력된 경우 다른 쪽 자동 번역
+    // 자동 번역
     let finalData = { ...formData };
-
-    // 일본어만 있고 한국어 없으면 → 한국어 자동 번역
     if (formData.nameJa && !formData.nameKo) {
       const [nameKo, descKo] = await Promise.all([
         translateText(formData.nameJa, 'ja', 'ko'),
@@ -238,9 +263,7 @@ export default function NewProductPage() {
         descriptionKo: descKo,
         categoryKo: catIdx >= 0 ? categoriesKo[catIdx] : categoriesKo[0],
       };
-    }
-    // 한국어만 있고 일본어 없으면 → 일본어 자동 번역
-    else if (formData.nameKo && !formData.nameJa) {
+    } else if (formData.nameKo && !formData.nameJa) {
       const [nameJa, descJa] = await Promise.all([
         translateText(formData.nameKo, 'ko', 'ja'),
         formData.descriptionKo ? translateText(formData.descriptionKo, 'ko', 'ja') : '',
@@ -254,17 +277,12 @@ export default function NewProductPage() {
       };
     }
 
-    let imageUrl = '/images/default.jpg';
-
-    if (imageFile) {
-      const uploadedUrl = await uploadImage(imageFile);
-      if (uploadedUrl) {
-        imageUrl = uploadedUrl;
-      } else {
-        alert('이미지 업로드에 실패했습니다.');
-        setUploading(false);
-        return;
-      }
+    // 이미지 업로드
+    const uploadedUrls = await uploadAllImages();
+    if (uploadedUrls.length === 0) {
+      alert('이미지 업로드에 실패했습니다.');
+      setUploading(false);
+      return;
     }
 
     const { error } = await supabase
@@ -280,7 +298,8 @@ export default function NewProductPage() {
         category_ja: finalData.categoryJa,
         category_ko: finalData.categoryKo,
         sub_category: finalData.subCategoryJa || finalData.subCategoryKo || null,
-        image: imageUrl,
+        image: uploadedUrls[0], // 메인 이미지 (하위 호환)
+        images: uploadedUrls,   // 전체 이미지 배열
         description: finalData.descriptionJa || finalData.descriptionKo,
         description_ja: finalData.descriptionJa,
         description_ko: finalData.descriptionKo,
@@ -309,53 +328,103 @@ export default function NewProductPage() {
       <form onSubmit={handleSubmit} className="max-w-2xl">
         <div className="bg-white rounded-xl shadow-sm p-4 md:p-6 space-y-5">
 
-          {/* 이미지 업로드 */}
+          {/* 다중 이미지 업로드 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               상품 이미지 <span className="text-red-500">*</span>
+              <span className="text-gray-400 font-normal ml-2">(첫 번째가 메인 이미지)</span>
             </label>
+
+            {/* 이미지 미리보기 그리드 */}
+            {images.length > 0 && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mb-4">
+                {images.map((img, index) => (
+                  <div key={index} className="relative group">
+                    <div className={`relative aspect-square rounded-lg overflow-hidden border-2 ${index === 0 ? 'border-blue-500' : 'border-gray-200'}`}>
+                      <Image
+                        src={img.preview}
+                        alt={`이미지 ${index + 1}`}
+                        fill
+                        className="object-cover"
+                      />
+                      {index === 0 && (
+                        <div className="absolute top-1 left-1 bg-blue-500 text-white text-xs px-1.5 py-0.5 rounded">
+                          메인
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 컨트롤 버튼 */}
+                    <div className="absolute top-1 right-1 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        type="button"
+                        onClick={() => removeImage(index)}
+                        className="w-6 h-6 bg-red-500 text-white rounded-full text-xs flex items-center justify-center hover:bg-red-600"
+                        title="삭제"
+                      >
+                        ✕
+                      </button>
+                      {index !== 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setAsMain(index)}
+                          className="w-6 h-6 bg-blue-500 text-white rounded-full text-xs flex items-center justify-center hover:bg-blue-600"
+                          title="메인으로 설정"
+                        >
+                          ★
+                        </button>
+                      )}
+                    </div>
+
+                    {/* 순서 변경 버튼 */}
+                    <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        type="button"
+                        onClick={() => moveImageUp(index)}
+                        disabled={index === 0}
+                        className="w-6 h-6 bg-gray-700 text-white rounded text-xs flex items-center justify-center hover:bg-gray-800 disabled:opacity-30"
+                        title="앞으로"
+                      >
+                        ←
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => moveImageDown(index)}
+                        disabled={index === images.length - 1}
+                        className="w-6 h-6 bg-gray-700 text-white rounded text-xs flex items-center justify-center hover:bg-gray-800 disabled:opacity-30"
+                        title="뒤로"
+                      >
+                        →
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* 이미지 추가 버튼 */}
             <div
               onClick={() => fileInputRef.current?.click()}
               className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:border-gray-400 transition-colors"
             >
-              {imagePreview ? (
-                <div className="relative w-full aspect-square max-w-[200px] mx-auto">
-                  <Image
-                    src={imagePreview}
-                    alt="미리보기"
-                    fill
-                    className="object-cover rounded-lg"
-                  />
-                </div>
-              ) : (
-                <div className="py-8">
-                  <svg className="w-12 h-12 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  <p className="text-sm text-gray-500">클릭하여 이미지 선택</p>
-                  <p className="text-xs text-gray-400 mt-1">JPG, PNG (최대 5MB)</p>
-                </div>
-              )}
+              <div className="py-4">
+                <svg className="w-10 h-10 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
+                </svg>
+                <p className="text-sm text-gray-500">
+                  {images.length === 0 ? '클릭하여 이미지 선택' : '이미지 추가'}
+                </p>
+                <p className="text-xs text-gray-400 mt-1">JPG, PNG (여러 장 선택 가능)</p>
+              </div>
             </div>
             <input
               ref={fileInputRef}
               type="file"
               accept="image/*"
+              multiple
               onChange={handleImageChange}
               className="hidden"
             />
-            {imagePreview && (
-              <button
-                type="button"
-                onClick={() => {
-                  setImagePreview(null);
-                  setImageFile(null);
-                }}
-                className="mt-2 text-sm text-red-500 hover:text-red-600"
-              >
-                이미지 삭제
-              </button>
-            )}
           </div>
 
           {/* 번역 버튼 */}
@@ -424,7 +493,7 @@ export default function NewProductPage() {
             </div>
           </div>
 
-          {/* 상위 카테고리 - 일본어/한국어 */}
+          {/* 상위 카테고리 */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -478,7 +547,7 @@ export default function NewProductPage() {
             </div>
           </div>
 
-          {/* 하위 카테고리 - 일본어/한국어 */}
+          {/* 하위 카테고리 */}
           {(subCategoriesJa[getCategoryIndex()]?.length > 0) && (
             <div className="grid grid-cols-2 gap-3">
               <div>
