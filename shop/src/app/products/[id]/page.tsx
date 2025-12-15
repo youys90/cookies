@@ -92,8 +92,7 @@ export default function ProductDetailPage() {
       name: productName || '',
       price: product.price,
       image: productImages[0] || '/images/default.jpg',
-      quantity,
-    });
+    }, quantity);
     alert(t('product.addedToCart'));
   };
 
