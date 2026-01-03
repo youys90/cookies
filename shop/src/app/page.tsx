@@ -161,8 +161,6 @@ export default function Home() {
 
   // 페이지네이션 계산
   const totalPages = Math.ceil(totalCount / pageSize);
-  const startIndex = (currentPage - 1) * pageSize + 1;
-  const endIndex = Math.min(currentPage * pageSize, totalCount);
 
   const handleStaffAccessSuccess = () => {
     setHasStaffAccess(true);
@@ -249,46 +247,35 @@ export default function Home() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3">
           <p className="text-sm text-gray-500">
             {totalCount > 0 ? (
-              <>
-                {language === 'ko'
-                  ? `총 ${totalCount}개 상품 중 ${startIndex}-${endIndex}번`
-                  : `全${totalCount}件中 ${startIndex}〜${endIndex}件`}
-              </>
+              language === 'ko' ? `총 ${totalCount}개` : `全${totalCount}件`
             ) : null}
           </p>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-500">{language === 'ko' ? '표시:' : '表示:'}</span>
+          <div className="flex items-center gap-1">
             {PAGE_SIZE_OPTIONS.map((size) => (
               <button
                 key={size}
                 onClick={() => handlePageSizeChange(size)}
-                className={`px-3 py-1 text-sm rounded ${
+                className={`px-3 py-1.5 text-xs rounded-full ${
                   pageSize === size
                     ? 'bg-gray-900 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                 }`}
               >
-                {size}
+                {size}{language === 'ko' ? '개씩' : '件'}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Product Grid */}
+        {/* Product Grid - 순번 없이 */}
         {loading ? (
           <div className="text-center text-gray-500 py-20">{t("common.loading")}</div>
         ) : products.length === 0 ? (
           <div className="text-center text-gray-500 py-20">{t("home.noProducts")}</div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
-            {products.map((product, index) => (
-              <div key={product.id} className="relative">
-                {/* 순번 표시 */}
-                <div className="absolute -top-2 -left-2 z-10 w-6 h-6 bg-gray-900 text-white text-xs rounded-full flex items-center justify-center">
-                  {startIndex + index}
-                </div>
-                <ProductCard product={product} />
-              </div>
+            {products.map((product) => (
+              <ProductCard key={product.id} product={product} />
             ))}
           </div>
         )}
