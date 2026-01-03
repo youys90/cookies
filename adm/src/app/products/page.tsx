@@ -29,16 +29,37 @@ export default function ProductsPage() {
   }, []);
 
   const fetchProducts = async () => {
-    const { data, error } = await supabase
-      .from('products')
-      .select('*')
-      .order('created_at', { ascending: false });
+    // 페이지네이션으로 전체 데이터 조회
+    let allProducts: Product[] = [];
+    let from = 0;
+    const limit = 1000;
 
-    if (error) {
-      console.error('상품 조회 실패:', error);
-    } else {
-      setProductList(data || []);
+    while (true) {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .range(from, from + limit - 1);
+
+      if (error) {
+        console.error('상품 조회 실패:', error);
+        break;
+      }
+
+      if (!data || data.length === 0) {
+        break;
+      }
+
+      allProducts = allProducts.concat(data);
+
+      if (data.length < limit) {
+        break;
+      }
+
+      from += limit;
     }
+
+    setProductList(allProducts);
     setLoading(false);
   };
 
