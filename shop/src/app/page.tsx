@@ -24,6 +24,8 @@ interface Product {
   description?: string;
 }
 
+const PAGE_SIZE_OPTIONS = [10, 50, 100];
+
 export default function Home() {
   const { language, t } = useLanguage();
   const searchParams = useSearchParams();
@@ -33,6 +35,11 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [showStaffModal, setShowStaffModal] = useState(false);
   const [hasStaffAccess, setHasStaffAccess] = useState(false);
+
+  // 페이지네이션
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+  const [totalCount, setTotalCount] = useState(0);
 
   // 카테고리 (staffOnly 포함 - 비밀번호 기능은 나중에)
   const categoryKeys = ["all", "accessory", "hair", "winter", "keyring", "eyewear", "fashion", "etc", "staffOnly"];
@@ -71,7 +78,6 @@ export default function Home() {
   };
 
   useEffect(() => {
-    fetchProducts();
     // 세션 스토리지에서 스태프 접근 권한 확인
     const staffAccess = sessionStorage.getItem("staff_access");
     if (staffAccess === "true") {
@@ -83,17 +89,45 @@ export default function Home() {
     }
   }, [searchParams]);
 
+  // 카테고리/하위카테고리/페이지 변경 시 상품 조회
+  useEffect(() => {
+    fetchProducts();
+  }, [selectedCategory, selectedSubCategory, currentPage, pageSize]);
+
   const fetchProducts = async () => {
-    const { data, error } = await supabase
+    setLoading(true);
+
+    // 카테고리 필터 조건
+    let query = supabase
       .from('products')
-      .select('*')
-      .eq('is_active', true)  // 판매중인 상품만
-      .order('created_at', { ascending: false });
+      .select('*', { count: 'exact' })
+      .eq('is_active', true);
+
+    // 카테고리 필터
+    if (selectedCategory === "all") {
+      query = query.neq('category', '🔒 スタッフ専用');
+    } else {
+      query = query.eq('category', categoryMap[selectedCategory]);
+    }
+
+    // 하위 카테고리 필터
+    if (selectedSubCategory !== "all") {
+      query = query.eq('sub_category', subCategoryMap[selectedSubCategory]);
+    }
+
+    // 페이지네이션 (range는 0-based)
+    const from = (currentPage - 1) * pageSize;
+    const to = from + pageSize - 1;
+
+    const { data, error, count } = await query
+      .order('created_at', { ascending: false })
+      .range(from, to);
 
     if (error) {
       console.error('상품 조회 실패:', error);
     } else {
       setProducts(data || []);
+      setTotalCount(count || 0);
     }
     setLoading(false);
   };
@@ -104,18 +138,31 @@ export default function Home() {
       if (hasStaffAccess) {
         setSelectedCategory(catKey);
         setSelectedSubCategory("all");
+        setCurrentPage(1);
       } else {
         setShowStaffModal(true);
       }
     } else {
       setSelectedCategory(catKey);
       setSelectedSubCategory("all");
+      setCurrentPage(1);
     }
   };
 
   const handleSubCategoryClick = (subCatKey: string) => {
     setSelectedSubCategory(subCatKey);
+    setCurrentPage(1);
   };
+
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize);
+    setCurrentPage(1);
+  };
+
+  // 페이지네이션 계산
+  const totalPages = Math.ceil(totalCount / pageSize);
+  const startIndex = (currentPage - 1) * pageSize + 1;
+  const endIndex = Math.min(currentPage * pageSize, totalCount);
 
   const handleStaffAccessSuccess = () => {
     setHasStaffAccess(true);
@@ -123,16 +170,6 @@ export default function Home() {
     setSelectedCategory("staffOnly");
     setSelectedSubCategory("all");
   };
-
-  // 상위 카테고리로 먼저 필터
-  const categoryFilteredProducts = selectedCategory === "all"
-    ? products.filter((p) => p.category !== "🔒 スタッフ専用") // all에서는 스태프 전용 제외
-    : products.filter((p) => p.category === categoryMap[selectedCategory]);
-
-  // 하위 카테고리로 추가 필터
-  const filteredProducts = selectedSubCategory === "all"
-    ? categoryFilteredProducts
-    : categoryFilteredProducts.filter((p) => p.sub_category === subCategoryMap[selectedSubCategory]);
 
   // 현재 선택된 카테고리의 하위 카테고리 목록
   const currentSubCategories = subCategoryKeys[selectedCategory] || [];
@@ -208,16 +245,113 @@ export default function Home() {
         {/* 하위 카테고리 없으면 mb-12 유지 */}
         {currentSubCategories.length === 0 && <div className="mb-8" />}
 
+        {/* 상품 개수 및 페이지 사이즈 선택 */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3">
+          <p className="text-sm text-gray-500">
+            {totalCount > 0 ? (
+              <>
+                {language === 'ko'
+                  ? `총 ${totalCount}개 상품 중 ${startIndex}-${endIndex}번`
+                  : `全${totalCount}件中 ${startIndex}〜${endIndex}件`}
+              </>
+            ) : null}
+          </p>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-500">{language === 'ko' ? '표시:' : '表示:'}</span>
+            {PAGE_SIZE_OPTIONS.map((size) => (
+              <button
+                key={size}
+                onClick={() => handlePageSizeChange(size)}
+                className={`px-3 py-1 text-sm rounded ${
+                  pageSize === size
+                    ? 'bg-gray-900 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {size}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Product Grid */}
         {loading ? (
-          <div className="text-center text-gray-500">{t("common.loading")}</div>
-        ) : filteredProducts.length === 0 ? (
-          <div className="text-center text-gray-500">{t("home.noProducts")}</div>
+          <div className="text-center text-gray-500 py-20">{t("common.loading")}</div>
+        ) : products.length === 0 ? (
+          <div className="text-center text-gray-500 py-20">{t("home.noProducts")}</div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
-            {filteredProducts.map((product) => (
-              <ProductCard key={product.id} product={product} />
+            {products.map((product, index) => (
+              <div key={product.id} className="relative">
+                {/* 순번 표시 */}
+                <div className="absolute -top-2 -left-2 z-10 w-6 h-6 bg-gray-900 text-white text-xs rounded-full flex items-center justify-center">
+                  {startIndex + index}
+                </div>
+                <ProductCard product={product} />
+              </div>
             ))}
+          </div>
+        )}
+
+        {/* 페이지네이션 */}
+        {totalPages > 1 && (
+          <div className="flex justify-center items-center mt-12 gap-2">
+            <button
+              onClick={() => setCurrentPage(1)}
+              disabled={currentPage === 1}
+              className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 disabled:text-gray-300 disabled:cursor-not-allowed"
+            >
+              {'<<'}
+            </button>
+            <button
+              onClick={() => setCurrentPage(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 disabled:text-gray-300 disabled:cursor-not-allowed"
+            >
+              {'<'}
+            </button>
+
+            {/* 페이지 번호 */}
+            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+              let pageNum: number;
+              if (totalPages <= 5) {
+                pageNum = i + 1;
+              } else if (currentPage <= 3) {
+                pageNum = i + 1;
+              } else if (currentPage >= totalPages - 2) {
+                pageNum = totalPages - 4 + i;
+              } else {
+                pageNum = currentPage - 2 + i;
+              }
+              return (
+                <button
+                  key={pageNum}
+                  onClick={() => setCurrentPage(pageNum)}
+                  className={`px-3 py-2 text-sm rounded ${
+                    currentPage === pageNum
+                      ? 'bg-gray-900 text-white'
+                      : 'text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  {pageNum}
+                </button>
+              );
+            })}
+
+            <button
+              onClick={() => setCurrentPage(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 disabled:text-gray-300 disabled:cursor-not-allowed"
+            >
+              {'>'}
+            </button>
+            <button
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={currentPage === totalPages}
+              className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 disabled:text-gray-300 disabled:cursor-not-allowed"
+            >
+              {'>>'}
+            </button>
           </div>
         )}
       </section>
