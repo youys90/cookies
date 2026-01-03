@@ -9,13 +9,16 @@ export interface CartItem {
   image: string;
   category: string;
   quantity: number;
+  optionId?: number;
+  optionName?: string;
+  additionalPrice?: number;
 }
 
 interface CartContextType {
   items: CartItem[];
   addToCart: (product: Omit<CartItem, "quantity">, quantity?: number) => void;
-  removeFromCart: (id: number) => void;
-  updateQuantity: (id: number, quantity: number) => void;
+  removeFromCart: (id: number, optionId?: number) => void;
+  updateQuantity: (id: number, quantity: number, optionId?: number) => void;
   clearCart: () => void;
   totalItems: number;
   totalPrice: number;
@@ -27,7 +30,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // localStorage에서 장바구니 불러오기
   useEffect(() => {
     const savedCart = localStorage.getItem("cart");
     if (savedCart) {
@@ -36,7 +38,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setIsLoaded(true);
   }, []);
 
-  // 장바구니 변경 시 localStorage에 저장
   useEffect(() => {
     if (isLoaded) {
       localStorage.setItem("cart", JSON.stringify(items));
@@ -45,10 +46,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const addToCart = (product: Omit<CartItem, "quantity">, quantity = 1) => {
     setItems((prev) => {
-      const existing = prev.find((item) => item.id === product.id);
+      const existing = prev.find(
+        (item) => item.id === product.id && item.optionId === product.optionId
+      );
       if (existing) {
         return prev.map((item) =>
-          item.id === product.id
+          item.id === product.id && item.optionId === product.optionId
             ? { ...item, quantity: item.quantity + quantity }
             : item
         );
@@ -57,17 +60,23 @@ export function CartProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const removeFromCart = (id: number) => {
-    setItems((prev) => prev.filter((item) => item.id !== id));
+  const removeFromCart = (id: number, optionId?: number) => {
+    setItems((prev) =>
+      prev.filter((item) => !(item.id === id && item.optionId === optionId))
+    );
   };
 
-  const updateQuantity = (id: number, quantity: number) => {
+  const updateQuantity = (id: number, quantity: number, optionId?: number) => {
     if (quantity < 1) {
-      removeFromCart(id);
+      removeFromCart(id, optionId);
       return;
     }
     setItems((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, quantity } : item))
+      prev.map((item) =>
+        item.id === id && item.optionId === optionId
+          ? { ...item, quantity }
+          : item
+      )
     );
   };
 
@@ -76,7 +85,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
   };
 
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
-  const totalPrice = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const totalPrice = items.reduce(
+    (sum, item) => sum + (item.price + (item.additionalPrice || 0)) * item.quantity,
+    0
+  );
 
   return (
     <CartContext.Provider
