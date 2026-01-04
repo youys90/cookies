@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 
@@ -62,6 +62,8 @@ export default function EditProductPage() {
   const router = useRouter();
   const params = useParams();
   const productId = params.id as string;
+  const searchParams = useSearchParams();
+  const returnQuery = searchParams.get("return");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(true);
@@ -105,7 +107,7 @@ export default function EditProductPage() {
 
     if (error || !data) {
       alert('상품을 찾을 수 없습니다.');
-      router.push('/products');
+      if (returnQuery) { window.location.href = '/products?' + returnQuery; } else { window.location.href = '/products'; }
       return;
     }
 
@@ -662,7 +664,7 @@ export default function EditProductPage() {
               </button>
               <button
                 type="button"
-                onClick={() => router.back()}
+                onClick={() => { if (returnQuery) { window.location.href = "/products?" + returnQuery; } else { router.back(); } }}
                 className="w-full sm:w-auto px-6 py-3 border border-gray-200 text-gray-600 text-sm rounded-lg hover:bg-gray-50 transition-colors"
               >
                 취소
