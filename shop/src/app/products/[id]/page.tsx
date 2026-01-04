@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
@@ -40,6 +40,8 @@ interface ProductOption {
 export default function ProductDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnQuery = searchParams.get("return");
   const { language, t, formatPrice } = useLanguage();
   const { addToCart } = useCart();
 
@@ -175,7 +177,7 @@ export default function ProductDetailPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <button onClick={() => router.back()} className="flex items-center text-gray-500 hover:text-gray-900 mb-6 text-sm">
+      <button onClick={() => { if (returnQuery) { window.location.href = "/?"+returnQuery; } else { router.back(); } }} className="flex items-center text-gray-500 hover:text-gray-900 mb-6 text-sm">
         <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
         </svg>
