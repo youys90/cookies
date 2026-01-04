@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Banner from "@/components/Banner";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import ProductCard from "@/components/ProductCard";
@@ -29,20 +29,17 @@ const PAGE_SIZE_OPTIONS = [10, 50, 100];
 export default function Home() {
   const { language, t } = useLanguage();
   const searchParams = useSearchParams();
-  const router = useRouter();
   const [products, setProducts] = useState<Product[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState(searchParams.get("cat") || "all");
+  const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedSubCategory, setSelectedSubCategory] = useState("all");
   const [loading, setLoading] = useState(true);
   const [showStaffModal, setShowStaffModal] = useState(false);
   const [hasStaffAccess, setHasStaffAccess] = useState(false);
 
   // 페이지네이션
-  const [currentPage, setCurrentPage] = useState(Number(searchParams.get("page")) || 1);
-  const [pageSize, setPageSize] = useState(Number(searchParams.get("size")) || 50);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
   const [totalCount, setTotalCount] = useState(0);
-  const [searchKeyword, setSearchKeyword] = useState(searchParams.get("search") || "");
-  const [searchInput, setSearchInput] = useState(searchParams.get("search") || "");
 
   // 카테고리 (staffOnly 포함 - 비밀번호 기능은 나중에)
   const categoryKeys = ["all", "accessory", "hair", "winter", "keyring", "eyewear", "fashion", "etc", "staffOnly"];
@@ -90,40 +87,12 @@ export default function Home() {
     if (searchParams.get("staff") === "1" && staffAccess !== "true") {
       setShowStaffModal(true);
     }
-  }, []);
-
-  // URL 파라미터 변경 감지 (searchParams에서 직접 읽기 - Next.js router.push 대응)
-  useEffect(() => {
-    const page = Number(searchParams.get("page")) || 1;
-    const size = Number(searchParams.get("size")) || 50;
-    const cat = searchParams.get("cat") || "all";
-    const search = searchParams.get("search") || "";
-
-    setCurrentPage(page);
-    setPageSize(size);
-    setSelectedCategory(cat);
-    setSearchKeyword(search);
-    setSearchInput(search);
   }, [searchParams]);
 
-  // 상태 변경 시 URL 업데이트 (브라우저 히스토리에 반영)
-  useEffect(() => {
-    const params = new URLSearchParams();
-    if (currentPage !== 1) params.set("page", String(currentPage));
-    if (pageSize !== 50) params.set("size", String(pageSize));
-    if (selectedCategory !== "all") params.set("cat", selectedCategory);
-    if (searchKeyword) params.set("search", searchKeyword);
-
-    const newUrl = params.toString() ? "/?" + params.toString() : "/";
-    if (window.location.pathname + window.location.search !== newUrl) {
-      window.history.replaceState(null, "", newUrl);
-    }
-  }, [currentPage, pageSize, selectedCategory, searchKeyword]);
-
-  // 카테고리/하위카테고리/페이지/검색 변경 시 상품 조회
+  // 카테고리/하위카테고리/페이지 변경 시 상품 조회
   useEffect(() => {
     fetchProducts();
-  }, [selectedCategory, selectedSubCategory, currentPage, pageSize, searchKeyword]);
+  }, [selectedCategory, selectedSubCategory, currentPage, pageSize]);
 
   const fetchProducts = async () => {
     setLoading(true);
@@ -144,11 +113,6 @@ export default function Home() {
     // 하위 카테고리 필터
     if (selectedSubCategory !== "all") {
       query = query.eq('sub_category', subCategoryMap[selectedSubCategory]);
-    }
-
-    // 검색 필터
-    if (searchKeyword) {
-      query = query.or("name.ilike.%" + searchKeyword + "%,name_ja.ilike.%" + searchKeyword + "%,name_ko.ilike.%" + searchKeyword + "%");
     }
 
     // 페이지네이션 (range는 0-based)
@@ -175,10 +139,6 @@ export default function Home() {
         setSelectedCategory(catKey);
         setSelectedSubCategory("all");
         setCurrentPage(1);
-        setSearchKeyword("");
-        setSearchInput("");
-        setSearchKeyword("");
-        setSearchInput("");
       } else {
         setShowStaffModal(true);
       }
@@ -192,8 +152,6 @@ export default function Home() {
   const handleSubCategoryClick = (subCatKey: string) => {
     setSelectedSubCategory(subCatKey);
     setCurrentPage(1);
-    setSearchKeyword("");
-    setSearchInput("");
   };
 
   const handlePageSizeChange = (newSize: number) => {
@@ -230,37 +188,6 @@ export default function Home() {
             COLLECTION
           </h2>
           <p className="text-sm text-gray-500">{t("home.collection")}</p>
-        </div>
-
-        
-        {/* 검색 */}
-        <div className="mb-6">
-          <form onSubmit={(e) => { e.preventDefault(); setSearchKeyword(searchInput); setCurrentPage(1); }} className="flex justify-center gap-2">
-            <div className="relative w-full max-w-md">
-              <input
-                type="text"
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                placeholder={language === 'ko' ? '상품명 검색...' : '商品名で検索...'}
-                className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-              />
-              {searchInput && (
-                <button type="button" onClick={() => { setSearchInput(""); setSearchKeyword(""); setCurrentPage(1); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              )}
-            </div>
-            <button type="submit" className="px-4 py-2 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-800">
-              {language === 'ko' ? '검색' : '検索'}
-            </button>
-          </form>
-          {searchKeyword && (
-            <p className="text-center text-sm text-gray-500 mt-2">
-              {language === 'ko' ? '"' + searchKeyword + '" 검색 결과' : '"' + searchKeyword + '" の検索結果'}
-            </p>
-          )}
         </div>
 
         {/* Category Filter - 스크롤 가능 */}
@@ -348,7 +275,7 @@ export default function Home() {
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
             {products.map((product) => (
-              <ProductCard key={product.id} product={product} returnQuery={"page=" + currentPage + "&size=" + pageSize + "&cat=" + selectedCategory + (searchKeyword ? "&search=" + searchKeyword : "")} />
+              <ProductCard key={product.id} product={product} />
             ))}
           </div>
         )}

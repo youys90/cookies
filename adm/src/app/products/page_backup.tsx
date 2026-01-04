@@ -3,7 +3,6 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useState, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
 import { categories } from "@/data/products";
 import { supabase } from "@/lib/supabase";
 
@@ -23,49 +22,18 @@ interface Product {
 const PAGE_SIZE_OPTIONS = [10, 50, 100];
 
 export default function ProductsPage() {
-  const searchParams = useSearchParams();
   const [productList, setProductList] = useState<Product[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState(searchParams.get("cat") || "전체");
+  const [selectedCategory, setSelectedCategory] = useState("전체");
   const [loading, setLoading] = useState(true);
 
   // 페이지네이션
-  const [currentPage, setCurrentPage] = useState(Number(searchParams.get("page")) || 1);
-  const [pageSize, setPageSize] = useState(Number(searchParams.get("size")) || 50);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
   const [totalCount, setTotalCount] = useState(0);
-  const [searchKeyword, setSearchKeyword] = useState(searchParams.get("search") || "");
-  const [searchInput, setSearchInput] = useState(searchParams.get("search") || "");
-
-  // URL 파라미터 변경 감지 (searchParams에서 직접 읽기)
-  useEffect(() => {
-    const page = Number(searchParams.get("page")) || 1;
-    const size = Number(searchParams.get("size")) || 50;
-    const cat = searchParams.get("cat") || "전체";
-    const search = searchParams.get("search") || "";
-
-    setCurrentPage(page);
-    setPageSize(size);
-    setSelectedCategory(cat);
-    setSearchKeyword(search);
-    setSearchInput(search);
-  }, [searchParams]);
-
-  // 상태 변경 시 URL 업데이트 (브라우저 히스토리에 반영)
-  useEffect(() => {
-    const params = new URLSearchParams();
-    if (currentPage !== 1) params.set("page", String(currentPage));
-    if (pageSize !== 50) params.set("size", String(pageSize));
-    if (selectedCategory !== "전체") params.set("cat", selectedCategory);
-    if (searchKeyword) params.set("search", searchKeyword);
-
-    const newUrl = params.toString() ? "/products?" + params.toString() : "/products";
-    if (window.location.pathname + window.location.search !== newUrl) {
-      window.history.replaceState(null, "", newUrl);
-    }
-  }, [currentPage, pageSize, selectedCategory, searchKeyword]);
 
   useEffect(() => {
     fetchProducts();
-  }, [selectedCategory, currentPage, pageSize, searchKeyword]);
+  }, [selectedCategory, currentPage, pageSize]);
 
   const fetchProducts = async () => {
     setLoading(true);
@@ -76,10 +44,6 @@ export default function ProductsPage() {
 
     if (selectedCategory !== "전체") {
       query = query.eq('category', selectedCategory);
-    }
-
-    if (searchKeyword) {
-      query = query.or('name.ilike.%' + searchKeyword + '%,name_ko.ilike.%' + searchKeyword + '%');
     }
 
     const from = (currentPage - 1) * pageSize;
@@ -137,16 +101,9 @@ export default function ProductsPage() {
     );
   };
 
-  const handleSearch = () => {
-    setSearchKeyword(searchInput);
-    setCurrentPage(1);
-  };
-
   const handleCategoryChange = (cat: string) => {
     setSelectedCategory(cat);
     setCurrentPage(1);
-    setSearchKeyword("");
-    setSearchInput("");
   };
 
   const handlePageSizeChange = (size: number) => {
@@ -158,7 +115,6 @@ export default function ProductsPage() {
   const totalPages = Math.ceil(totalCount / pageSize);
   const startIndex = (currentPage - 1) * pageSize + 1;
   const endIndex = Math.min(currentPage * pageSize, totalCount);
-  const returnQuery = "page=" + currentPage + "&size=" + pageSize + "&cat=" + encodeURIComponent(selectedCategory) + (searchKeyword ? "&search=" + encodeURIComponent(searchKeyword) : "");
 
   return (
     <div>
@@ -196,30 +152,6 @@ export default function ProductsPage() {
                 {cat}
               </button>
             ))}
-          </div>
-          <div className="flex items-center space-x-2">
-            <input
-              type="text"
-              placeholder="상품명 검색..."
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 w-48"
-            />
-            <button
-              onClick={handleSearch}
-              className="px-3 py-1.5 text-sm bg-gray-900 text-white rounded-lg hover:bg-gray-800"
-            >
-              검색
-            </button>
-            {searchKeyword && (
-              <button
-                onClick={() => { setSearchKeyword(''); setSearchInput(''); }}
-                className="px-2 py-1 text-xs text-gray-500 hover:text-gray-700"
-              >
-                초기화
-              </button>
-            )}
           </div>
           <div className="flex items-center space-x-2 ml-auto">
             <span className="text-sm text-gray-500">표시:</span>
@@ -263,7 +195,7 @@ export default function ProductsPage() {
             {productList.map((product, index) => (
               <tr key={product.id} className="hover:bg-gray-50">
                 <td className="px-4 py-4 text-center">
-                  <span className="text-sm font-medium text-gray-500">
+                  <span className="inline-flex items-center justify-center w-8 h-8 bg-gray-900 text-white text-xs rounded-full font-medium">
                     {startIndex + index}
                   </span>
                 </td>
@@ -312,7 +244,7 @@ export default function ProductsPage() {
                 <td className="px-6 py-4 text-right">
                   <div className="flex items-center justify-end space-x-2">
                     <Link
-                      href={`/products/${product.id}?return=${encodeURIComponent(returnQuery)}`}
+                      href={`/products/${product.id}`}
                       className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

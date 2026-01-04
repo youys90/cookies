@@ -20,12 +20,12 @@ interface Product {
 
 interface ProductCardProps {
   product: Product;
+  returnQuery?: string;
 }
 
-export default function ProductCard({ product }: ProductCardProps) {
+export default function ProductCard({ product, returnQuery }: ProductCardProps) {
   const { language, formatPrice, t } = useLanguage();
 
-  // 언어에 따른 상품명 반환
   const getProductName = () => {
     if (language === "ja") {
       return product.name_ja || product.name;
@@ -33,7 +33,6 @@ export default function ProductCard({ product }: ProductCardProps) {
     return product.name_ko || product.name;
   };
 
-  // 언어에 따른 카테고리 반환
   const getCategory = () => {
     if (language === "ja") {
       return product.category_ja || product.category;
@@ -41,8 +40,12 @@ export default function ProductCard({ product }: ProductCardProps) {
     return product.category_ko || product.category;
   };
 
+  const productUrl = returnQuery
+    ? "/products/" + product.id + "?return=" + encodeURIComponent(returnQuery)
+    : "/products/" + product.id;
+
   return (
-    <Link href={`/products/${product.id}`} className="group">
+    <Link href={productUrl} className="group">
       <div className="relative aspect-square overflow-hidden bg-gray-100 rounded-lg">
         <Image
           src={product.image}
