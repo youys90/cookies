@@ -254,7 +254,7 @@ const translations: Record<Language, Record<string, string>> = {
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [language, setLanguageState] = useState<Language>("ja");
   const [mounted, setMounted] = useState(false);
-  const [jpyToKrw, setJpyToKrw] = useState<number>(9); // 기본값 9원
+  const [krwToJpy, setKrwToJpy] = useState<number>(0.11); // 기본값 0.11 (1원 = 0.11엔)
 
   // 환율 가져오기 (하루 1회 캐싱)
   const fetchExchangeRate = async () => {
@@ -264,16 +264,16 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
     // 오늘 이미 가져왔으면 캐시 사용
     if (cached && cachedDate === today) {
-      setJpyToKrw(parseFloat(cached));
+      setKrwToJpy(parseFloat(cached));
       return;
     }
 
     try {
-      const res = await fetch("https://open.er-api.com/v6/latest/JPY");
+      const res = await fetch("https://open.er-api.com/v6/latest/KRW");
       const data = await res.json();
-      if (data.rates?.KRW) {
-        const rate = data.rates.KRW;
-        setJpyToKrw(rate);
+      if (data.rates?.JPY) {
+        const rate = data.rates.JPY;
+        setKrwToJpy(rate);
         localStorage.setItem("exchangeRate", String(rate));
         localStorage.setItem("exchangeRateDate", today);
       }
@@ -302,11 +302,12 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   const formatPrice = (price: number): string => {
     if (language === "ja") {
-      return `¥${price.toLocaleString("ja-JP")}`;
+      // 원화 → 엔화 변환 (실시간 환율 적용)
+      const jpyPrice = Math.round(price * krwToJpy);
+      return `¥${jpyPrice.toLocaleString("ja-JP")}`;
     } else {
-      // 엔화 → 원화 변환 (실시간 환율 적용)
-      const krwPrice = Math.round(price * jpyToKrw);
-      return `₩${krwPrice.toLocaleString("ko-KR")}`;
+      // 원화 그대로 표시
+      return `₩${price.toLocaleString("ko-KR")}`;
     }
   };
 
