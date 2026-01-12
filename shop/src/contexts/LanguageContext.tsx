@@ -258,8 +258,8 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   // 환율 가져오기 (하루 1회 캐싱)
   const fetchExchangeRate = async () => {
-    const cached = localStorage.getItem("exchangeRate");
-    const cachedDate = localStorage.getItem("exchangeRateDate");
+    const cached = localStorage.getItem("krwToJpyRate");
+    const cachedDate = localStorage.getItem("krwToJpyRateDate");
     const today = new Date().toDateString();
 
     // 오늘 이미 가져왔으면 캐시 사용
@@ -274,8 +274,8 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
       if (data.rates?.JPY) {
         const rate = data.rates.JPY;
         setKrwToJpy(rate);
-        localStorage.setItem("exchangeRate", String(rate));
-        localStorage.setItem("exchangeRateDate", today);
+        localStorage.setItem("krwToJpyRate", String(rate));
+        localStorage.setItem("krwToJpyRateDate", today);
       }
     } catch (error) {
       console.error("환율 조회 실패, 기본값 사용:", error);
