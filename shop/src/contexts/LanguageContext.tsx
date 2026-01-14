@@ -34,7 +34,7 @@ const translations: Record<Language, Record<string, string>> = {
     "category.eyewear": "メガネ／サングラス",
     "category.fashion": "ファッション雑貨",
     "category.etc": "その他（ETC）",
-    "category.staffOnly": "🔒 スタッフ専用",
+    "category.staffOnly": "➡ Premium High-Quality ✨",
 
     // Sub-category
     "subcat.all": "すべて",
@@ -151,7 +151,7 @@ const translations: Record<Language, Record<string, string>> = {
     "category.eyewear": "안경/선글라스",
     "category.fashion": "패션잡화",
     "category.etc": "기타",
-    "category.staffOnly": "🔒 스태프 전용",
+    "category.staffOnly": "➡ Premium High-Quality ✨",
 
     // Sub-category
     "subcat.all": "전체",

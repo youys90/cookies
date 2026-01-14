@@ -55,7 +55,7 @@ export default function Home() {
     eyewear: "メガネ／サングラス",
     fashion: "ファッション雑貨",
     etc: "その他（ETC）",
-    staffOnly: "🔒 スタッフ専用"
+    staffOnly: "➡ Premium High-Quality ✨"
   };
 
   // 하위 카테고리 (카테고리 키 -> 하위 카테고리 키 배열)
@@ -136,7 +136,7 @@ export default function Home() {
 
     // 카테고리 필터
     if (selectedCategory === "all") {
-      query = query.neq('category', '🔒 スタッフ専用');
+      query = query.neq('category', '➡ Premium High-Quality ✨');
     } else {
       query = query.eq('category', categoryMap[selectedCategory]);
     }
