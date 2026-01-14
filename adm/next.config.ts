@@ -15,6 +15,10 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "eftuvzzadxxtxzpgfqom.supabase.co",
       },
+      {
+        protocol: "https",
+        hostname: "static.wixstatic.com",
+      },
     ],
   },
 };
