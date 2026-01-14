@@ -5,8 +5,8 @@ import { useRouter, useParams, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 
-const categoriesJa = ["アクセサリー", "ヘアアクセサリー", "冬物アイテム", "キーリング", "メガネ／サングラス", "ファッション雑貨", "その他（ETC）", "🔒 スタッフ専用"];
-const categoriesKo = ["악세사리", "헤어", "겨울상품", "키링", "안경/선글라스", "패션잡화", "기타", "🔒 스태프 전용"];
+const categoriesJa = ["アクセサリー", "ヘアアクセサリー", "冬物アイテム", "キーリング", "メガネ／サングラス", "ファッション雑貨", "その他（ETC）", "➡ Premium High-Quality ✨"];
+const categoriesKo = ["악세사리", "헤어", "겨울상품", "키링", "안경/선글라스", "패션잡화", "기타", "➡ Premium High-Quality ✨"];
 
 const subCategoriesKo: Record<number, string[]> = {
   0: ["귀걸이", "목걸이", "반지", "팔찌", "기타"],
