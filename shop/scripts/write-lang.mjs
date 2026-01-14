@@ -1,4 +1,6 @@
-"use client";
+import fs from 'fs';
+
+const content = `"use client";
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 
@@ -292,3 +294,7 @@ export function useLanguage() {
   }
   return context;
 }
+`;
+
+fs.writeFileSync('C:/Claude/web-dev/cookies/shop/src/contexts/LanguageContext.tsx', content);
+console.log('LanguageContext.tsx 작성 완료');
