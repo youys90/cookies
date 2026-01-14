@@ -127,7 +127,7 @@ const translations: Record<Language, Record<string, string>> = {
     "common.back": "戻る",
 
     // Staff
-    "staff.title": "スタッフ専用エリア",
+    "staff.title": "➡ Premium High-Quality ✨",
     "staff.description": "アクセスするにはパスワードを入力してください",
     "staff.placeholder": "パスワード",
     "staff.error": "パスワードが正しくありません",
@@ -244,7 +244,7 @@ const translations: Record<Language, Record<string, string>> = {
     "common.back": "뒤로가기",
 
     // Staff
-    "staff.title": "스태프 전용 구역",
+    "staff.title": "➡ Premium High-Quality ✨",
     "staff.description": "접근하려면 비밀번호를 입력하세요",
     "staff.placeholder": "비밀번호",
     "staff.error": "비밀번호가 올바르지 않습니다",
