@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 interface OrderItem {
@@ -33,32 +34,91 @@ const statusLabels: Record<string, { label: string; color: string }> = {
   cancelled: { label: "취소", color: "bg-red-100 text-red-800" },
 };
 
+const PAGE_SIZE_OPTIONS = [10, 50, 100];
+
 export default function OrdersPage() {
+  const searchParams = useSearchParams();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
+  // 페이지네이션
+  const [currentPage, setCurrentPage] = useState(Number(searchParams.get("page")) || 1);
+  const [pageSize, setPageSize] = useState(Number(searchParams.get("size")) || 50);
+  const [totalCount, setTotalCount] = useState(0);
+
+  // 필터
+  const [selectedStatus, setSelectedStatus] = useState(searchParams.get("status") || "전체");
+  const [searchKeyword, setSearchKeyword] = useState(searchParams.get("search") || "");
+  const [searchInput, setSearchInput] = useState(searchParams.get("search") || "");
+
+  // URL 파라미터 변경 감지
+  useEffect(() => {
+    const page = Number(searchParams.get("page")) || 1;
+    const size = Number(searchParams.get("size")) || 50;
+    const status = searchParams.get("status") || "전체";
+    const search = searchParams.get("search") || "";
+
+    setCurrentPage(page);
+    setPageSize(size);
+    setSelectedStatus(status);
+    setSearchKeyword(search);
+    setSearchInput(search);
+  }, [searchParams]);
+
+  // 상태 변경 시 URL 업데이트
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (currentPage !== 1) params.set("page", String(currentPage));
+    if (pageSize !== 50) params.set("size", String(pageSize));
+    if (selectedStatus !== "전체") params.set("status", selectedStatus);
+    if (searchKeyword) params.set("search", searchKeyword);
+
+    const newUrl = params.toString() ? "/orders?" + params.toString() : "/orders";
+    if (window.location.pathname + window.location.search !== newUrl) {
+      window.history.replaceState(null, "", newUrl);
+    }
+  }, [currentPage, pageSize, selectedStatus, searchKeyword]);
+
+  useEffect(() => {
+    fetchOrders();
+  }, [selectedStatus, currentPage, pageSize, searchKeyword]);
+
   const fetchOrders = async () => {
     setLoading(true);
-    const { data, error } = await supabase
+
+    let query = supabase
       .from("orders")
       .select(`
         *,
         order_items (*)
-      `)
-      .order("created_at", { ascending: false });
+      `, { count: 'exact' });
+
+    // 상태 필터
+    if (selectedStatus !== "전체") {
+      query = query.eq('status', selectedStatus);
+    }
+
+    // 검색 (주문번호, 고객명, LINE ID)
+    if (searchKeyword) {
+      query = query.or('order_number.ilike.%' + searchKeyword + '%,customer_name.ilike.%' + searchKeyword + '%,customer_line.ilike.%' + searchKeyword + '%');
+    }
+
+    const from = (currentPage - 1) * pageSize;
+    const to = from + pageSize - 1;
+
+    const { data, error, count } = await query
+      .order("created_at", { ascending: false })
+      .range(from, to);
 
     if (error) {
       console.error("주문 조회 에러:", error);
     } else {
       setOrders(data || []);
+      setTotalCount(count || 0);
     }
     setLoading(false);
   };
-
-  useEffect(() => {
-    fetchOrders();
-  }, []);
 
   const updateStatus = async (orderId: string, newStatus: string) => {
     const { error } = await supabase
@@ -92,6 +152,26 @@ export default function OrdersPage() {
     return `₩${price.toLocaleString()}`;
   };
 
+  const handleSearch = () => {
+    setSearchKeyword(searchInput);
+    setCurrentPage(1);
+  };
+
+  const handleStatusChange = (status: string) => {
+    setSelectedStatus(status);
+    setCurrentPage(1);
+  };
+
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size);
+    setCurrentPage(1);
+  };
+
+  // 페이지네이션 계산
+  const totalPages = Math.ceil(totalCount / pageSize);
+  const startIndex = (currentPage - 1) * pageSize + 1;
+  const endIndex = Math.min(currentPage * pageSize, totalCount);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -106,7 +186,9 @@ export default function OrdersPage() {
       <div className="mb-8 flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-medium text-gray-900">주문 관리</h1>
-          <p className="text-sm text-gray-500 mt-1">총 {orders.length}건</p>
+          <p className="text-sm text-gray-500 mt-1">
+            총 {totalCount}건 중 {totalCount > 0 ? startIndex : 0}-{endIndex}번
+          </p>
         </div>
         <button
           onClick={fetchOrders}
@@ -114,6 +196,68 @@ export default function OrdersPage() {
         >
           새로고침
         </button>
+      </div>
+
+      {/* Filters */}
+      <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center space-x-2">
+            <span className="text-sm text-gray-500">상태:</span>
+            {["전체", "pending", "confirmed", "completed", "cancelled"].map((status) => (
+              <button
+                key={status}
+                onClick={() => handleStatusChange(status)}
+                className={`px-3 py-1 text-sm rounded-full transition-colors ${
+                  selectedStatus === status
+                    ? "bg-gray-900 text-white"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                {status === "전체" ? "전체" : statusLabels[status]?.label || status}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center space-x-2">
+            <input
+              type="text"
+              placeholder="주문번호, 고객명, LINE ID..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 w-56"
+            />
+            <button
+              onClick={handleSearch}
+              className="px-3 py-1.5 text-sm bg-gray-900 text-white rounded-lg hover:bg-gray-800"
+            >
+              검색
+            </button>
+            {searchKeyword && (
+              <button
+                onClick={() => { setSearchKeyword(''); setSearchInput(''); }}
+                className="px-2 py-1 text-xs text-gray-500 hover:text-gray-700"
+              >
+                초기화
+              </button>
+            )}
+          </div>
+          <div className="flex items-center space-x-2 ml-auto">
+            <span className="text-sm text-gray-500">표시:</span>
+            {PAGE_SIZE_OPTIONS.map((size) => (
+              <button
+                key={size}
+                onClick={() => handlePageSizeChange(size)}
+                className={`px-3 py-1 text-sm rounded-full transition-colors ${
+                  pageSize === size
+                    ? "bg-gray-900 text-white"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                {size}개씩
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {orders.length === 0 ? (
@@ -126,8 +270,9 @@ export default function OrdersPage() {
       ) : (
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
           <table className="w-full">
-            <thead className="bg-gray-50">
+            <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
+                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase w-16">No.</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">주문번호</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">고객명</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">LINE ID</th>
@@ -137,9 +282,14 @@ export default function OrdersPage() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">액션</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
-              {orders.map((order) => (
+            <tbody className="divide-y divide-gray-100">
+              {orders.map((order, index) => (
                 <tr key={order.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-4 text-center">
+                    <span className="text-sm font-medium text-gray-500">
+                      {startIndex + index}
+                    </span>
+                  </td>
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">{order.order_number}</td>
                   <td className="px-6 py-4 text-sm text-gray-700">{order.customer_name}</td>
                   <td className="px-6 py-4 text-sm text-gray-700">{order.customer_line}</td>
@@ -162,6 +312,67 @@ export default function OrdersPage() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* 페이지네이션 */}
+      {totalPages > 1 && (
+        <div className="flex justify-center items-center mt-6 gap-2">
+          <button
+            onClick={() => setCurrentPage(1)}
+            disabled={currentPage === 1}
+            className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 disabled:text-gray-300 disabled:cursor-not-allowed"
+          >
+            {'<<'}
+          </button>
+          <button
+            onClick={() => setCurrentPage(currentPage - 1)}
+            disabled={currentPage === 1}
+            className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 disabled:text-gray-300 disabled:cursor-not-allowed"
+          >
+            {'<'}
+          </button>
+
+          {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+            let pageNum: number;
+            if (totalPages <= 5) {
+              pageNum = i + 1;
+            } else if (currentPage <= 3) {
+              pageNum = i + 1;
+            } else if (currentPage >= totalPages - 2) {
+              pageNum = totalPages - 4 + i;
+            } else {
+              pageNum = currentPage - 2 + i;
+            }
+            return (
+              <button
+                key={pageNum}
+                onClick={() => setCurrentPage(pageNum)}
+                className={`px-3 py-2 text-sm rounded ${
+                  currentPage === pageNum
+                    ? 'bg-gray-900 text-white'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                {pageNum}
+              </button>
+            );
+          })}
+
+          <button
+            onClick={() => setCurrentPage(currentPage + 1)}
+            disabled={currentPage === totalPages}
+            className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 disabled:text-gray-300 disabled:cursor-not-allowed"
+          >
+            {'>'}
+          </button>
+          <button
+            onClick={() => setCurrentPage(totalPages)}
+            disabled={currentPage === totalPages}
+            className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 disabled:text-gray-300 disabled:cursor-not-allowed"
+          >
+            {'>>'}
+          </button>
         </div>
       )}
 

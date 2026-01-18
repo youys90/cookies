@@ -19,8 +19,9 @@ export default function CartPage() {
   const [orderNumber, setOrderNumber] = useState("");
   const [error, setError] = useState("");
 
-  const freeShippingThreshold = language === "ja" ? 50000 : 50000;
-  const shippingFeeAmount = language === "ja" ? 500 : 3000;
+  // 배송비 정책: EMS 국제배송 30,000원, 10만원 이상 무료배송
+  const freeShippingThreshold = 100000;
+  const shippingFeeAmount = 30000;
   const shippingFee = totalPrice >= freeShippingThreshold ? 0 : shippingFeeAmount;
 
   const generateOrderNumber = () => {
