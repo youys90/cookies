@@ -84,6 +84,31 @@ export default function CartPage() {
 
       setOrderNumber(newOrderNumber);
       setOrderComplete(true);
+
+      // LINE 알림 전송 (실패해도 주문은 완료됨)
+      try {
+        await fetch("/api/line-notify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            orderNumber: newOrderNumber,
+            customerName: customerName.trim(),
+            customerLine: customerLine.trim(),
+            totalPrice,
+            shippingFee,
+            items: items.map((item) => ({
+              product_name: item.name,
+              quantity: item.quantity,
+              price: item.price,
+              option_name: item.optionName,
+              additional_price: item.additionalPrice,
+            })),
+          }),
+        });
+      } catch (lineError) {
+        console.error("LINE 알림 실패:", lineError);
+      }
+
       clearCart();
     } catch (err) {
       console.error("주문 에러:", err);
