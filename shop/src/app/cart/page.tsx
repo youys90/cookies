@@ -39,8 +39,13 @@ export default function CartPage() {
   };
 
   const handleSubmitOrder = async () => {
-    if (!customerName.trim() || !customerLine.trim() || !customerPhone.trim()) {
-      setError(t("order.error"));
+    const errors: string[] = [];
+    if (!customerName.trim()) errors.push(t("order.nameRequired"));
+    if (!customerLine.trim()) errors.push(t("order.lineRequired"));
+    if (!customerPhone.trim()) errors.push(t("order.phoneRequired"));
+
+    if (errors.length > 0) {
+      setError(errors.join(" "));
       return;
     }
 
@@ -248,7 +253,7 @@ export default function CartPage() {
                 <div className="space-y-4">
                   {/* 이름 - 로마자 입력 */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">{t("order.name")}</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">{t("order.name")} <span className="text-red-500">*</span></label>
                     <input
                       type="text"
                       inputMode="text"
@@ -263,7 +268,7 @@ export default function CartPage() {
 
                   {/* LINE ID */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">{t("order.line")}</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">{t("order.line")} <span className="text-red-500">*</span></label>
                     <input
                       type="text"
                       inputMode="text"
@@ -278,7 +283,7 @@ export default function CartPage() {
 
                   {/* 전화번호 - 숫자 키패드 */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">{t("order.phone")}</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">{t("order.phone")} <span className="text-red-500">*</span></label>
                     <input
                       type="tel"
                       inputMode="tel"
