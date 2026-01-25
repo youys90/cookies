@@ -19,6 +19,7 @@ interface Order {
   order_number: string;
   customer_name: string;
   customer_line: string;
+  customer_phone: string | null;
   status: string;
   total_price: number;
   shipping_fee: number;
@@ -276,6 +277,7 @@ export default function OrdersPage() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">주문번호</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">고객명</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">LINE ID</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">전화번호</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">금액</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">상태</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">주문일시</th>
@@ -293,6 +295,7 @@ export default function OrdersPage() {
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">{order.order_number}</td>
                   <td className="px-6 py-4 text-sm text-gray-700">{order.customer_name}</td>
                   <td className="px-6 py-4 text-sm text-gray-700">{order.customer_line}</td>
+                  <td className="px-6 py-4 text-sm text-gray-700">{order.customer_phone || "-"}</td>
                   <td className="px-6 py-4 text-sm text-gray-700">{formatPrice(order.total_price + order.shipping_fee)}</td>
                   <td className="px-6 py-4">
                     <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusLabels[order.status]?.color || "bg-gray-100 text-gray-800"}`}>
@@ -407,6 +410,10 @@ export default function OrdersPage() {
                   <div>
                     <span className="text-gray-500">LINE ID:</span>
                     <span className="ml-2 text-gray-900">{selectedOrder.customer_line}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">전화번호:</span>
+                    <span className="ml-2 text-gray-900">{selectedOrder.customer_phone || "-"}</span>
                   </div>
                   <div>
                     <span className="text-gray-500">주문일시:</span>

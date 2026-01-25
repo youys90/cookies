@@ -31,10 +31,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "LINE not configured" }, { status: 500 });
     }
 
-    // DB에서 알림 수신자 목록 조회
+    // DB에서 승인된 알림 수신자 목록 조회
     const { data: notifyUsers, error: dbError } = await supabase
       .from("line_notify_users")
-      .select("user_id");
+      .select("user_id")
+      .eq("is_approved", true);
 
     if (dbError) {
       console.error("DB error:", dbError);
