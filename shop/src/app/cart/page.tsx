@@ -14,6 +14,7 @@ export default function CartPage() {
   const [showOrderModal, setShowOrderModal] = useState(false);
   const [customerName, setCustomerName] = useState("");
   const [customerLine, setCustomerLine] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderComplete, setOrderComplete] = useState(false);
   const [orderNumber, setOrderNumber] = useState("");
@@ -37,7 +38,7 @@ export default function CartPage() {
   };
 
   const handleSubmitOrder = async () => {
-    if (!customerName.trim() || !customerLine.trim()) {
+    if (!customerName.trim() || !customerLine.trim() || !customerPhone.trim()) {
       setError(t("order.error"));
       return;
     }
@@ -55,6 +56,7 @@ export default function CartPage() {
           order_number: newOrderNumber,
           customer_name: customerName.trim(),
           customer_line: customerLine.trim(),
+          customer_phone: customerPhone.trim(),
           status: "pending",
           total_price: totalPrice,
           shipping_fee: shippingFee,
@@ -94,6 +96,7 @@ export default function CartPage() {
             orderNumber: newOrderNumber,
             customerName: customerName.trim(),
             customerLine: customerLine.trim(),
+            customerPhone: customerPhone.trim(),
             totalPrice,
             shippingFee,
             items: items.map((item) => ({
@@ -123,6 +126,7 @@ export default function CartPage() {
     setOrderComplete(false);
     setCustomerName("");
     setCustomerLine("");
+    setCustomerPhone("");
     setError("");
   };
 
@@ -251,7 +255,19 @@ export default function CartPage() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
                     />
                   </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{t("order.phone")}</label>
+                    <input
+                      type="tel"
+                      value={customerPhone}
+                      onChange={(e) => setCustomerPhone(e.target.value)}
+                      placeholder={t("order.phonePlaceholder")}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
+                    />
+                  </div>
                 </div>
+
+                <p className="text-xs text-gray-500 mt-3">{t("order.notice")}</p>
 
                 {error && (
                   <p className="text-red-500 text-sm mt-3">{error}</p>

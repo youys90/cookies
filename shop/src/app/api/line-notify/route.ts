@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { supabase } from "@/lib/supabase";
 
 interface OrderItem {
   product_name: string;
@@ -12,6 +13,7 @@ interface NotifyRequest {
   orderNumber: string;
   customerName: string;
   customerLine: string;
+  customerPhone: string;
   totalPrice: number;
   shippingFee: number;
   items: OrderItem[];
@@ -20,14 +22,28 @@ interface NotifyRequest {
 export async function POST(request: NextRequest) {
   try {
     const body: NotifyRequest = await request.json();
-    const { orderNumber, customerName, customerLine, totalPrice, shippingFee, items } = body;
+    const { orderNumber, customerName, customerLine, customerPhone, totalPrice, shippingFee, items } = body;
 
     const channelAccessToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
-    const userId = process.env.LINE_USER_ID;
 
-    if (!channelAccessToken || !userId) {
+    if (!channelAccessToken) {
       console.error("LINE credentials not configured");
       return NextResponse.json({ success: false, error: "LINE not configured" }, { status: 500 });
+    }
+
+    // DB에서 알림 수신자 목록 조회
+    const { data: notifyUsers, error: dbError } = await supabase
+      .from("line_notify_users")
+      .select("user_id");
+
+    if (dbError) {
+      console.error("DB error:", dbError);
+      return NextResponse.json({ success: false, error: "DB error" }, { status: 500 });
+    }
+
+    if (!notifyUsers || notifyUsers.length === 0) {
+      console.log("No notify users registered");
+      return NextResponse.json({ success: true, message: "No users to notify" });
     }
 
     // 주문 상품 목록 텍스트 생성
@@ -45,6 +61,7 @@ export async function POST(request: NextRequest) {
 📦 주문번호: ${orderNumber}
 👤 고객명: ${customerName}
 💬 LINE ID: ${customerLine}
+📞 전화번호: ${customerPhone}
 
 📝 주문 상품:
 ${itemsList}
@@ -53,29 +70,29 @@ ${itemsList}
 🚚 배송비: ${shippingFee === 0 ? "무료" : `₩${shippingFee.toLocaleString()}`}
 💳 총 결제금액: ₩${(totalPrice + shippingFee).toLocaleString()}`;
 
-    // LINE Messaging API로 푸시 메시지 전송
-    const response = await fetch("https://api.line.me/v2/bot/message/push", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${channelAccessToken}`,
-      },
-      body: JSON.stringify({
-        to: userId,
-        messages: [
-          {
-            type: "text",
-            text: message,
-          },
-        ],
-      }),
+    // 모든 수신자에게 메시지 전송
+    const sendPromises = notifyUsers.map(async (user) => {
+      const response = await fetch("https://api.line.me/v2/bot/message/push", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${channelAccessToken}`,
+        },
+        body: JSON.stringify({
+          to: user.user_id,
+          messages: [{ type: "text", text: message }],
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error(`LINE API error for user ${user.user_id}:`, errorData);
+      }
+
+      return response.ok;
     });
 
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error("LINE API error:", errorData);
-      return NextResponse.json({ success: false, error: "LINE API error" }, { status: 500 });
-    }
+    await Promise.all(sendPromises);
 
     return NextResponse.json({ success: true });
   } catch (error) {
