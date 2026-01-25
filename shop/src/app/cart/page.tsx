@@ -99,25 +99,27 @@ export default function CartPage() {
 
       // LINE 알림 전송 (실패해도 주문은 완료됨)
       try {
+        const lineNotifyBody = {
+          orderNumber: newOrderNumber,
+          customerName: customerName.trim(),
+          customerLine: customerLine.trim(),
+          customerPhone: customerPhone.trim(),
+          customerMemo: customerMemo.trim() || undefined,
+          totalPrice,
+          shippingFee,
+          items: items.map((item) => ({
+            product_name: item.name,
+            quantity: item.quantity,
+            price: item.price,
+            option_name: item.optionName,
+            additional_price: item.additionalPrice,
+          })),
+        };
+        console.log("LINE notify body:", JSON.stringify(lineNotifyBody));
         await fetch("/api/line-notify", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            orderNumber: newOrderNumber,
-            customerName: customerName.trim(),
-            customerLine: customerLine.trim(),
-            customerPhone: customerPhone.trim(),
-            customerMemo: customerMemo.trim() || undefined,
-            totalPrice,
-            shippingFee,
-            items: items.map((item) => ({
-              product_name: item.name,
-              quantity: item.quantity,
-              price: item.price,
-              option_name: item.optionName,
-              additional_price: item.additionalPrice,
-            })),
-          }),
+          body: JSON.stringify(lineNotifyBody),
         });
       } catch (lineError) {
         console.error("LINE 알림 실패:", lineError);
