@@ -71,8 +71,9 @@ export async function POST(request: NextRequest) {
 ${itemsList}
 
 💰 상품금액: ₩${totalPrice.toLocaleString()}
+🛡️ 보험료(20%): ₩${Math.round(totalPrice * 0.2).toLocaleString()}
 🚚 배송비: ${shippingFee === 0 ? "무료" : `₩${shippingFee.toLocaleString()}`}
-💳 총 결제금액: ₩${(totalPrice + shippingFee).toLocaleString()}`;
+💳 총 결제금액: ₩${(totalPrice + Math.round(totalPrice * 0.2) + shippingFee).toLocaleString()}`;
 
     // 모든 수신자에게 메시지 전송
     const sendPromises = notifyUsers.map(async (user) => {
