@@ -107,6 +107,7 @@ export default function CartPage() {
             customerName: customerName.trim(),
             customerLine: customerLine.trim(),
             customerPhone: customerPhone.trim(),
+            customerMemo: customerMemo.trim() || undefined,
             totalPrice,
             shippingFee,
             items: items.map((item) => ({

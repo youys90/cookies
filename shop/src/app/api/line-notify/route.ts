@@ -14,6 +14,7 @@ interface NotifyRequest {
   customerName: string;
   customerLine: string;
   customerPhone: string;
+  customerMemo?: string;
   totalPrice: number;
   shippingFee: number;
   items: OrderItem[];
@@ -22,7 +23,7 @@ interface NotifyRequest {
 export async function POST(request: NextRequest) {
   try {
     const body: NotifyRequest = await request.json();
-    const { orderNumber, customerName, customerLine, customerPhone, totalPrice, shippingFee, items } = body;
+    const { orderNumber, customerName, customerLine, customerPhone, customerMemo, totalPrice, shippingFee, items } = body;
 
     const channelAccessToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
 
@@ -62,7 +63,7 @@ export async function POST(request: NextRequest) {
 📦 주문번호: ${orderNumber}
 👤 고객명: ${customerName}
 💬 LINE ID: ${customerLine}
-📞 전화번호: ${customerPhone}
+📞 전화번호: ${customerPhone}${customerMemo ? `\n📋 요청사항: ${customerMemo}` : ""}
 
 📝 주문 상품:
 ${itemsList}
