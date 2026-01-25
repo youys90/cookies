@@ -39,13 +39,16 @@ export default function CartPage() {
   };
 
   const handleSubmitOrder = async () => {
-    const errors: string[] = [];
-    if (!customerName.trim()) errors.push(t("order.nameRequired"));
-    if (!customerLine.trim()) errors.push(t("order.lineRequired"));
-    if (!customerPhone.trim()) errors.push(t("order.phoneRequired"));
-
-    if (errors.length > 0) {
-      setError(errors.join(" "));
+    if (!customerName.trim()) {
+      setError(t("order.nameRequired"));
+      return;
+    }
+    if (!customerLine.trim()) {
+      setError(t("order.lineRequired"));
+      return;
+    }
+    if (!customerPhone.trim()) {
+      setError(t("order.phoneRequired"));
       return;
     }
 
