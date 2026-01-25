@@ -251,7 +251,7 @@ export default function CartPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">{t("order.name")}</label>
                     <input
                       type="text"
-                      inputMode="latin"
+                      inputMode="text"
                       autoCapitalize="words"
                       autoComplete="name"
                       value={customerName}
