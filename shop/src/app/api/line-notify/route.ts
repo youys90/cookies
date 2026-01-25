@@ -23,7 +23,9 @@ interface NotifyRequest {
 export async function POST(request: NextRequest) {
   try {
     const body: NotifyRequest = await request.json();
+    console.log("LINE notify received body:", JSON.stringify(body));
     const { orderNumber, customerName, customerLine, customerPhone, customerMemo, totalPrice, shippingFee, items } = body;
+    console.log("customerMemo value:", customerMemo);
 
     const channelAccessToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
 
