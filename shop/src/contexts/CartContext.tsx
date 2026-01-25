@@ -68,8 +68,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const updateQuantity = (id: number, quantity: number, optionId?: number) => {
     if (quantity < 1) {
-      removeFromCart(id, optionId);
-      return;
+      return; // 최소 1개 유지, 삭제는 removeFromCart로만
     }
     setItems((prev) =>
       prev.map((item) =>
