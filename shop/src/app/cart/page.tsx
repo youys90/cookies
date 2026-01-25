@@ -15,6 +15,7 @@ export default function CartPage() {
   const [customerName, setCustomerName] = useState("");
   const [customerLine, setCustomerLine] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
+  const [customerMemo, setCustomerMemo] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderComplete, setOrderComplete] = useState(false);
   const [orderNumber, setOrderNumber] = useState("");
@@ -57,6 +58,7 @@ export default function CartPage() {
           customer_name: customerName.trim(),
           customer_line: customerLine.trim(),
           customer_phone: customerPhone.trim(),
+          memo: customerMemo.trim() || null,
           status: "pending",
           total_price: totalPrice,
           shipping_fee: shippingFee,
@@ -127,6 +129,7 @@ export default function CartPage() {
     setCustomerName("");
     setCustomerLine("");
     setCustomerPhone("");
+    setCustomerMemo("");
     setError("");
   };
 
@@ -226,50 +229,87 @@ export default function CartPage() {
         </div>
       </div>
 
-      {/* 주문 모달 */}
+      {/* 주문 모달 - 모바일 최적화 */}
       {showOrderModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-md w-full p-6">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-50">
+          <div className="bg-white rounded-t-2xl sm:rounded-lg w-full sm:max-w-md max-h-[90vh] overflow-y-auto">
             {!orderComplete ? (
-              <>
-                <h2 className="text-lg font-medium text-gray-900 mb-4">{t("order.title")}</h2>
+              <div className="p-5 sm:p-6">
+                {/* 헤더 */}
+                <div className="flex items-center justify-between mb-5">
+                  <h2 className="text-lg font-medium text-gray-900">{t("order.title")}</h2>
+                  <button onClick={handleCloseModal} className="p-2 -mr-2 text-gray-400 hover:text-gray-600">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
 
                 <div className="space-y-4">
+                  {/* 이름 - 로마자 입력 */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{t("order.name")}</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">{t("order.name")}</label>
                     <input
                       type="text"
+                      inputMode="latin"
+                      autoCapitalize="words"
+                      autoComplete="name"
                       value={customerName}
                       onChange={(e) => setCustomerName(e.target.value)}
                       placeholder={t("order.namePlaceholder")}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
+                      className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
                     />
                   </div>
+
+                  {/* LINE ID */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{t("order.line")}</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">{t("order.line")}</label>
                     <input
                       type="text"
+                      inputMode="text"
+                      autoCapitalize="none"
+                      autoComplete="off"
                       value={customerLine}
                       onChange={(e) => setCustomerLine(e.target.value)}
                       placeholder={t("order.linePlaceholder")}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
+                      className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
                     />
                   </div>
+
+                  {/* 전화번호 - 숫자 키패드 */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{t("order.phone")}</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">{t("order.phone")}</label>
                     <input
                       type="tel"
+                      inputMode="tel"
+                      autoComplete="tel"
                       value={customerPhone}
-                      onChange={(e) => setCustomerPhone(e.target.value)}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/[^0-9-+]/g, '');
+                        setCustomerPhone(value);
+                      }}
                       placeholder={t("order.phonePlaceholder")}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
+                      className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                    />
+                  </div>
+
+                  {/* 요청사항 */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">{t("order.memo")}</label>
+                    <textarea
+                      value={customerMemo}
+                      onChange={(e) => setCustomerMemo(e.target.value)}
+                      placeholder={t("order.memoPlaceholder")}
+                      rows={2}
+                      className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent resize-none"
                     />
                   </div>
                 </div>
 
+                {/* 안내 문구 */}
                 <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                  <p className="text-sm text-amber-800 flex items-center gap-2">
-                    <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <p className="text-sm text-amber-800 flex items-start gap-2">
+                    <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                     </svg>
                     {t("order.notice")}
@@ -280,24 +320,25 @@ export default function CartPage() {
                   <p className="text-red-500 text-sm mt-3">{error}</p>
                 )}
 
+                {/* 버튼 - 모바일에서 터치하기 쉬운 크기 */}
                 <div className="flex gap-3 mt-6">
                   <button
                     onClick={handleCloseModal}
-                    className="flex-1 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                    className="flex-1 py-3.5 min-h-[48px] border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 active:bg-gray-100 text-base font-medium"
                   >
                     {t("common.cancel")}
                   </button>
                   <button
                     onClick={handleSubmitOrder}
                     disabled={isSubmitting}
-                    className="flex-1 py-3 bg-gray-900 text-white rounded-lg hover:bg-gray-800 disabled:bg-gray-400"
+                    className="flex-1 py-3.5 min-h-[48px] bg-gray-900 text-white rounded-lg hover:bg-gray-800 active:bg-gray-700 disabled:bg-gray-400 text-base font-medium"
                   >
                     {isSubmitting ? t("common.loading") : t("order.submit")}
                   </button>
                 </div>
-              </>
+              </div>
             ) : (
-              <div className="text-center py-4">
+              <div className="text-center p-5 sm:p-6">
                 <svg className="w-16 h-16 text-green-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
@@ -308,7 +349,7 @@ export default function CartPage() {
                 </p>
                 <button
                   onClick={handleCloseModal}
-                  className="w-full py-3 bg-gray-900 text-white rounded-lg hover:bg-gray-800"
+                  className="w-full py-3.5 min-h-[48px] bg-gray-900 text-white rounded-lg hover:bg-gray-800 active:bg-gray-700 text-base font-medium"
                 >
                   {t("order.close")}
                 </button>

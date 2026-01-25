@@ -98,7 +98,50 @@ export default function SettingsPage() {
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-2xl font-medium text-gray-900">설정</h1>
-        <p className="text-gray-500 mt-1">LINE 알림 수신자를 관리합니다.</p>
+        <p className="text-gray-500 mt-1">LINE 알림 설정을 관리합니다.</p>
+      </div>
+
+      {/* Bot Information */}
+      <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
+        <h2 className="text-lg font-medium text-gray-900 mb-4">Bot information</h2>
+
+        <div className="space-y-4">
+          <div>
+            <p className="text-sm text-gray-500 mb-1">Bot basic ID</p>
+            <div className="flex items-center gap-2">
+              <span className="text-base font-medium text-gray-900">@918guldn</span>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText("@918guldn");
+                  alert("복사되었습니다.");
+                }}
+                className="p-1 text-gray-400 hover:text-gray-600"
+                title="복사"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <p className="text-sm text-gray-500 mb-3">QR code</p>
+            <div className="inline-block p-4 bg-white border border-gray-200 rounded-lg">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="https://qr-official.line.me/gs/M_918guldn_GW.png"
+                alt="LINE QR Code"
+                width={180}
+                height={180}
+                className="block"
+              />
+            </div>
+            <p className="text-xs text-gray-400 mt-2">
+              Scan this QR code with LINE to add your LINE Official Account as a friend.
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* LINE 알림 수신자 관리 */}
@@ -115,7 +158,7 @@ export default function SettingsPage() {
 
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
           <p className="text-sm text-amber-800">
-            <strong>알림 등록 방법:</strong> LINE 공식계정에서 <code className="bg-amber-100 px-1 rounded">알림등록</code> 메시지를 보내면 신청됩니다.
+            <strong>알림 등록 방법:</strong> 위 QR코드로 LINE 친구 추가 후 <code className="bg-amber-100 px-1 rounded">알림등록</code> 메시지를 보내면 신청됩니다.
             관리자가 승인하면 주문 알림을 받을 수 있습니다.
           </p>
         </div>

@@ -426,6 +426,14 @@ export default function OrdersPage() {
                     </span>
                   </div>
                 </div>
+                {selectedOrder.memo && (
+                  <div className="mt-4 pt-4 border-t border-gray-200">
+                    <span className="text-gray-500 text-sm">요청사항:</span>
+                    <p className="mt-1 text-sm text-gray-900 bg-white p-3 rounded border border-gray-200">
+                      {selectedOrder.memo}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* 주문 상품 */}
