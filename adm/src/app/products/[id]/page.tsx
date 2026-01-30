@@ -180,29 +180,47 @@ export default function EditProductPage() {
     return data.publicUrl;
   };
 
+  // 번역 함수 (MyMemory + Google Translate fallback)
   const translateText = async (text: string, from: string, to: string): Promise<string> => {
     if (!text.trim()) return "";
-    try {
-      // 영문자 부분 추출해서 보존
-      const englishParts: string[] = [];
-      const placeholder = "{{EN}}";
-      const preserved = text.replace(/[A-Za-z]+/g, (match) => {
-        englishParts.push(match);
-        return placeholder;
-      });
 
+    // 영문자 부분 추출해서 보존
+    const englishParts: string[] = [];
+    const placeholder = "{{EN}}";
+    const preserved = text.replace(/[A-Za-z]+/g, (match) => {
+      englishParts.push(match);
+      return placeholder;
+    });
+
+    const restoreEnglish = (translated: string) => {
+      let result = translated;
+      englishParts.forEach((eng) => {
+        result = result.replace(placeholder, eng);
+      });
+      return result;
+    };
+
+    // 1차: MyMemory API
+    try {
       const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(preserved)}&langpair=${from}|${to}`);
       const data = await res.json();
-      let translated = data.responseData?.translatedText || text;
+      const translated = data.responseData?.translatedText || "";
 
-      // 영문자 복원
-      englishParts.forEach((eng) => {
-        translated = translated.replace(placeholder, eng);
-      });
-
-      return translated;
+      if (translated && !translated.includes("MYMEMORY WARNING")) {
+        return restoreEnglish(translated);
+      }
     } catch (error) {
-      console.error('번역 실패:', error);
+      console.error('MyMemory 번역 실패:', error);
+    }
+
+    // 2차: Google Translate fallback
+    try {
+      const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=${from}&tl=${to}&dt=t&q=${encodeURIComponent(preserved)}`);
+      const data = await res.json();
+      const translated = data[0]?.map((item: string[]) => item[0]).join('') || text;
+      return restoreEnglish(translated);
+    } catch (error) {
+      console.error('Google 번역 실패:', error);
       return text;
     }
   };

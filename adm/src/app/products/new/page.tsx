@@ -34,7 +34,7 @@ const subCategoriesJa: Record<number, string[]> = {
 interface ImageItem {
   file: File | null;
   preview: string;
-  url?: string; // 업로드 후 URL
+  url?: string;
 }
 
 export default function NewProductPage() {
@@ -43,7 +43,6 @@ export default function NewProductPage() {
   const [uploading, setUploading] = useState(false);
   const [translating, setTranslating] = useState(false);
 
-  // 다중 이미지 상태
   const [images, setImages] = useState<ImageItem[]>([]);
 
   const [formData, setFormData] = useState({
@@ -62,7 +61,6 @@ export default function NewProductPage() {
 
   const getCategoryIndex = () => categoriesJa.indexOf(formData.categoryJa);
 
-  // 다중 이미지 선택
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
@@ -75,7 +73,6 @@ export default function NewProductPage() {
           file,
           preview: reader.result as string,
         });
-        // 모든 파일 처리 완료 후 상태 업데이트
         if (newImages.length === files.length) {
           setImages((prev) => [...prev, ...newImages]);
         }
@@ -84,12 +81,10 @@ export default function NewProductPage() {
     });
   };
 
-  // 이미지 삭제
   const removeImage = (index: number) => {
     setImages((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // 이미지 순서 변경 (위로)
   const moveImageUp = (index: number) => {
     if (index === 0) return;
     setImages((prev) => {
@@ -99,7 +94,6 @@ export default function NewProductPage() {
     });
   };
 
-  // 이미지 순서 변경 (아래로)
   const moveImageDown = (index: number) => {
     if (index === images.length - 1) return;
     setImages((prev) => {
@@ -109,7 +103,6 @@ export default function NewProductPage() {
     });
   };
 
-  // 메인 이미지로 설정 (첫 번째로 이동)
   const setAsMain = (index: number) => {
     if (index === 0) return;
     setImages((prev) => {
@@ -120,7 +113,6 @@ export default function NewProductPage() {
     });
   };
 
-  // 이미지 업로드
   const uploadImage = async (file: File): Promise<string | null> => {
     const fileExt = file.name.split('.').pop();
     const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
@@ -142,7 +134,6 @@ export default function NewProductPage() {
     return data.publicUrl;
   };
 
-  // 모든 이미지 업로드
   const uploadAllImages = async (): Promise<string[]> => {
     const uploadedUrls: string[] = [];
 
@@ -160,20 +151,50 @@ export default function NewProductPage() {
     return uploadedUrls;
   };
 
-  // Lingva API 번역 함수
+  // 번역 함수 (MyMemory + Google Translate fallback)
   const translateText = async (text: string, from: string, to: string): Promise<string> => {
     if (!text.trim()) return "";
+
+    const englishParts: string[] = [];
+    const placeholder = "{{EN}}";
+    const preserved = text.replace(/[A-Za-z]+/g, (match) => {
+      englishParts.push(match);
+      return placeholder;
+    });
+
+    const restoreEnglish = (translated: string) => {
+      let result = translated;
+      englishParts.forEach((eng) => {
+        result = result.replace(placeholder, eng);
+      });
+      return result;
+    };
+
+    // 1차: MyMemory API
     try {
-      const res = await fetch(`https://lingva.ml/api/v1/${from}/${to}/${encodeURIComponent(text)}`);
+      const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(preserved)}&langpair=${from}|${to}`);
       const data = await res.json();
-      return data.translation || text;
+      const translated = data.responseData?.translatedText || "";
+
+      if (translated && !translated.includes("MYMEMORY WARNING")) {
+        return restoreEnglish(translated);
+      }
     } catch (error) {
-      console.error('번역 실패:', error);
+      console.error('MyMemory 번역 실패:', error);
+    }
+
+    // 2차: Google Translate fallback
+    try {
+      const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=${from}&tl=${to}&dt=t&q=${encodeURIComponent(preserved)}`);
+      const data = await res.json();
+      const translated = data[0]?.map((item: string[]) => item[0]).join('') || text;
+      return restoreEnglish(translated);
+    } catch (error) {
+      console.error('Google 번역 실패:', error);
       return text;
     }
   };
 
-  // 자동 번역
   const autoTranslate = async (field: 'name' | 'description', sourceLang: 'ja' | 'ko', value: string) => {
     if (!value.trim()) return;
 
@@ -201,7 +222,6 @@ export default function NewProductPage() {
     setTranslating(false);
   };
 
-  // 번역 버튼
   const manualTranslate = async () => {
     const hasJa = formData.nameJa.trim();
     const hasKo = formData.nameKo.trim();
@@ -249,7 +269,6 @@ export default function NewProductPage() {
 
     setUploading(true);
 
-    // 자동 번역
     let finalData = { ...formData };
     if (formData.nameJa && !formData.nameKo) {
       const [nameKo, descKo] = await Promise.all([
@@ -277,7 +296,6 @@ export default function NewProductPage() {
       };
     }
 
-    // 이미지 업로드
     const uploadedUrls = await uploadAllImages();
     if (uploadedUrls.length === 0) {
       alert('이미지 업로드에 실패했습니다.');
@@ -298,8 +316,8 @@ export default function NewProductPage() {
         category_ja: finalData.categoryJa,
         category_ko: finalData.categoryKo,
         sub_category: finalData.subCategoryJa || finalData.subCategoryKo || null,
-        image: uploadedUrls[0], // 메인 이미지 (하위 호환)
-        images: uploadedUrls,   // 전체 이미지 배열
+        image: uploadedUrls[0],
+        images: uploadedUrls,
         description: finalData.descriptionJa || finalData.descriptionKo,
         description_ja: finalData.descriptionJa,
         description_ko: finalData.descriptionKo,
@@ -318,24 +336,20 @@ export default function NewProductPage() {
 
   return (
     <div className="pb-8">
-      {/* Header */}
       <div className="mb-6">
         <h1 className="text-xl md:text-2xl font-medium text-gray-900">상품 등록</h1>
         <p className="text-sm text-gray-500 mt-1">새로운 상품을 등록합니다 (일본어/한국어)</p>
       </div>
 
-      {/* Form */}
       <form onSubmit={handleSubmit} className="max-w-2xl">
         <div className="bg-white rounded-xl shadow-sm p-4 md:p-6 space-y-5">
 
-          {/* 다중 이미지 업로드 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               상품 이미지 <span className="text-red-500">*</span>
               <span className="text-gray-400 font-normal ml-2">(첫 번째가 메인 이미지)</span>
             </label>
 
-            {/* 이미지 미리보기 그리드 */}
             {images.length > 0 && (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mb-4">
                 {images.map((img, index) => (
@@ -354,7 +368,6 @@ export default function NewProductPage() {
                       )}
                     </div>
 
-                    {/* 컨트롤 버튼 */}
                     <div className="absolute top-1 right-1 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
                         type="button"
@@ -376,7 +389,6 @@ export default function NewProductPage() {
                       )}
                     </div>
 
-                    {/* 순서 변경 버튼 */}
                     <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
                         type="button"
@@ -402,7 +414,6 @@ export default function NewProductPage() {
               </div>
             )}
 
-            {/* 이미지 추가 버튼 */}
             <div
               onClick={() => fileInputRef.current?.click()}
               className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:border-gray-400 transition-colors"
@@ -427,7 +438,6 @@ export default function NewProductPage() {
             />
           </div>
 
-          {/* 번역 버튼 */}
           <div className="p-3 bg-gray-50 rounded-lg">
             <button
               type="button"
@@ -442,7 +452,6 @@ export default function NewProductPage() {
             </p>
           </div>
 
-          {/* 상품명 - 일본어 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               상품명 (日本語) <span className="text-red-500">*</span>
@@ -463,12 +472,11 @@ export default function NewProductPage() {
                 className="px-3 py-2 text-xs bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
                 title="한국어에서 번역"
               >
-                ← KR
+                KR→JP
               </button>
             </div>
           </div>
 
-          {/* 상품명 - 한국어 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               상품명 (한국어)
@@ -488,12 +496,11 @@ export default function NewProductPage() {
                 className="px-3 py-2 text-xs bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
                 title="일본어에서 번역"
               >
-                ← JP
+                JP→KR
               </button>
             </div>
           </div>
 
-          {/* 상위 카테고리 */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -547,7 +554,6 @@ export default function NewProductPage() {
             </div>
           </div>
 
-          {/* 하위 카테고리 */}
           {(subCategoriesJa[getCategoryIndex()]?.length > 0) && (
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -597,11 +603,10 @@ export default function NewProductPage() {
             </div>
           )}
 
-          {/* 가격 */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                판매가 (¥) <span className="text-red-500">*</span>
+                판매가 (₩) <span className="text-red-500">*</span>
               </label>
               <input
                 type="number"
@@ -614,7 +619,7 @@ export default function NewProductPage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                정가 (¥)
+                정가 (₩)
               </label>
               <input
                 type="number"
@@ -626,7 +631,6 @@ export default function NewProductPage() {
             </div>
           </div>
 
-          {/* 재고 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               재고 수량
@@ -640,7 +644,6 @@ export default function NewProductPage() {
             />
           </div>
 
-          {/* 설명 - 일본어 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               상품 설명 (日本語)
@@ -660,12 +663,11 @@ export default function NewProductPage() {
                 className="px-3 py-2 text-xs bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap self-start"
                 title="한국어에서 번역"
               >
-                ← KR
+                KR→JP
               </button>
             </div>
           </div>
 
-          {/* 설명 - 한국어 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               상품 설명 (한국어)
@@ -685,12 +687,11 @@ export default function NewProductPage() {
                 className="px-3 py-2 text-xs bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap self-start"
                 title="일본어에서 번역"
               >
-                ← JP
+                JP→KR
               </button>
             </div>
           </div>
 
-          {/* Buttons */}
           <div className="flex flex-col sm:flex-row gap-3 pt-4">
             <button
               type="submit"
