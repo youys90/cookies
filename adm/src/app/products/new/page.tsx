@@ -37,6 +37,12 @@ interface ImageItem {
   url?: string;
 }
 
+interface TempOption {
+  option_name: string;
+  additional_price: number;
+  stock: number;
+}
+
 export default function NewProductPage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -44,6 +50,10 @@ export default function NewProductPage() {
   const [translating, setTranslating] = useState(false);
 
   const [images, setImages] = useState<ImageItem[]>([]);
+
+  // 옵션 관련 상태
+  const [tempOptions, setTempOptions] = useState<TempOption[]>([]);
+  const [newOption, setNewOption] = useState({ option_name: "", additional_price: 0, stock: 99 });
 
   const [formData, setFormData] = useState({
     nameJa: "",
@@ -303,7 +313,7 @@ export default function NewProductPage() {
       return;
     }
 
-    const { error } = await supabase
+    const { data: insertedProduct, error } = await supabase
       .from('products')
       .insert({
         name: finalData.nameJa || finalData.nameKo,
@@ -321,15 +331,37 @@ export default function NewProductPage() {
         description: finalData.descriptionJa || finalData.descriptionKo,
         description_ja: finalData.descriptionJa,
         description_ko: finalData.descriptionKo,
-      });
+      })
+      .select()
+      .single();
 
-    setUploading(false);
-
-    if (error) {
-      alert('등록 실패: ' + error.message);
+    if (error || !insertedProduct) {
+      setUploading(false);
+      alert('등록 실패: ' + (error?.message || '알 수 없는 오류'));
       return;
     }
 
+    // 옵션 저장
+    if (tempOptions.length > 0) {
+      const optionsToInsert = tempOptions.map((opt, idx) => ({
+        product_id: insertedProduct.id,
+        option_name: opt.option_name,
+        additional_price: opt.additional_price,
+        stock: opt.stock,
+        is_active: true,
+        sort_order: idx,
+      }));
+
+      const { error: optError } = await supabase
+        .from('product_options')
+        .insert(optionsToInsert);
+
+      if (optError) {
+        console.error('옵션 저장 실패:', optError);
+      }
+    }
+
+    setUploading(false);
     alert('상품이 등록되었습니다!');
     router.push('/products');
   };
@@ -341,8 +373,9 @@ export default function NewProductPage() {
         <p className="text-sm text-gray-500 mt-1">새로운 상품을 등록합니다 (일본어/한국어)</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="max-w-2xl">
-        <div className="bg-white rounded-xl shadow-sm p-4 md:p-6 space-y-5">
+      <div className="grid lg:grid-cols-3 gap-6">
+        <form onSubmit={handleSubmit} className="lg:col-span-2">
+          <div className="bg-white rounded-xl shadow-sm p-4 md:p-6 space-y-5">
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -710,6 +743,119 @@ export default function NewProductPage() {
           </div>
         </div>
       </form>
+
+      {/* 옵션 관리 패널 */}
+      <div className="lg:col-span-1">
+        <div className="bg-white rounded-xl shadow-sm p-4 md:p-6 sticky top-4">
+          <h2 className="text-lg font-medium text-gray-900 mb-4">COLOR 옵션</h2>
+
+          {/* 임시 옵션 목록 */}
+          <div className="space-y-3 mb-4">
+            {tempOptions.length === 0 ? (
+              <p className="text-sm text-gray-500 text-center py-4">등록된 옵션이 없습니다</p>
+            ) : (
+              tempOptions.map((opt, idx) => (
+                <div key={idx} className="border border-gray-200 rounded-lg p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <input
+                      type="text"
+                      value={opt.option_name}
+                      onChange={(e) => {
+                        const updated = [...tempOptions];
+                        updated[idx].option_name = e.target.value;
+                        setTempOptions(updated);
+                      }}
+                      className="text-sm font-medium text-gray-900 border-none p-0 focus:ring-0 flex-1"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setTempOptions(tempOptions.filter((_, i) => i !== idx))}
+                      className="text-red-500 hover:text-red-700 p-1"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-xs text-gray-500">추가금액 (₩)</label>
+                      <input
+                        type="number"
+                        value={opt.additional_price}
+                        onChange={(e) => {
+                          const updated = [...tempOptions];
+                          updated[idx].additional_price = Number(e.target.value);
+                          setTempOptions(updated);
+                        }}
+                        className="w-full text-sm px-2 py-1 border border-gray-200 rounded"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500">재고</label>
+                      <input
+                        type="number"
+                        value={opt.stock}
+                        onChange={(e) => {
+                          const updated = [...tempOptions];
+                          updated[idx].stock = Number(e.target.value);
+                          setTempOptions(updated);
+                        }}
+                        className="w-full text-sm px-2 py-1 border border-gray-200 rounded"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* 새 옵션 추가 */}
+          <div className="border-t border-gray-200 pt-4">
+            <h3 className="text-sm font-medium text-gray-700 mb-3">옵션 추가</h3>
+            <div className="space-y-2">
+              <input
+                type="text"
+                placeholder="옵션명 (예: ゴールド)"
+                value={newOption.option_name}
+                onChange={(e) => setNewOption({ ...newOption, option_name: e.target.value })}
+                className="w-full text-sm px-3 py-2 border border-gray-200 rounded-lg"
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="number"
+                  placeholder="추가금액"
+                  value={newOption.additional_price || ''}
+                  onChange={(e) => setNewOption({ ...newOption, additional_price: Number(e.target.value) })}
+                  className="text-sm px-3 py-2 border border-gray-200 rounded-lg"
+                />
+                <input
+                  type="number"
+                  placeholder="재고"
+                  value={newOption.stock || ''}
+                  onChange={(e) => setNewOption({ ...newOption, stock: Number(e.target.value) })}
+                  className="text-sm px-3 py-2 border border-gray-200 rounded-lg"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!newOption.option_name.trim()) {
+                    alert('옵션명을 입력하세요.');
+                    return;
+                  }
+                  setTempOptions([...tempOptions, { ...newOption }]);
+                  setNewOption({ option_name: "", additional_price: 0, stock: 99 });
+                }}
+                className="w-full py-2 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-800"
+              >
+                + 옵션 추가
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      </div>
     </div>
   );
 }
