@@ -183,9 +183,24 @@ export default function EditProductPage() {
   const translateText = async (text: string, from: string, to: string): Promise<string> => {
     if (!text.trim()) return "";
     try {
-      const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${from}|${to}`);
+      // 영문자 부분 추출해서 보존
+      const englishParts: string[] = [];
+      const placeholder = "{{EN}}";
+      const preserved = text.replace(/[A-Za-z]+/g, (match) => {
+        englishParts.push(match);
+        return placeholder;
+      });
+
+      const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(preserved)}&langpair=${from}|${to}`);
       const data = await res.json();
-      return data.responseData?.translatedText || text;
+      let translated = data.responseData?.translatedText || text;
+
+      // 영문자 복원
+      englishParts.forEach((eng) => {
+        translated = translated.replace(placeholder, eng);
+      });
+
+      return translated;
     } catch (error) {
       console.error('번역 실패:', error);
       return text;
