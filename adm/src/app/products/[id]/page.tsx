@@ -183,9 +183,9 @@ export default function EditProductPage() {
   const translateText = async (text: string, from: string, to: string): Promise<string> => {
     if (!text.trim()) return "";
     try {
-      const res = await fetch(`https://lingva.ml/api/v1/${from}/${to}/${encodeURIComponent(text)}`);
+      const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${from}|${to}`);
       const data = await res.json();
-      return data.translation || text;
+      return data.responseData?.translatedText || text;
     } catch (error) {
       console.error('번역 실패:', error);
       return text;
@@ -427,10 +427,10 @@ export default function EditProductPage() {
                   type="button"
                   onClick={() => formData.nameKo && autoTranslate('name', 'ko', formData.nameKo)}
                   disabled={translating || !formData.nameKo}
-                  className="px-3 py-2 text-xs bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+                  className="px-3 py-2 text-xs bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 font-medium disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
                   title="한국어에서 번역"
                 >
-                  ← KR
+                  KR→JP
                 </button>
               </div>
             </div>
@@ -451,10 +451,10 @@ export default function EditProductPage() {
                   type="button"
                   onClick={() => formData.nameJa && autoTranslate('name', 'ja', formData.nameJa)}
                   disabled={translating || !formData.nameJa}
-                  className="px-3 py-2 text-xs bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+                  className="px-3 py-2 text-xs bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 font-medium disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
                   title="일본어에서 번역"
                 >
-                  ← JP
+                  JP→KR
                 </button>
               </div>
             </div>
@@ -568,7 +568,7 @@ export default function EditProductPage() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  판매가 (¥) <span className="text-red-500">*</span>
+                  판매가 (₩) <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="number"
@@ -581,7 +581,7 @@ export default function EditProductPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  정가 (¥)
+                  정가 (₩)
                 </label>
                 <input
                   type="number"
@@ -622,10 +622,10 @@ export default function EditProductPage() {
                   type="button"
                   onClick={() => formData.descriptionKo && autoTranslate('description', 'ko', formData.descriptionKo)}
                   disabled={translating || !formData.descriptionKo}
-                  className="px-3 py-2 text-xs bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap self-start"
+                  className="px-3 py-2 text-xs bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 font-medium disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap self-start"
                   title="한국어에서 번역"
                 >
-                  ← KR
+                  KR→JP
                 </button>
               </div>
             </div>
@@ -646,10 +646,10 @@ export default function EditProductPage() {
                   type="button"
                   onClick={() => formData.descriptionJa && autoTranslate('description', 'ja', formData.descriptionJa)}
                   disabled={translating || !formData.descriptionJa}
-                  className="px-3 py-2 text-xs bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap self-start"
+                  className="px-3 py-2 text-xs bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 font-medium disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap self-start"
                   title="일본어에서 번역"
                 >
-                  ← JP
+                  JP→KR
                 </button>
               </div>
             </div>
@@ -708,7 +708,7 @@ export default function EditProductPage() {
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="text-xs text-gray-500">추가금액 (¥)</label>
+                        <label className="text-xs text-gray-500">추가금액 (₩)</label>
                         <input
                           type="number"
                           value={opt.additional_price}
