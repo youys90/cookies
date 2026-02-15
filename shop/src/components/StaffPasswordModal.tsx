@@ -10,7 +10,7 @@ interface StaffPasswordModalProps {
 }
 
 // 스태프 비밀번호 (나중에 환경변수나 DB로 이동 가능)
-const STAFF_PASSWORD = "cookies2024";
+const STAFF_PASSWORD = "1004";
 
 export default function StaffPasswordModal({ isOpen, onClose, onSuccess }: StaffPasswordModalProps) {
   const { t } = useLanguage();
