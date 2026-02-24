@@ -100,7 +100,7 @@ export default function OrdersPage() {
       query = query.eq('status', selectedStatus);
     }
 
-    // 검색 (주문번호, 고객명, LINE ID)
+    // 검색 (주문번호, 고객명, LINE NAME)
     if (searchKeyword) {
       query = query.or('order_number.ilike.%' + searchKeyword + '%,customer_name.ilike.%' + searchKeyword + '%,customer_line.ilike.%' + searchKeyword + '%');
     }
@@ -221,7 +221,7 @@ export default function OrdersPage() {
           <div className="flex items-center space-x-2">
             <input
               type="text"
-              placeholder="주문번호, 고객명, LINE ID..."
+              placeholder="주문번호, 고객명, LINE NAME..."
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
@@ -276,7 +276,7 @@ export default function OrdersPage() {
                 <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase w-16">No.</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">주문번호</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">고객명</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">LINE ID</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">LINE NAME</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">전화번호</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">금액</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">상태</th>
@@ -408,7 +408,7 @@ export default function OrdersPage() {
                     <span className="ml-2 text-gray-900">{selectedOrder.customer_name}</span>
                   </div>
                   <div>
-                    <span className="text-gray-500">LINE ID:</span>
+                    <span className="text-gray-500">LINE NAME:</span>
                     <span className="ml-2 text-gray-900">{selectedOrder.customer_line}</span>
                   </div>
                   <div>

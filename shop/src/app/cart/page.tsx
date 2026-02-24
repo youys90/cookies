@@ -272,9 +272,12 @@ export default function CartPage() {
                     />
                   </div>
 
-                  {/* LINE ID */}
+                  {/* LINE NAME */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">{t("order.line")} <span className="text-red-500">*</span></label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                      {t("order.line")} <span className="text-red-500">*</span>
+                      <span className="ml-2 text-xs text-gray-500">{t("order.lineHint")}</span>
+                    </label>
                     <input
                       type="text"
                       inputMode="text"
@@ -285,6 +288,7 @@ export default function CartPage() {
                       placeholder={t("order.linePlaceholder")}
                       className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
                     />
+                    <p className="mt-1.5 text-xs text-red-500">{t("order.lineNotice")}</p>
                   </div>
 
                   {/* 전화번호 - 숫자 키패드 */}
