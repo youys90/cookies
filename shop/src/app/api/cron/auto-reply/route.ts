@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-// Cron job: 1분마다 실행되어 자동 댓글 처리
-// 별점 1~3점 리뷰에 대해 예약된 시간이 지나면 사과 댓글 등록
+// Cron job: 하루 1회 실행
+// 1. 별점 1~3점 리뷰에 자동 사과 댓글 등록
+// 2. 1~3점 리뷰 중 1주일 지난 것 자동 숨김
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
@@ -16,70 +17,97 @@ const AUTO_REPLY_MESSAGE = `ご不便をおかけして誠に申し訳ござい�
 
 export async function GET() {
   try {
-    const now = new Date().toISOString();
+    const now = new Date();
+    const nowISO = now.toISOString();
 
-    // auto_reply_at이 현재 시간보다 이전이고, 아직 댓글이 없는 리뷰 조회
-    const { data: reviews, error: fetchError } = await supabase
+    // === 1. 자동 댓글 처리 ===
+    const { data: pendingReplies, error: fetchError } = await supabase
       .from("reviews")
       .select("id, auto_reply_at")
-      .lte("auto_reply_at", now)
+      .lte("auto_reply_at", nowISO)
       .not("auto_reply_at", "is", null);
 
-    if (fetchError) {
-      console.error("리뷰 조회 실패:", fetchError);
-      return NextResponse.json({ error: fetchError.message }, { status: 500 });
-    }
+    let replyProcessedCount = 0;
 
-    if (!reviews || reviews.length === 0) {
-      return NextResponse.json({ message: "No pending replies", processed: 0 });
-    }
+    if (!fetchError && pendingReplies && pendingReplies.length > 0) {
+      for (const review of pendingReplies) {
+        // 이미 댓글이 있는지 확인
+        const { data: existingReply } = await supabase
+          .from("review_replies")
+          .select("id")
+          .eq("review_id", review.id)
+          .single();
 
-    let processedCount = 0;
+        if (existingReply) {
+          // 이미 댓글이 있으면 auto_reply_at 초기화
+          await supabase
+            .from("reviews")
+            .update({ auto_reply_at: null })
+            .eq("id", review.id);
+          continue;
+        }
 
-    for (const review of reviews) {
-      // 이미 댓글이 있는지 확인
-      const { data: existingReply } = await supabase
-        .from("review_replies")
-        .select("id")
-        .eq("review_id", review.id)
-        .single();
+        // 댓글 등록
+        const { error: insertError } = await supabase
+          .from("review_replies")
+          .insert({
+            review_id: review.id,
+            content: AUTO_REPLY_MESSAGE,
+            author_name: "Cookies",
+          });
 
-      if (existingReply) {
-        // 이미 댓글이 있으면 auto_reply_at 초기화
+        if (insertError) {
+          console.error(`댓글 등록 실패 (review_id: ${review.id}):`, insertError);
+          continue;
+        }
+
+        // auto_reply_at 초기화 (처리 완료)
         await supabase
           .from("reviews")
           .update({ auto_reply_at: null })
           .eq("id", review.id);
-        continue;
+
+        replyProcessedCount++;
       }
+    }
 
-      // 댓글 등록
-      const { error: insertError } = await supabase
-        .from("review_replies")
-        .insert({
-          review_id: review.id,
-          content: AUTO_REPLY_MESSAGE,
-          author_name: "Cookies",
-        });
+    // === 2. 1주일 지난 1~3점 리뷰 자동 숨김 ===
+    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-      if (insertError) {
-        console.error(`댓글 등록 실패 (review_id: ${review.id}):`, insertError);
-        continue;
-      }
+    const { data: oldLowRatingReviews, error: hideError } = await supabase
+      .from("reviews")
+      .select("id")
+      .eq("is_active", true)
+      .eq("type", "user")
+      .lte("rating", 3)
+      .lte("created_at", oneWeekAgo);
 
-      // auto_reply_at 초기화 (처리 완료)
-      await supabase
+    let hiddenCount = 0;
+
+    if (!hideError && oldLowRatingReviews && oldLowRatingReviews.length > 0) {
+      const ids = oldLowRatingReviews.map((r) => r.id);
+
+      const { error: updateError } = await supabase
         .from("reviews")
-        .update({ auto_reply_at: null })
-        .eq("id", review.id);
+        .update({ is_active: false })
+        .in("id", ids);
 
-      processedCount++;
+      if (!updateError) {
+        hiddenCount = ids.length;
+      } else {
+        console.error("리뷰 숨김 실패:", updateError);
+      }
     }
 
     return NextResponse.json({
-      message: "Auto-reply processed",
-      processed: processedCount,
-      total: reviews.length,
+      message: "Cron job completed",
+      autoReply: {
+        processed: replyProcessedCount,
+        total: pendingReplies?.length || 0,
+      },
+      autoHide: {
+        hidden: hiddenCount,
+      },
     });
   } catch (error) {
     console.error("Cron job error:", error);

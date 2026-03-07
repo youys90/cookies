@@ -35,6 +35,11 @@ export default function ReviewsPage() {
   const [ratingFilter, setRatingFilter] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // 댓글 관련 상태
+  const [showReplyModal, setShowReplyModal] = useState(false);
+  const [replyingReview, setReplyingReview] = useState<Review | null>(null);
+  const [replyContent, setReplyContent] = useState("");
+
   // 폼 상태
   const [formData, setFormData] = useState({
     image_url: "",
@@ -214,6 +219,59 @@ export default function ReviewsPage() {
     });
   };
 
+  // 댓글 등록
+  const handleReplySubmit = async () => {
+    if (!replyingReview || !replyContent.trim()) return;
+
+    const { error } = await supabase.from("review_replies").insert({
+      review_id: replyingReview.id,
+      content: replyContent.trim(),
+      author_name: "Cookies",
+    });
+
+    if (error) {
+      console.error("댓글 등록 실패:", error);
+      alert("댓글 등록에 실패했습니다.");
+      return;
+    }
+
+    // 자동 댓글 예약 취소 (수동으로 달았으니까)
+    await supabase
+      .from("reviews")
+      .update({ auto_reply_at: null })
+      .eq("id", replyingReview.id);
+
+    setShowReplyModal(false);
+    setReplyingReview(null);
+    setReplyContent("");
+    fetchReviews();
+  };
+
+  // 댓글 삭제
+  const handleDeleteReply = async (replyId: string) => {
+    if (!confirm("댓글을 삭제하시겠습니까?")) return;
+
+    const { error } = await supabase
+      .from("review_replies")
+      .delete()
+      .eq("id", replyId);
+
+    if (error) {
+      console.error("댓글 삭제 실패:", error);
+      alert("댓글 삭제에 실패했습니다.");
+      return;
+    }
+
+    fetchReviews();
+  };
+
+  // 댓글 모달 열기
+  const openReplyModal = (review: Review) => {
+    setReplyingReview(review);
+    setReplyContent("");
+    setShowReplyModal(true);
+  };
+
   const renderStars = (rating: number) => {
     return Array.from({ length: 5 }, (_, i) => (
       <svg
@@ -384,11 +442,26 @@ export default function ReviewsPage() {
                 )}
 
                 {/* 댓글 표시 */}
-                {review.review_replies && review.review_replies.length > 0 && (
+                {review.review_replies && review.review_replies.length > 0 ? (
                   <div className="mt-2 p-2 bg-gray-50 rounded border-l-2 border-gray-300">
-                    <p className="text-xs text-gray-500 mb-1">↳ {review.review_replies[0].author_name}</p>
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="text-xs text-gray-500">↳ {review.review_replies[0].author_name}</p>
+                      <button
+                        onClick={() => handleDeleteReply(review.review_replies![0].id)}
+                        className="text-xs text-red-500 hover:text-red-700"
+                      >
+                        삭제
+                      </button>
+                    </div>
                     <p className="text-xs text-gray-600 line-clamp-2">{review.review_replies[0].content}</p>
                   </div>
+                ) : (
+                  <button
+                    onClick={() => openReplyModal(review)}
+                    className="mt-2 w-full py-1.5 text-xs text-gray-500 border border-dashed border-gray-300 rounded hover:bg-gray-50"
+                  >
+                    + 댓글 달기
+                  </button>
                 )}
               </div>
 
@@ -587,6 +660,62 @@ export default function ReviewsPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* 댓글 작성 모달 */}
+      {showReplyModal && replyingReview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-xl w-full max-w-md mx-4">
+            <div className="p-4 border-b border-gray-100">
+              <h2 className="text-lg font-medium">댓글 작성</h2>
+              <p className="text-sm text-gray-500 mt-1">
+                {replyingReview.author_name}님의 리뷰에 답변
+              </p>
+            </div>
+
+            <div className="p-4">
+              {/* 원본 리뷰 미리보기 */}
+              <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                <div className="flex items-center gap-1 mb-1">
+                  {renderStars(replyingReview.rating)}
+                </div>
+                <p className="text-sm text-gray-600 line-clamp-2">
+                  "{replyingReview.content}"
+                </p>
+              </div>
+
+              {/* 댓글 입력 */}
+              <textarea
+                value={replyContent}
+                onChange={(e) => setReplyContent(e.target.value)}
+                rows={4}
+                placeholder="답변 내용을 입력하세요..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+              />
+
+              {/* 버튼 */}
+              <div className="flex gap-3 mt-4">
+                <button
+                  onClick={() => {
+                    setShowReplyModal(false);
+                    setReplyingReview(null);
+                    setReplyContent("");
+                  }}
+                  className="flex-1 py-2.5 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={handleReplySubmit}
+                  disabled={!replyContent.trim()}
+                  className="flex-1 py-2.5 bg-gray-900 text-white rounded-lg hover:bg-gray-800 disabled:bg-gray-400"
+                >
+                  등록
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
