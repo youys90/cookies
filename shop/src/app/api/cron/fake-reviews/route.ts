@@ -198,12 +198,21 @@ export async function GET() {
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
 
-    return NextResponse.json({
+    const result = {
       message: "Fake reviews cron job completed",
       created: createdCount,
       target: dailyCount,
       errors: errors.length > 0 ? errors : undefined,
+    };
+
+    // 실행 로그 기록
+    await supabase.from("scheduler_logs").insert({
+      job_name: "fake-reviews",
+      executed_by: "cron",
+      result: result,
     });
+
+    return NextResponse.json(result);
   } catch (error) {
     console.error("Fake reviews cron job error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

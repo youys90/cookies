@@ -99,16 +99,20 @@ export async function GET() {
       }
     }
 
-    return NextResponse.json({
+    const result = {
       message: "Cron job completed",
-      autoReply: {
-        processed: replyProcessedCount,
-        total: pendingReplies?.length || 0,
-      },
-      autoHide: {
-        hidden: hiddenCount,
-      },
+      replied: replyProcessedCount,
+      hidden: hiddenCount,
+    };
+
+    // 실행 로그 기록
+    await supabase.from("scheduler_logs").insert({
+      job_name: "auto-reply",
+      executed_by: "cron",
+      result: result,
     });
+
+    return NextResponse.json(result);
   } catch (error) {
     console.error("Cron job error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
