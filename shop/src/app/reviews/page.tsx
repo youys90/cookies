@@ -63,12 +63,11 @@ export default function ReviewsPage() {
   const fetchReviews = async () => {
     setLoading(true);
 
-    // 통계용 전체 리뷰 조회 (4~5점만 - 통계는 공개 리뷰만)
+    // 통계용 전체 리뷰 조회 (모든 별점 집계)
     const { data: allReviews } = await supabase
       .from("reviews")
       .select("rating")
-      .eq("is_active", true)
-      .gte("rating", 4);
+      .eq("is_active", true);
 
     if (allReviews) {
       const totalCount = allReviews.length;
@@ -191,7 +190,7 @@ export default function ReviewsPage() {
     }
   };
 
-  const isPrivateReview = (review: Review) => review.rating <= 3;
+  const isPrivateReview = (review: Review) => review.type === "user" && review.rating <= 3;
   const isUnlocked = (reviewId: string) => unlockedReviews.has(reviewId);
 
   // 이미지 라이트박스 열기
@@ -239,9 +238,9 @@ export default function ReviewsPage() {
               </div>
             </div>
 
-            {/* 별점 분포 (4~5점만) */}
+            {/* 별점 분포 */}
             <div className="flex-1 space-y-1">
-              {[5, 4].map((star) => {
+              {[5, 4, 3, 2, 1].map((star) => {
                 const count = stats.ratingCounts[star] || 0;
                 const percentage = stats.totalCount > 0 ? (count / stats.totalCount) * 100 : 0;
                 return (
@@ -261,39 +260,37 @@ export default function ReviewsPage() {
           </div>
         </div>
 
-        {/* 필터 + 작성 버튼 */}
-        <div className="bg-white px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-          <div className="flex gap-2 overflow-x-auto scrollbar-hide">
-            <button
-              onClick={() => setSelectedRating(null)}
-              className={`px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors ${
-                selectedRating === null
-                  ? "bg-gray-900 text-white"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              }`}
+        {/* 필터 + 작성 버튼 (모바일 친화적 드롭다운) */}
+        <div className="bg-white px-4 py-3 border-b border-gray-100 flex items-center justify-between gap-3">
+          {/* 별점 필터 드롭다운 */}
+          <div className="relative flex-1">
+            <select
+              value={selectedRating === null ? "all" : selectedRating}
+              onChange={(e) => setSelectedRating(e.target.value === "all" ? null : Number(e.target.value))}
+              className="w-full px-4 py-2.5 bg-gray-100 border-0 rounded-lg text-sm appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-gray-900"
             >
-              {t.all} ({stats.totalCount})
-            </button>
-            {[5, 4, 3, 2, 1].map((star) => (
-              <button
-                key={star}
-                onClick={() => setSelectedRating(star)}
-                className={`px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors flex items-center gap-1 ${
-                  selectedRating === star
-                    ? "bg-gray-900 text-white"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                }`}
-              >
-                {star}
-                <svg className="w-3 h-3 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                </svg>
-              </button>
-            ))}
+              <option value="all">{t.all} ({stats.totalCount})</option>
+              {[5, 4, 3, 2, 1].map((star) => (
+                <option key={star} value={star}>
+                  {"★".repeat(star)}{"☆".repeat(5 - star)} ({stats.ratingCounts[star] || 0})
+                </option>
+              ))}
+            </select>
+            {/* 드롭다운 화살표 */}
+            <svg
+              className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
           </div>
+
+          {/* 리뷰 작성 버튼 */}
           <button
             onClick={() => setShowWriteModal(true)}
-            className="ml-2 px-4 py-1.5 bg-gray-900 text-white text-sm rounded-full hover:bg-gray-800 whitespace-nowrap"
+            className="px-4 py-2.5 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-800 whitespace-nowrap flex-shrink-0"
           >
             {t.writeBtn}
           </button>
