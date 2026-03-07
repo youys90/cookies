@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Autoplay, Pagination } from "swiper/modules";
 import { supabase } from "@/lib/supabase";
@@ -66,6 +67,7 @@ export default function ReviewSlider() {
   const t = {
     subtitle: language === "ko" ? "고객님들의 소중한 후기" : "お客様の声",
     writeBtn: language === "ko" ? "리뷰 작성" : "レビューを書く",
+    viewAll: language === "ko" ? "전체보기" : "すべて見る",
     emptyTitle: language === "ko" ? "첫 리뷰를 남겨주세요!" : "最初のレビューを書いてください！",
     emptyDesc: language === "ko"
       ? "상품 후기를 남겨주시면 다른 고객님들께 큰 도움이 됩니다."
@@ -83,9 +85,9 @@ export default function ReviewSlider() {
         {/* 섹션 타이틀 */}
         <div className="text-center mb-4">
           <div className="flex items-center justify-center gap-3">
-            <h2 className="text-sm font-medium tracking-widest text-gray-900">
+            <Link href="/reviews" className="text-sm font-medium tracking-widest text-gray-900 hover:text-gray-600 transition-colors">
               REVIEWS
-            </h2>
+            </Link>
             <button
               onClick={() => setShowWriteModal(true)}
               className="px-3 py-1 text-xs bg-gray-900 text-white rounded-full hover:bg-gray-800 transition-colors"
@@ -110,8 +112,9 @@ export default function ReviewSlider() {
             <p className="text-xs text-gray-500 mt-1">{t.emptyDesc}</p>
           </div>
         ) : (
-          /* Swiper 슬라이더 */
-          <Swiper
+          <>
+          
+            <Swiper
             modules={[Autoplay, Pagination]}
             spaceBetween={12}
             slidesPerView={2}
@@ -176,6 +179,20 @@ export default function ReviewSlider() {
               </SwiperSlide>
             ))}
           </Swiper>
+
+            {/* 전체보기 링크 */}
+            <div className="text-center mt-2">
+              <Link
+                href="/reviews"
+                className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-900 transition-colors"
+              >
+                {t.viewAll}
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
+            </div>
+          </>
         )}
       </div>
 

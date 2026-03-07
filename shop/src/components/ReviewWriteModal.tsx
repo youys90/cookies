@@ -39,6 +39,9 @@ export default function ReviewWriteModal({ isOpen, onClose, onSuccess }: ReviewW
     submit: language === "ko" ? "등록하기" : "投稿する",
     submitting: language === "ko" ? "등록 중..." : "投稿中...",
     successMsg: language === "ko" ? "리뷰가 등록되었습니다!" : "レビューが投稿されました！",
+    successMsgPending: language === "ko"
+      ? "리뷰가 등록되었습니다. 검토 후 게시됩니다."
+      : "レビューが投稿されました。確認後に掲載されます。",
     errorMsg: language === "ko" ? "등록에 실패했습니다." : "投稿に失敗しました。",
     nameRequired: language === "ko" ? "닉네임을 입력해주세요." : "ニックネームを入力してください。",
     contentRequired: language === "ko" ? "리뷰 내용을 입력해주세요." : "レビュー内容を入力してください。",
@@ -93,14 +96,26 @@ export default function ReviewWriteModal({ isOpen, onClose, onSuccess }: ReviewW
         ? authorName[0] + "*"
         : authorName;
 
+    // 별점 1~3점: 관리자 승인 필요 (is_active: false) + 자동 댓글 예약
+    // 별점 4~5점: 바로 노출 (is_active: true)
+    const needsApproval = rating <= 3;
+
+    // 1~3점일 경우 15~60분 뒤 자동 댓글 예약
+    let autoReplyAt = null;
+    if (needsApproval) {
+      const delayMinutes = Math.floor(Math.random() * 46) + 15; // 15~60분
+      autoReplyAt = new Date(Date.now() + delayMinutes * 60 * 1000).toISOString();
+    }
+
     const { error } = await supabase.from("reviews").insert({
       image_url: imageUrl || null,
       rating,
       content: content.trim(),
       author_name: maskedName,
       type: "user",
-      is_active: true,
+      is_active: !needsApproval,
       sort_order: 999, // 사용자 리뷰는 뒤쪽에 정렬
+      auto_reply_at: autoReplyAt,
     });
 
     setSubmitting(false);
@@ -111,7 +126,7 @@ export default function ReviewWriteModal({ isOpen, onClose, onSuccess }: ReviewW
       return;
     }
 
-    alert(t.successMsg);
+    alert(needsApproval ? t.successMsgPending : t.successMsg);
     resetForm();
     onSuccess();
     onClose();

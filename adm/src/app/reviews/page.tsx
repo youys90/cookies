@@ -4,6 +4,13 @@ import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 
+interface ReviewReply {
+  id: string;
+  content: string;
+  author_name: string;
+  created_at: string;
+}
+
 interface Review {
   id: string;
   image_url: string;
@@ -13,7 +20,9 @@ interface Review {
   is_active: boolean;
   sort_order: number;
   type: "admin" | "user";
+  auto_reply_at: string | null;
   created_at: string;
+  review_replies?: ReviewReply[];
 }
 
 export default function ReviewsPage() {
@@ -43,7 +52,7 @@ export default function ReviewsPage() {
     setLoading(true);
     const { data, error } = await supabase
       .from("reviews")
-      .select("*")
+      .select("*, review_replies(*)")
       .order("sort_order", { ascending: true })
       .order("created_at", { ascending: false });
 
@@ -331,6 +340,21 @@ export default function ReviewsPage() {
                   </p>
                 )}
                 <p className="text-xs text-gray-500">- {review.author_name}</p>
+
+                {/* 자동 댓글 대기 표시 */}
+                {review.auto_reply_at && (
+                  <div className="mt-2 px-2 py-1 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-700">
+                    ⏰ 자동 댓글 예약: {new Date(review.auto_reply_at).toLocaleString("ko-KR")}
+                  </div>
+                )}
+
+                {/* 댓글 표시 */}
+                {review.review_replies && review.review_replies.length > 0 && (
+                  <div className="mt-2 p-2 bg-gray-50 rounded border-l-2 border-gray-300">
+                    <p className="text-xs text-gray-500 mb-1">↳ {review.review_replies[0].author_name}</p>
+                    <p className="text-xs text-gray-600 line-clamp-2">{review.review_replies[0].content}</p>
+                  </div>
+                )}
               </div>
 
               {/* 액션 */}
