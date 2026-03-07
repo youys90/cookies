@@ -43,12 +43,10 @@ export default function ReviewWriteModal({ isOpen, onClose, onSuccess }: ReviewW
     submit: language === "ko" ? "등록하기" : "投稿する",
     submitting: language === "ko" ? "등록 중..." : "投稿中...",
     successMsg: language === "ko" ? "리뷰가 등록되었습니다!" : "レビューが投稿されました！",
-    successMsgPending: language === "ko"
-      ? "리뷰가 등록되었습니다. 검토 후 게시됩니다."
-      : "レビューが投稿されました。確認後に掲載されます。",
     errorMsg: language === "ko" ? "등록에 실패했습니다." : "投稿に失敗しました。",
     nameRequired: language === "ko" ? "닉네임을 입력해주세요." : "ニックネームを入力してください。",
     contentRequired: language === "ko" ? "리뷰 내용을 입력해주세요." : "レビュー内容を入力してください。",
+    imageRequired: language === "ko" ? "사진을 첨부해주세요." : "写真を添付してください。",
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -82,6 +80,10 @@ export default function ReviewWriteModal({ isOpen, onClose, onSuccess }: ReviewW
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (!imageUrl) {
+      alert(t.imageRequired);
+      return;
+    }
     if (!authorName.trim()) {
       alert(t.nameRequired);
       return;
@@ -135,7 +137,7 @@ export default function ReviewWriteModal({ isOpen, onClose, onSuccess }: ReviewW
       return;
     }
 
-    alert(needsApproval ? t.successMsgPending : t.successMsg);
+    alert(t.successMsg);
     resetForm();
     onSuccess();
     onClose();
