@@ -13,13 +13,14 @@ interface ReviewReply {
 
 interface Review {
   id: string;
-  image_url: string;
+  image_url: string | null;
+  images: string[] | null;
   rating: number;
   content: string;
   author_name: string;
   is_active: boolean;
   sort_order: number;
-  type: "admin" | "user";
+  type: "admin" | "user" | "fake";
   auto_reply_at: string | null;
   created_at: string;
   review_replies?: ReviewReply[];
@@ -395,10 +396,14 @@ export default function ReviewsPage() {
                 !review.is_active ? "opacity-50" : ""
               }`}
             >
-              {/* 이미지 */}
+              {/* 이미지 (images 배열 우선, 없으면 image_url) */}
+              {(() => {
+                const thumbnailUrl = review.images?.[0] || review.image_url;
+                if (!thumbnailUrl) return <div className="aspect-[4/3] bg-gray-200 flex items-center justify-center text-gray-400 text-sm">이미지 없음</div>;
+                return (
               <div className="relative aspect-[4/3] bg-gray-100">
                 <Image
-                  src={review.image_url}
+                  src={thumbnailUrl}
                   alt={review.author_name}
                   fill
                   className="object-cover"
@@ -420,7 +425,15 @@ export default function ReviewsPage() {
                     비노출
                   </div>
                 )}
+                {/* 이미지 개수 표시 */}
+                {review.images && review.images.length > 1 && (
+                  <div className="absolute bottom-2 right-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded">
+                    +{review.images.length - 1}
+                  </div>
+                )}
               </div>
+                );
+              })()}
 
               {/* 내용 */}
               <div className="p-4">

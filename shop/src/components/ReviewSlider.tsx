@@ -15,7 +15,8 @@ import "swiper/css/pagination";
 
 interface Review {
   id: string;
-  image_url: string;
+  image_url: string | null;
+  images: string[] | null;
   rating: number;
   content: string;
   author_name: string;
@@ -34,7 +35,7 @@ export default function ReviewSlider() {
   const fetchReviews = async () => {
     const { data, error } = await supabase
       .from("reviews")
-      .select("id, image_url, rating, content, author_name")
+      .select("id, image_url, images, rating, content, author_name")
       .eq("is_active", true)
       .gte("rating", 4) // 4~5점만 공개
       .order("sort_order", { ascending: true })
@@ -148,14 +149,18 @@ export default function ReviewSlider() {
             }}
             className="review-swiper pb-8"
           >
-            {reviews.map((review) => (
+            {reviews.map((review) => {
+              // images 배열 우선, 없으면 image_url 사용
+              const thumbnailUrl = review.images?.[0] || review.image_url;
+
+              return (
               <SwiperSlide key={review.id}>
                 <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-                  {/* 이미지 */}
-                  {review.image_url && (
+                  {/* 이미지 (첫 번째 이미지를 썸네일로) */}
+                  {thumbnailUrl && (
                     <div className="relative aspect-square bg-gray-100">
                       <Image
-                        src={review.image_url}
+                        src={thumbnailUrl}
                         alt={review.author_name}
                         fill
                         className="object-cover"
@@ -178,7 +183,8 @@ export default function ReviewSlider() {
                   </div>
                 </div>
               </SwiperSlide>
-            ))}
+            );
+            })}
           </Swiper>
 
             {/* 전체보기 링크 */}

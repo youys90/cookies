@@ -17,6 +17,7 @@ interface ReviewReply {
 interface Review {
   id: string;
   image_url: string | null;
+  images: string[] | null;
   rating: number;
   content: string;
   author_name: string;
@@ -81,33 +82,18 @@ export default function ReviewsPage() {
       });
     }
 
-    // 필터링된 리뷰 조회 (모든 활성 리뷰)
+    // 필터링된 리뷰 조회 (모든 활성 리뷰) - 별점 상관없이 최신순 정렬
     let query = supabase
       .from("reviews")
       .select("*, review_replies(*)")
-      .eq("is_active", true);
+      .eq("is_active", true)
+      .order("created_at", { ascending: false });
 
     if (selectedRating !== null) {
-      // 특정 별점 선택 시: 최신순
-      query = query.eq("rating", selectedRating).order("created_at", { ascending: false });
+      query = query.eq("rating", selectedRating);
     }
 
     const { data, error } = await query;
-
-    // 전체일 때: 4~5점 (최신순) → 1~3점 (최신순) 정렬
-    if (selectedRating === null && data) {
-      data.sort((a, b) => {
-        const aIsHigh = a.rating >= 4;
-        const bIsHigh = b.rating >= 4;
-
-        // 4~5점이 먼저
-        if (aIsHigh && !bIsHigh) return -1;
-        if (!aIsHigh && bIsHigh) return 1;
-
-        // 같은 그룹 내에서는 최신순
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-      });
-    }
 
     if (error) {
       console.error("리뷰 조회 실패:", error);
@@ -351,20 +337,26 @@ export default function ReviewsPage() {
                         {review.content}
                       </p>
 
-                      {/* 리뷰 이미지 */}
-                      {review.image_url && (
-                        <div className="mt-3">
-                          <div className="relative w-24 h-24 rounded-lg overflow-hidden bg-gray-100">
-                            <Image
-                              src={review.image_url}
-                              alt="리뷰 이미지"
-                              fill
-                              className="object-cover"
-                              unoptimized
-                            />
+                      {/* 리뷰 이미지 (배민 스타일 - 여러 장) */}
+                      {(() => {
+                        const imageList = review.images || (review.image_url ? [review.image_url] : []);
+                        if (imageList.length === 0) return null;
+                        return (
+                          <div className="mt-3 flex gap-2 overflow-x-auto">
+                            {imageList.map((url, idx) => (
+                              <div key={idx} className="relative w-24 h-24 flex-shrink-0 rounded-lg overflow-hidden bg-gray-100">
+                                <Image
+                                  src={url}
+                                  alt={`리뷰 이미지 ${idx + 1}`}
+                                  fill
+                                  className="object-cover"
+                                  unoptimized
+                                />
+                              </div>
+                            ))}
                           </div>
-                        </div>
-                      )}
+                        );
+                      })()}
 
                       {/* 사장님 답변 */}
                       {review.review_replies && review.review_replies.length > 0 && (
