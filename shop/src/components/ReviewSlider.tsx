@@ -9,7 +9,7 @@ import { supabase } from "@/lib/supabase";
 import { useLanguage } from "@/contexts/LanguageContext";
 import ReviewWriteModal from "./ReviewWriteModal";
 
-// Swiper 스타일
+// Swiper 스타일.
 import "swiper/css";
 import "swiper/css/pagination";
 
