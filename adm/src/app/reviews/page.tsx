@@ -60,7 +60,6 @@ export default function ReviewsPage() {
     const { data, error } = await supabase
       .from("reviews")
       .select("*, review_replies(*)")
-      .order("sort_order", { ascending: true })
       .order("created_at", { ascending: false });
 
     if (error) {
