@@ -32,6 +32,7 @@ export default function ReviewsPage() {
   const [editingReview, setEditingReview] = useState<Review | null>(null);
   const [uploading, setUploading] = useState(false);
   const [typeFilter, setTypeFilter] = useState<"all" | "admin" | "user">("all");
+  const [ratingFilter, setRatingFilter] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 폼 상태
@@ -247,7 +248,7 @@ export default function ReviewsPage() {
       </div>
 
       {/* 필터 탭 */}
-      <div className="flex gap-2 mb-6">
+      <div className="flex flex-wrap gap-2 mb-4">
         <button
           onClick={() => setTypeFilter("all")}
           className={`px-4 py-2 text-sm rounded-lg transition-colors ${
@@ -280,6 +281,37 @@ export default function ReviewsPage() {
         </button>
       </div>
 
+      {/* 별점 필터 */}
+      <div className="flex flex-wrap gap-2 mb-6">
+        <button
+          onClick={() => setRatingFilter(null)}
+          className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+            ratingFilter === null
+              ? "bg-yellow-500 text-white"
+              : "bg-yellow-50 text-yellow-700 hover:bg-yellow-100"
+          }`}
+        >
+          별점 전체
+        </button>
+        {[5, 4, 3, 2, 1].map((star) => (
+          <button
+            key={star}
+            onClick={() => setRatingFilter(star)}
+            className={`px-3 py-1.5 text-sm rounded-lg transition-colors flex items-center gap-1 ${
+              ratingFilter === star
+                ? "bg-yellow-500 text-white"
+                : "bg-yellow-50 text-yellow-700 hover:bg-yellow-100"
+            }`}
+          >
+            {star}
+            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+            </svg>
+            ({reviews.filter((r) => r.rating === star).length})
+          </button>
+        ))}
+      </div>
+
       {/* 리뷰 목록 */}
       {loading ? (
         <div className="text-center py-20 text-gray-500">로딩 중...</div>
@@ -291,9 +323,12 @@ export default function ReviewsPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {reviews
             .filter((review) => {
-              if (typeFilter === "all") return true;
-              if (typeFilter === "admin") return review.type === "admin" || !review.type;
-              return review.type === "user";
+              // 타입 필터
+              if (typeFilter === "admin" && review.type !== "admin" && review.type) return false;
+              if (typeFilter === "user" && review.type !== "user") return false;
+              // 별점 필터
+              if (ratingFilter !== null && review.rating !== ratingFilter) return false;
+              return true;
             })
             .map((review) => (
             <div
