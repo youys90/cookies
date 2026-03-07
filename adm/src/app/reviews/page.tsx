@@ -43,13 +43,14 @@ export default function ReviewsPage() {
 
   // 폼 상태
   const [formData, setFormData] = useState({
-    image_url: "",
+    images: [] as string[],
     rating: 5,
     content: "",
     author_name: "",
     is_active: true,
     sort_order: 0,
   });
+  const MAX_IMAGES = 3;
 
   useEffect(() => {
     fetchReviews();
@@ -71,38 +72,58 @@ export default function ReviewsPage() {
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
+    const remainingSlots = MAX_IMAGES - formData.images.length;
+    if (remainingSlots <= 0) return;
+
+    const filesToUpload = Array.from(files).slice(0, remainingSlots);
     setUploading(true);
 
-    const fileExt = file.name.split(".").pop();
-    const fileName = `review_${Date.now()}.${fileExt}`;
-    const filePath = `reviews/${fileName}`;
+    const newUrls: string[] = [];
 
-    const { error: uploadError } = await supabase.storage
-      .from("product-images")
-      .upload(filePath, file);
+    for (const file of filesToUpload) {
+      const fileExt = file.name.split(".").pop();
+      const fileName = `review_${Date.now()}_${Math.random().toString(36).slice(2)}.${fileExt}`;
+      const filePath = `reviews/${fileName}`;
 
-    if (uploadError) {
-      console.error("이미지 업로드 실패:", uploadError);
-      alert("이미지 업로드에 실패했습니다.");
-      setUploading(false);
-      return;
+      const { error: uploadError } = await supabase.storage
+        .from("product-images")
+        .upload(filePath, file);
+
+      if (uploadError) {
+        console.error("이미지 업로드 실패:", uploadError);
+        continue;
+      }
+
+      const { data: publicUrlData } = supabase.storage
+        .from("product-images")
+        .getPublicUrl(filePath);
+
+      newUrls.push(publicUrlData.publicUrl);
     }
 
-    const { data: publicUrlData } = supabase.storage
-      .from("product-images")
-      .getPublicUrl(filePath);
-
-    setFormData({ ...formData, image_url: publicUrlData.publicUrl });
+    setFormData({ ...formData, images: [...formData.images, ...newUrls] });
     setUploading(false);
+
+    // 파일 input 초기화
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const removeImage = (index: number) => {
+    setFormData({
+      ...formData,
+      images: formData.images.filter((_, i) => i !== index),
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.image_url) {
+    if (formData.images.length === 0) {
       alert("이미지를 업로드해주세요.");
       return;
     }
@@ -116,7 +137,8 @@ export default function ReviewsPage() {
       const { error } = await supabase
         .from("reviews")
         .update({
-          image_url: formData.image_url,
+          images: formData.images,
+          image_url: formData.images[0] || null, // 하위 호환성
           rating: formData.rating,
           content: formData.content,
           author_name: formData.author_name,
@@ -134,12 +156,14 @@ export default function ReviewsPage() {
     } else {
       // 등록
       const { error } = await supabase.from("reviews").insert({
-        image_url: formData.image_url,
+        images: formData.images,
+        image_url: formData.images[0] || null, // 하위 호환성
         rating: formData.rating,
         content: formData.content,
         author_name: formData.author_name,
         is_active: formData.is_active,
         sort_order: formData.sort_order,
+        type: "admin",
       });
 
       if (error) {
@@ -184,8 +208,10 @@ export default function ReviewsPage() {
   const openModal = (review?: Review) => {
     if (review) {
       setEditingReview(review);
+      // images 배열 우선, 없으면 image_url로 배열 생성
+      const existingImages = review.images || (review.image_url ? [review.image_url] : []);
       setFormData({
-        image_url: review.image_url || "",
+        images: existingImages,
         rating: review.rating,
         content: review.content || "",
         author_name: review.author_name,
@@ -195,7 +221,7 @@ export default function ReviewsPage() {
     } else {
       setEditingReview(null);
       setFormData({
-        image_url: "",
+        images: [],
         rating: 5,
         content: "",
         author_name: "",
@@ -210,7 +236,7 @@ export default function ReviewsPage() {
     setShowModal(false);
     setEditingReview(null);
     setFormData({
-      image_url: "",
+      images: [],
       rating: 5,
       content: "",
       author_name: "",
@@ -518,45 +544,60 @@ export default function ReviewsPage() {
             </div>
 
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              {/* 이미지 업로드 */}
+              {/* 이미지 업로드 (최대 3장) */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  리뷰 이미지 <span className="text-red-500">*</span>
+                  리뷰 이미지 (최대 {MAX_IMAGES}장) <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="file"
                   ref={fileInputRef}
                   accept="image/*"
+                  multiple
                   onChange={handleImageUpload}
                   className="hidden"
                 />
-                {formData.image_url ? (
-                  <div className="relative aspect-[4/3] bg-gray-100 rounded-lg overflow-hidden">
-                    <Image
-                      src={formData.image_url}
-                      alt="리뷰 이미지"
-                      fill
-                      className="object-cover"
-                      unoptimized
-                    />
+                <div className="flex flex-wrap gap-2">
+                  {formData.images.map((url, index) => (
+                    <div key={index} className="relative w-24 h-24 rounded-lg overflow-hidden bg-gray-100">
+                      <Image
+                        src={url}
+                        alt={`리뷰 이미지 ${index + 1}`}
+                        fill
+                        className="object-cover"
+                        unoptimized
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeImage(index)}
+                        className="absolute top-1 right-1 w-5 h-5 bg-black bg-opacity-60 rounded-full flex items-center justify-center"
+                      >
+                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                  {formData.images.length < MAX_IMAGES && (
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="absolute inset-0 bg-black bg-opacity-40 text-white flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
+                      disabled={uploading}
+                      className="w-24 h-24 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center text-gray-400 hover:border-gray-400 hover:text-gray-500"
                     >
-                      이미지 변경
+                      {uploading ? (
+                        <span className="text-xs">업로드중...</span>
+                      ) : (
+                        <>
+                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                          </svg>
+                          <span className="text-xs mt-1">{formData.images.length}/{MAX_IMAGES}</span>
+                        </>
+                      )}
                     </button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={uploading}
-                    className="w-full aspect-[4/3] border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center text-gray-500 hover:border-gray-400"
-                  >
-                    {uploading ? "업로드 중..." : "클릭하여 이미지 업로드"}
-                  </button>
-                )}
+                  )}
+                </div>
               </div>
 
               {/* 별점 */}
