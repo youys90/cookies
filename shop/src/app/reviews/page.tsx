@@ -85,14 +85,29 @@ export default function ReviewsPage() {
     let query = supabase
       .from("reviews")
       .select("*, review_replies(*)")
-      .eq("is_active", true)
-      .order("created_at", { ascending: false });
+      .eq("is_active", true);
 
     if (selectedRating !== null) {
-      query = query.eq("rating", selectedRating);
+      // 특정 별점 선택 시: 최신순
+      query = query.eq("rating", selectedRating).order("created_at", { ascending: false });
     }
 
     const { data, error } = await query;
+
+    // 전체일 때: 4~5점 (최신순) → 1~3점 (최신순) 정렬
+    if (selectedRating === null && data) {
+      data.sort((a, b) => {
+        const aIsHigh = a.rating >= 4;
+        const bIsHigh = b.rating >= 4;
+
+        // 4~5점이 먼저
+        if (aIsHigh && !bIsHigh) return -1;
+        if (!aIsHigh && bIsHigh) return 1;
+
+        // 같은 그룹 내에서는 최신순
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
+    }
 
     if (error) {
       console.error("리뷰 조회 실패:", error);
