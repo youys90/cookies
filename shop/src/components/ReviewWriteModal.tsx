@@ -106,13 +106,13 @@ export default function ReviewWriteModal({ isOpen, onClose, onSuccess }: ReviewW
         ? authorName[0] + "*"
         : authorName;
 
-    // 별점 1~3점: 관리자 승인 필요 (is_active: false) + 자동 댓글 예약
-    // 별점 4~5점: 바로 노출 (is_active: true)
-    const needsApproval = rating <= 3;
+    // 별점 1~3점: 바로 노출되지만 내용은 비공개 (비밀번호로 확인) + 자동 댓글 예약
+    // 별점 4~5점: 바로 노출 (공개)
+    const isLowRating = rating <= 3;
 
     // 1~3점일 경우 15~60분 뒤 자동 댓글 예약
     let autoReplyAt = null;
-    if (needsApproval) {
+    if (isLowRating) {
       const delayMinutes = Math.floor(Math.random() * 46) + 15; // 15~60분
       autoReplyAt = new Date(Date.now() + delayMinutes * 60 * 1000).toISOString();
     }
@@ -124,7 +124,7 @@ export default function ReviewWriteModal({ isOpen, onClose, onSuccess }: ReviewW
       author_name: maskedName,
       password: password.trim(),
       type: "user",
-      is_active: !needsApproval,
+      is_active: true, // 모든 리뷰 바로 노출 (1~3점은 내용만 비공개)
       sort_order: 999, // 사용자 리뷰는 뒤쪽에 정렬
       auto_reply_at: autoReplyAt,
     });
