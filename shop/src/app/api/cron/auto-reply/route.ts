@@ -4,23 +4,17 @@ import { createClient } from "@supabase/supabase-js";
 // Cron job: 1분마다 실행되어 자동 댓글 처리
 // 별점 1~3점 리뷰에 대해 예약된 시간이 지나면 사과 댓글 등록
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 // 자동 댓글 내용 (일본어)
 const AUTO_REPLY_MESSAGE = `ご不便をおかけして誠に申し訳ございません。
 お客様からいただいたご意見を大切に確認いたしました。問題解決とサービス改善のために最善を尽くしてまいります。
 貴重なご意見をいただき、ありがとうございます。`;
 
-export async function GET(request: Request) {
-  // Vercel Cron 인증 확인
-  const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+export async function GET() {
   try {
     const now = new Date().toISOString();
 
