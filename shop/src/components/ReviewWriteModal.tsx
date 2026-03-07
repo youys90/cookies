@@ -17,10 +17,11 @@ export default function ReviewWriteModal({ isOpen, onClose, onSuccess }: ReviewW
   const [content, setContent] = useState("");
   const [authorName, setAuthorName] = useState("");
   const [password, setPassword] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
+  const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const MAX_IMAGES = 3;
 
   if (!isOpen) return null;
 
@@ -36,8 +37,8 @@ export default function ReviewWriteModal({ isOpen, onClose, onSuccess }: ReviewW
     passwordLabel: language === "ko" ? "비밀번호" : "パスワード",
     passwordPlaceholder: language === "ko" ? "리뷰 수정/삭제 시 필요" : "レビューの修正・削除時に必要",
     passwordRequired: language === "ko" ? "비밀번호를 입력해주세요." : "パスワードを入力してください。",
-    imageLabel: language === "ko" ? "사진 첨부 (선택)" : "写真を添付（任意）",
-    uploadBtn: language === "ko" ? "사진 선택" : "写真を選択",
+    imageLabel: language === "ko" ? "사진 첨부 (최대 3장)" : "写真を添付（最大3枚）",
+    uploadBtn: language === "ko" ? "사진 추가" : "写真を追加",
     uploading: language === "ko" ? "업로드 중..." : "アップロード中...",
     cancel: language === "ko" ? "취소" : "キャンセル",
     submit: language === "ko" ? "등록하기" : "投稿する",
@@ -50,37 +51,55 @@ export default function ReviewWriteModal({ isOpen, onClose, onSuccess }: ReviewW
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
+    const remainingSlots = MAX_IMAGES - imageUrls.length;
+    if (remainingSlots <= 0) return;
+
+    const filesToUpload = Array.from(files).slice(0, remainingSlots);
     setUploading(true);
 
-    const fileExt = file.name.split(".").pop();
-    const fileName = `user_review_${Date.now()}.${fileExt}`;
-    const filePath = `reviews/${fileName}`;
+    const newUrls: string[] = [];
 
-    const { error: uploadError } = await supabase.storage
-      .from("product-images")
-      .upload(filePath, file);
+    for (const file of filesToUpload) {
+      const fileExt = file.name.split(".").pop();
+      const fileName = `user_review_${Date.now()}_${Math.random().toString(36).slice(2)}.${fileExt}`;
+      const filePath = `reviews/${fileName}`;
 
-    if (uploadError) {
-      console.error("이미지 업로드 실패:", uploadError);
-      setUploading(false);
-      return;
+      const { error: uploadError } = await supabase.storage
+        .from("product-images")
+        .upload(filePath, file);
+
+      if (uploadError) {
+        console.error("이미지 업로드 실패:", uploadError);
+        continue;
+      }
+
+      const { data: publicUrlData } = supabase.storage
+        .from("product-images")
+        .getPublicUrl(filePath);
+
+      newUrls.push(publicUrlData.publicUrl);
     }
 
-    const { data: publicUrlData } = supabase.storage
-      .from("product-images")
-      .getPublicUrl(filePath);
-
-    setImageUrl(publicUrlData.publicUrl);
+    setImageUrls((prev) => [...prev, ...newUrls]);
     setUploading(false);
+
+    // 파일 input 초기화 (같은 파일 다시 선택 가능하게)
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const removeImage = (index: number) => {
+    setImageUrls((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!imageUrl) {
+    if (imageUrls.length === 0) {
       alert(t.imageRequired);
       return;
     }
@@ -118,7 +137,7 @@ export default function ReviewWriteModal({ isOpen, onClose, onSuccess }: ReviewW
     }
 
     const { error } = await supabase.from("reviews").insert({
-      image_url: imageUrl || null,
+      images: imageUrls.length > 0 ? imageUrls : null,
       rating,
       content: content.trim(),
       author_name: maskedName,
@@ -148,7 +167,7 @@ export default function ReviewWriteModal({ isOpen, onClose, onSuccess }: ReviewW
     setContent("");
     setAuthorName("");
     setPassword("");
-    setImageUrl("");
+    setImageUrls([]);
   };
 
   const handleClose = () => {
@@ -241,47 +260,60 @@ export default function ReviewWriteModal({ isOpen, onClose, onSuccess }: ReviewW
             <p className="text-xs text-gray-400 mt-1 text-right">{content.length}/500</p>
           </div>
 
-          {/* 이미지 업로드 */}
+          {/* 이미지 업로드 (최대 3장) */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              {t.imageLabel}
+              {t.imageLabel} <span className="text-red-500">*</span>
             </label>
             <input
               type="file"
               ref={fileInputRef}
               accept="image/*"
+              multiple
               onChange={handleImageUpload}
               className="hidden"
             />
-            {imageUrl ? (
-              <div className="relative w-24 h-24 rounded-lg overflow-hidden bg-gray-100">
-                <Image
-                  src={imageUrl}
-                  alt="리뷰 이미지"
-                  fill
-                  className="object-cover"
-                  unoptimized
-                />
+            <div className="flex flex-wrap gap-2">
+              {imageUrls.map((url, index) => (
+                <div key={index} className="relative w-24 h-24 rounded-lg overflow-hidden bg-gray-100">
+                  <Image
+                    src={url}
+                    alt={`리뷰 이미지 ${index + 1}`}
+                    fill
+                    className="object-cover"
+                    unoptimized
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeImage(index)}
+                    className="absolute top-1 right-1 w-5 h-5 bg-black bg-opacity-60 rounded-full flex items-center justify-center"
+                  >
+                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+              {imageUrls.length < MAX_IMAGES && (
                 <button
                   type="button"
-                  onClick={() => setImageUrl("")}
-                  className="absolute top-1 right-1 w-5 h-5 bg-black bg-opacity-60 rounded-full flex items-center justify-center"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  className="w-24 h-24 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center text-gray-400 hover:border-gray-400 hover:text-gray-500"
                 >
-                  <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                  {uploading ? (
+                    <span className="text-xs">{t.uploading}</span>
+                  ) : (
+                    <>
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                      <span className="text-xs mt-1">{imageUrls.length}/{MAX_IMAGES}</span>
+                    </>
+                  )}
                 </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50"
-              >
-                {uploading ? t.uploading : t.uploadBtn}
-              </button>
-            )}
+              )}
+            </div>
           </div>
 
           {/* 버튼 */}
