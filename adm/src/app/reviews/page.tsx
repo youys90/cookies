@@ -12,6 +12,7 @@ interface Review {
   author_name: string;
   is_active: boolean;
   sort_order: number;
+  type: "admin" | "user";
   created_at: string;
 }
 
@@ -21,6 +22,7 @@ export default function ReviewsPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingReview, setEditingReview] = useState<Review | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [typeFilter, setTypeFilter] = useState<"all" | "admin" | "user">("all");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 폼 상태
@@ -218,7 +220,7 @@ export default function ReviewsPage() {
   return (
     <div>
       {/* Header */}
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-2xl font-light tracking-wide text-gray-900">
             리뷰 관리
@@ -235,6 +237,40 @@ export default function ReviewsPage() {
         </button>
       </div>
 
+      {/* 필터 탭 */}
+      <div className="flex gap-2 mb-6">
+        <button
+          onClick={() => setTypeFilter("all")}
+          className={`px-4 py-2 text-sm rounded-lg transition-colors ${
+            typeFilter === "all"
+              ? "bg-gray-900 text-white"
+              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+          }`}
+        >
+          전체 ({reviews.length})
+        </button>
+        <button
+          onClick={() => setTypeFilter("admin")}
+          className={`px-4 py-2 text-sm rounded-lg transition-colors ${
+            typeFilter === "admin"
+              ? "bg-gray-900 text-white"
+              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+          }`}
+        >
+          관리자 등록 ({reviews.filter((r) => r.type === "admin" || !r.type).length})
+        </button>
+        <button
+          onClick={() => setTypeFilter("user")}
+          className={`px-4 py-2 text-sm rounded-lg transition-colors ${
+            typeFilter === "user"
+              ? "bg-gray-900 text-white"
+              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+          }`}
+        >
+          사용자 작성 ({reviews.filter((r) => r.type === "user").length})
+        </button>
+      </div>
+
       {/* 리뷰 목록 */}
       {loading ? (
         <div className="text-center py-20 text-gray-500">로딩 중...</div>
@@ -244,7 +280,13 @@ export default function ReviewsPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {reviews.map((review) => (
+          {reviews
+            .filter((review) => {
+              if (typeFilter === "all") return true;
+              if (typeFilter === "admin") return review.type === "admin" || !review.type;
+              return review.type === "user";
+            })
+            .map((review) => (
             <div
               key={review.id}
               className={`bg-white rounded-xl shadow-sm overflow-hidden ${
@@ -264,9 +306,15 @@ export default function ReviewsPage() {
                 <div className="absolute top-2 left-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded">
                   순서: {review.sort_order}
                 </div>
+                {/* 타입 배지 */}
+                <div className={`absolute top-2 right-2 text-white text-xs px-2 py-1 rounded ${
+                  review.type === "user" ? "bg-blue-500" : "bg-gray-600"
+                }`}>
+                  {review.type === "user" ? "사용자" : "관리자"}
+                </div>
                 {/* 상태 배지 */}
                 {!review.is_active && (
-                  <div className="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-1 rounded">
+                  <div className="absolute top-8 right-2 bg-red-500 text-white text-xs px-2 py-1 rounded">
                     비노출
                   </div>
                 )}
