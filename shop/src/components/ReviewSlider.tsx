@@ -38,7 +38,7 @@ export default function ReviewSlider() {
       .select("id, image_url, images, rating, content, author_name")
       .eq("is_active", true)
       .gte("rating", 4) // 4~5점만 공개
-      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: false })
       .limit(15);
 
     if (error) {

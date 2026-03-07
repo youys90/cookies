@@ -177,7 +177,7 @@ export async function GET() {
         .insert({
           product_id: productId,
           rating,
-          nickname: maskNickname(nickname),
+          author_name: maskNickname(nickname),
           content,
           images: [imageUrl],
           type: "fake",
