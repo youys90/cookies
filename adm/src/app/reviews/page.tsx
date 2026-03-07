@@ -186,7 +186,7 @@ export default function ReviewsPage() {
     if (review) {
       setEditingReview(review);
       setFormData({
-        image_url: review.image_url,
+        image_url: review.image_url || "",
         rating: review.rating,
         content: review.content || "",
         author_name: review.author_name,

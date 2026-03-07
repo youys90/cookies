@@ -51,6 +51,11 @@ export default function ReviewsPage() {
   const [unlockedReviews, setUnlockedReviews] = useState<Set<string>>(new Set());
   const [passwordError, setPasswordError] = useState(false);
 
+  // 이미지 확대 보기용
+  const [lightboxImages, setLightboxImages] = useState<string[]>([]);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [showLightbox, setShowLightbox] = useState(false);
+
   useEffect(() => {
     fetchReviews();
   }, [selectedRating]);
@@ -188,6 +193,22 @@ export default function ReviewsPage() {
 
   const isPrivateReview = (review: Review) => review.rating <= 3;
   const isUnlocked = (reviewId: string) => unlockedReviews.has(reviewId);
+
+  // 이미지 라이트박스 열기
+  const openLightbox = (images: string[], startIndex: number) => {
+    setLightboxImages(images);
+    setLightboxIndex(startIndex);
+    setShowLightbox(true);
+  };
+
+  // 이미지 이동
+  const goToPrev = () => {
+    setLightboxIndex((prev) => (prev === 0 ? lightboxImages.length - 1 : prev - 1));
+  };
+
+  const goToNext = () => {
+    setLightboxIndex((prev) => (prev === lightboxImages.length - 1 ? 0 : prev + 1));
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -337,14 +358,18 @@ export default function ReviewsPage() {
                         {review.content}
                       </p>
 
-                      {/* 리뷰 이미지 (배민 스타일 - 여러 장) */}
+                      {/* 리뷰 이미지 (배민 스타일 - 여러 장, 클릭 시 확대) */}
                       {(() => {
                         const imageList = review.images || (review.image_url ? [review.image_url] : []);
                         if (imageList.length === 0) return null;
                         return (
                           <div className="mt-3 flex gap-2 overflow-x-auto">
                             {imageList.map((url, idx) => (
-                              <div key={idx} className="relative w-24 h-24 flex-shrink-0 rounded-lg overflow-hidden bg-gray-100">
+                              <button
+                                key={idx}
+                                onClick={() => openLightbox(imageList, idx)}
+                                className="relative w-24 h-24 flex-shrink-0 rounded-lg overflow-hidden bg-gray-100 cursor-pointer hover:opacity-90 transition-opacity"
+                              >
                                 <Image
                                   src={url}
                                   alt={`리뷰 이미지 ${idx + 1}`}
@@ -352,7 +377,7 @@ export default function ReviewsPage() {
                                   className="object-cover"
                                   unoptimized
                                 />
-                              </div>
+                              </button>
                             ))}
                           </div>
                         );
@@ -389,6 +414,101 @@ export default function ReviewsPage() {
         onClose={() => setShowWriteModal(false)}
         onSuccess={fetchReviews}
       />
+
+      {/* 이미지 라이트박스 */}
+      {showLightbox && lightboxImages.length > 0 && (
+        <div
+          className="fixed inset-0 z-50 bg-black bg-opacity-90 flex items-center justify-center"
+          onClick={() => setShowLightbox(false)}
+        >
+          {/* 닫기 버튼 */}
+          <button
+            onClick={() => setShowLightbox(false)}
+            className="absolute top-4 right-4 text-white hover:text-gray-300 z-10"
+          >
+            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+
+          {/* 이미지 카운터 */}
+          {lightboxImages.length > 1 && (
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 text-white text-sm">
+              {lightboxIndex + 1} / {lightboxImages.length}
+            </div>
+          )}
+
+          {/* 이전 버튼 */}
+          {lightboxImages.length > 1 && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                goToPrev();
+              }}
+              className="absolute left-4 text-white hover:text-gray-300 p-2"
+            >
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+          )}
+
+          {/* 메인 이미지 */}
+          <div
+            className="relative max-w-[90vw] max-h-[85vh] w-full h-full flex items-center justify-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Image
+              src={lightboxImages[lightboxIndex]}
+              alt={`확대 이미지 ${lightboxIndex + 1}`}
+              fill
+              className="object-contain"
+              unoptimized
+            />
+          </div>
+
+          {/* 다음 버튼 */}
+          {lightboxImages.length > 1 && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                goToNext();
+              }}
+              className="absolute right-4 text-white hover:text-gray-300 p-2"
+            >
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          )}
+
+          {/* 썸네일 */}
+          {lightboxImages.length > 1 && (
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
+              {lightboxImages.map((url, idx) => (
+                <button
+                  key={idx}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setLightboxIndex(idx);
+                  }}
+                  className={`relative w-12 h-12 rounded overflow-hidden ${
+                    idx === lightboxIndex ? "ring-2 ring-white" : "opacity-60"
+                  }`}
+                >
+                  <Image
+                    src={url}
+                    alt={`썸네일 ${idx + 1}`}
+                    fill
+                    className="object-cover"
+                    unoptimized
+                  />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 비밀번호 입력 모달 */}
       {showPasswordModal && (
