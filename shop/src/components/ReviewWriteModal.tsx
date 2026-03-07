@@ -16,6 +16,7 @@ export default function ReviewWriteModal({ isOpen, onClose, onSuccess }: ReviewW
   const [rating, setRating] = useState(5);
   const [content, setContent] = useState("");
   const [authorName, setAuthorName] = useState("");
+  const [password, setPassword] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -32,6 +33,9 @@ export default function ReviewWriteModal({ isOpen, onClose, onSuccess }: ReviewW
       : "商品についての感想をお聞かせください",
     nameLabel: language === "ko" ? "닉네임" : "ニックネーム",
     namePlaceholder: language === "ko" ? "예: 홍길동" : "例: 田中太郎",
+    passwordLabel: language === "ko" ? "비밀번호" : "パスワード",
+    passwordPlaceholder: language === "ko" ? "리뷰 수정/삭제 시 필요" : "レビューの修正・削除時に必要",
+    passwordRequired: language === "ko" ? "비밀번호를 입력해주세요." : "パスワードを入力してください。",
     imageLabel: language === "ko" ? "사진 첨부 (선택)" : "写真を添付（任意）",
     uploadBtn: language === "ko" ? "사진 선택" : "写真を選択",
     uploading: language === "ko" ? "업로드 중..." : "アップロード中...",
@@ -82,6 +86,10 @@ export default function ReviewWriteModal({ isOpen, onClose, onSuccess }: ReviewW
       alert(t.nameRequired);
       return;
     }
+    if (!password.trim()) {
+      alert(t.passwordRequired);
+      return;
+    }
     if (!content.trim()) {
       alert(t.contentRequired);
       return;
@@ -112,6 +120,7 @@ export default function ReviewWriteModal({ isOpen, onClose, onSuccess }: ReviewW
       rating,
       content: content.trim(),
       author_name: maskedName,
+      password: password.trim(),
       type: "user",
       is_active: !needsApproval,
       sort_order: 999, // 사용자 리뷰는 뒤쪽에 정렬
@@ -136,6 +145,7 @@ export default function ReviewWriteModal({ isOpen, onClose, onSuccess }: ReviewW
     setRating(5);
     setContent("");
     setAuthorName("");
+    setPassword("");
     setImageUrl("");
   };
 
@@ -193,6 +203,21 @@ export default function ReviewWriteModal({ isOpen, onClose, onSuccess }: ReviewW
               value={authorName}
               onChange={(e) => setAuthorName(e.target.value)}
               placeholder={t.namePlaceholder}
+              maxLength={20}
+              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+            />
+          </div>
+
+          {/* 비밀번호 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              {t.passwordLabel} <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder={t.passwordPlaceholder}
               maxLength={20}
               className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
             />

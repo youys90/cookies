@@ -50,11 +50,12 @@ export default function ReviewsPage() {
   const fetchReviews = async () => {
     setLoading(true);
 
-    // 통계용 전체 리뷰 조회
+    // 통계용 전체 리뷰 조회 (4~5점만)
     const { data: allReviews } = await supabase
       .from("reviews")
       .select("rating")
-      .eq("is_active", true);
+      .eq("is_active", true)
+      .gte("rating", 4);
 
     if (allReviews) {
       const totalCount = allReviews.length;
@@ -73,14 +74,15 @@ export default function ReviewsPage() {
       });
     }
 
-    // 필터링된 리뷰 조회
+    // 필터링된 리뷰 조회 (4~5점만)
     let query = supabase
       .from("reviews")
       .select("*, review_replies(*)")
       .eq("is_active", true)
+      .gte("rating", 4)
       .order("created_at", { ascending: false });
 
-    if (selectedRating !== null) {
+    if (selectedRating !== null && selectedRating >= 4) {
       query = query.eq("rating", selectedRating);
     }
 
@@ -167,9 +169,9 @@ export default function ReviewsPage() {
               </div>
             </div>
 
-            {/* 별점 분포 */}
+            {/* 별점 분포 (4~5점만) */}
             <div className="flex-1 space-y-1">
-              {[5, 4, 3, 2, 1].map((star) => {
+              {[5, 4].map((star) => {
                 const count = stats.ratingCounts[star] || 0;
                 const percentage = stats.totalCount > 0 ? (count / stats.totalCount) * 100 : 0;
                 return (
@@ -202,7 +204,7 @@ export default function ReviewsPage() {
             >
               {t.all} ({stats.totalCount})
             </button>
-            {[5, 4, 3, 2, 1].map((star) => (
+            {[5, 4].map((star) => (
               <button
                 key={star}
                 onClick={() => setSelectedRating(star)}
