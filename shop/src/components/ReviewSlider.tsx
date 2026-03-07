@@ -74,7 +74,7 @@ export default function ReviewSlider() {
       : "商品のレビューを残していただくと、他のお客様の参考になります。",
   };
 
-  // 로딩 중이면 렌더링하지 않음
+  // 로딩 중이면 렌더링하지 않음 (스켈레톤 대신 null 반환)
   if (loading) {
     return null;
   }
