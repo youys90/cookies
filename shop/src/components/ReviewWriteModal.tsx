@@ -69,7 +69,7 @@ export default function ReviewWriteModal({ isOpen, onClose, onSuccess }: ReviewW
     lineNameRequired: language === "ko" ? "LINE NAME을 입력해주세요." : "LINE NAMEを入力してください。",
   };
 
-  // LINE NAME으로 주문내역 조회
+  // LINE NAME으로 주문내역 조회 (이미 리뷰 작성한 상품 제외)
   const searchOrdersByLineName = async () => {
     if (!lineName.trim()) {
       alert(t.lineNameRequired);
@@ -81,6 +81,25 @@ export default function ReviewWriteModal({ isOpen, onClose, onSuccess }: ReviewW
     setOrderItems([]);
     setSelectedProduct(null);
 
+    // 1. 해당 LINE NAME으로 이미 작성한 리뷰의 product_id 조회
+    // 마스킹 패턴: 4자 이상은 앞 3자 + ***, 3자 이하는 마지막 1글자만 *
+    const maskedPattern = lineName.trim().length > 3
+      ? lineName.trim().slice(0, 3) + "***"
+      : lineName.trim().length > 1
+        ? lineName.trim().slice(0, -1) + "*"
+        : "*";
+
+    const { data: existingReviews } = await supabase
+      .from("reviews")
+      .select("product_id")
+      .eq("author_name", maskedPattern)
+      .eq("type", "user");
+
+    const reviewedProductIds = new Set(
+      existingReviews?.map((r) => r.product_id).filter(Boolean) || []
+    );
+
+    // 2. 주문내역 조회
     const { data, error } = await supabase
       .from("orders")
       .select(`
@@ -101,14 +120,15 @@ export default function ReviewWriteModal({ isOpen, onClose, onSuccess }: ReviewW
     if (error) {
       console.error("주문 조회 에러:", error);
     } else if (data) {
-      // 주문 상품들을 평탄화 (중복 제거)
+      // 주문 상품들을 평탄화 (중복 제거 + 이미 리뷰 작성한 상품 제외)
       const items: OrderItem[] = [];
       const seenProducts = new Set<string>();
 
       data.forEach((order) => {
         (order.order_items as OrderItem[] | null)?.forEach((item) => {
           const key = `${item.product_id}_${item.option_name || ""}`;
-          if (!seenProducts.has(key)) {
+          // 이미 리뷰 작성한 상품은 제외
+          if (!seenProducts.has(key) && !reviewedProductIds.has(item.product_id)) {
             seenProducts.add(key);
             items.push(item);
           }
