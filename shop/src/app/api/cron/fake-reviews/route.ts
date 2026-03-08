@@ -30,10 +30,16 @@ function getRandomNickname(): string {
   return `${lastName}${firstChar}`;
 }
 
-// 닉네임 마스킹 (田中美 → 田*美)
+// 닉네임 마스킹 (사용자 리뷰와 동일한 방식)
+// 4자 이상: 앞 3자 + *** (예: 田中美花 → 田中美***)
+// 3자 이하: 마지막 1자만 * (예: 田中美 → 田中*)
 function maskNickname(name: string): string {
-  if (name.length <= 2) return name;
-  return name[0] + "*" + name.slice(2);
+  if (name.length > 3) {
+    return name.slice(0, 3) + "***";
+  } else if (name.length > 1) {
+    return name.slice(0, -1) + "*";
+  }
+  return "*";
 }
 
 // Gemini API로 리뷰 내용 생성

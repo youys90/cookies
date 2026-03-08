@@ -71,6 +71,15 @@ export default function ProductDetailPage() {
       console.error('상품 조회 실패:', error);
       setProduct(null);
     } else {
+      // Premium 카테고리 상품은 비밀번호 인증 필요
+      if (data?.category === '➡ Premium High-Quality ✨') {
+        const staffAccess = sessionStorage.getItem('staff_access');
+        if (staffAccess !== 'true') {
+          // 권한 없으면 홈으로 리다이렉트
+          router.push('/');
+          return;
+        }
+      }
       setProduct(data);
     }
     setLoading(false);
@@ -88,6 +97,15 @@ export default function ProductDetailPage() {
       console.error('옵션 조회 실패:', error);
       setOptions([]);
     } else {
+      // Premium 카테고리 상품은 비밀번호 인증 필요
+      if (data?.category === '➡ Premium High-Quality ✨') {
+        const staffAccess = sessionStorage.getItem('staff_access');
+        if (staffAccess !== 'true') {
+          // 권한 없으면 홈으로 리다이렉트
+          router.push('/');
+          return;
+        }
+      }
       setOptions(data || []);
       if (data && data.length > 0) {
         setSelectedOption(data[0]);
