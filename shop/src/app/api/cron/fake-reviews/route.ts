@@ -21,13 +21,66 @@ function getRandomRating(): number {
   return 1;
 }
 
-// 랜덤 닉네임 생성 (일본어)
-function getRandomNickname(): string {
-  const lastNames = ["田中", "山田", "佐藤", "鈴木", "高橋", "渡辺", "伊藤", "中村", "小林", "加藤"];
-  const firstChars = ["美", "花", "愛", "優", "真", "陽", "結", "咲", "莉", "彩"];
-  const lastName = lastNames[Math.floor(Math.random() * lastNames.length)];
-  const firstChar = firstChars[Math.floor(Math.random() * firstChars.length)];
-  return `${lastName}${firstChar}`;
+// Gemini API로 LINE 닉네임 생성
+async function generateNickname(): Promise<string> {
+  const prompt = `あなたは日本のLINEユーザーです。
+LINEの表示名（ニックネーム）を1つだけ生成してください。
+
+以下のような実際のLINEユーザーが使う自然なスタイルで：
+- 英語の名前: yuki, miki_chan, sakura99, hina.m
+- 英語+絵文字: 🌸miki, nana💕, ✨rina✨
+- ひらがな/カタカナ: みき, ユイ, なな
+- 英単語組み合わせ: sweetbunny, happycat, moonflower
+- 創造的なもの: choco.late, ___mii, xoxo.rina
+
+条件：
+- 3〜15文字程度
+- 女性的な雰囲気
+- 絵文字は0〜2個まで
+- 「ニックネーム:」などの接頭辞は付けない
+
+ニックネームのみを出力してください:`;
+
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 1.2, maxOutputTokens: 50 },
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      console.error("Gemini nickname API error:", await response.text());
+      return getDefaultNickname();
+    }
+
+    const data = await response.json();
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+
+    if (!text || text.length > 20) {
+      return getDefaultNickname();
+    }
+
+    return text;
+  } catch (error) {
+    console.error("Gemini nickname API 호출 실패:", error);
+    return getDefaultNickname();
+  }
+}
+
+// Gemini 실패 시 기본 닉네임 (랜덤)
+function getDefaultNickname(): string {
+  const nicknames = [
+    "yuki", "miki_chan", "sakura99", "🌸nana", "rina💕",
+    "みき", "ユイ", "hina.m", "sweetcat", "✨mai✨",
+    "aoi_", "happybunny", "lily77", "さき", "momo.chan"
+  ];
+  return nicknames[Math.floor(Math.random() * nicknames.length)];
 }
 
 // 닉네임 마스킹 (사용자 리뷰와 동일한 방식)
@@ -174,7 +227,7 @@ export async function GET(request: Request) {
       }
 
       const rating = getRandomRating();
-      const nickname = getRandomNickname();
+      const nickname = await generateNickname();
       const content = await generateReviewContent(rating);
 
       // 리뷰 삽입 (type: 'fake', 모두 공개, 사진 없음, 상품 해시태그 포함)
