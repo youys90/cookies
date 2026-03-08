@@ -32,7 +32,7 @@ export default function ReviewsPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingReview, setEditingReview] = useState<Review | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [typeFilter, setTypeFilter] = useState<"all" | "admin" | "user">("all");
+  const [typeFilter, setTypeFilter] = useState<"all" | "admin" | "user" | "fake">("all");
   const [ratingFilter, setRatingFilter] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -363,6 +363,16 @@ export default function ReviewsPage() {
         >
           사용자 작성 ({reviews.filter((r) => r.type === "user").length})
         </button>
+        <button
+          onClick={() => setTypeFilter("fake")}
+          className={`px-4 py-2 text-sm rounded-lg transition-colors ${
+            typeFilter === "fake"
+              ? "bg-purple-600 text-white"
+              : "bg-purple-100 text-purple-600 hover:bg-purple-200"
+          }`}
+        >
+          AI 생성 ({reviews.filter((r) => r.type === "fake").length})
+        </button>
       </div>
 
       {/* 별점 필터 */}
@@ -410,6 +420,7 @@ export default function ReviewsPage() {
               // 타입 필터
               if (typeFilter === "admin" && review.type !== "admin" && review.type) return false;
               if (typeFilter === "user" && review.type !== "user") return false;
+              if (typeFilter === "fake" && review.type !== "fake") return false;
               // 별점 필터
               if (ratingFilter !== null && review.rating !== ratingFilter) return false;
               return true;
@@ -440,9 +451,9 @@ export default function ReviewsPage() {
                 </div>
                 {/* 타입 배지 */}
                 <div className={`absolute top-2 right-2 text-white text-xs px-2 py-1 rounded ${
-                  review.type === "user" ? "bg-blue-500" : "bg-gray-600"
+                  review.type === "user" ? "bg-blue-500" : review.type === "fake" ? "bg-purple-500" : "bg-gray-600"
                 }`}>
-                  {review.type === "user" ? "사용자" : "관리자"}
+                  {review.type === "user" ? "사용자" : review.type === "fake" ? "AI" : "관리자"}
                 </div>
                 {/* 상태 배지 */}
                 {!review.is_active && (
