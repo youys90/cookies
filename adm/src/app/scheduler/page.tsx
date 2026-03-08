@@ -27,7 +27,7 @@ interface SchedulerLog {
 const SCHEDULER_JOBS: SchedulerJob[] = [
   {
     name: "fake-reviews",
-    description: "AI 리뷰 자동 생성 (하루 15개)",
+    description: "AI 리뷰 자동 생성 (1개)",
     apiPath: "/api/cron/fake-reviews",
     cronTime: "매일 새벽 1시",
   },
