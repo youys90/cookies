@@ -144,14 +144,6 @@ async function getRandomProductId(): Promise<string | null> {
   return randomProduct.id;
 }
 
-// 랜덤 이미지 URL (picsum.photos)
-function getRandomImageUrl(): string {
-  const width = 400;
-  const height = 400;
-  const randomId = Math.floor(Math.random() * 1000);
-  return `https://picsum.photos/seed/${randomId}/${width}/${height}`;
-}
-
 export async function GET() {
   try {
     // 하루 생성 개수: 14~15개 (주간 100개 목표)
@@ -169,9 +161,8 @@ export async function GET() {
       const rating = getRandomRating();
       const nickname = getRandomNickname();
       const content = await generateReviewContent(rating);
-      const imageUrl = getRandomImageUrl();
 
-      // 리뷰 삽입 (type: 'fake', 모두 공개)
+      // 리뷰 삽입 (type: 'fake', 모두 공개, 사진 없음)
       const { error: insertError } = await supabase
         .from("reviews")
         .insert({
@@ -179,10 +170,10 @@ export async function GET() {
           rating,
           author_name: maskNickname(nickname),
           content,
-          images: [imageUrl],
+          images: null, // AI 리뷰는 사진 없음
           type: "fake",
           is_active: true,
-          password: null, // 가짜 리뷰는 비밀번호 없음
+          password: null,
           auto_reply_at: null,
         });
 

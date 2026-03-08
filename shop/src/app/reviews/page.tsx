@@ -24,6 +24,9 @@ interface Review {
   created_at: string;
   type: string;
   review_replies?: ReviewReply[];
+  product_id?: number;
+  product_ids?: number[];
+  product_names?: string[];
 }
 
 interface ReviewStats {
@@ -379,6 +382,31 @@ export default function ReviewsPage() {
                           </div>
                         );
                       })()}
+
+                      {/* 상품 해시태그 */}
+                      {review.product_names && review.product_names.length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-1.5">
+                          {review.product_names.map((name, idx) => {
+                            const productId = review.product_ids?.[idx];
+                            return productId ? (
+                              <Link
+                                key={idx}
+                                href={`/products/${productId}`}
+                                className="inline-flex items-center px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 hover:text-gray-900 text-xs rounded-full transition-colors"
+                              >
+                                #{name}
+                              </Link>
+                            ) : (
+                              <span
+                                key={idx}
+                                className="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full"
+                              >
+                                #{name}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
 
                       {/* 사장님 답변 */}
                       {review.review_replies && review.review_replies.length > 0 && (

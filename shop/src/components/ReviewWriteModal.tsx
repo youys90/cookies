@@ -33,7 +33,7 @@ export default function ReviewWriteModal({ isOpen, onClose, onSuccess }: ReviewW
   // 주문내역 연동
   const [lineName, setLineName] = useState("");
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
-  const [selectedProduct, setSelectedProduct] = useState<OrderItem | null>(null);
+  const [selectedProducts, setSelectedProducts] = useState<OrderItem[]>([]); // 다중 선택
   const [searchingOrders, setSearchingOrders] = useState(false);
   const [orderSearched, setOrderSearched] = useState(false);
 
@@ -46,10 +46,10 @@ export default function ReviewWriteModal({ isOpen, onClose, onSuccess }: ReviewW
     contentPlaceholder: language === "ko"
       ? "상품에 대한 솔직한 후기를 남겨주세요"
       : "商品についての感想をお聞かせください",
-        passwordLabel: language === "ko" ? "비밀번호" : "パスワード",
+    passwordLabel: language === "ko" ? "비밀번호" : "パスワード",
     passwordPlaceholder: language === "ko" ? "리뷰 수정/삭제 시 필요" : "レビューの修正・削除時に必要",
     passwordRequired: language === "ko" ? "비밀번호를 입력해주세요." : "パスワードを入力してください。",
-    imageLabel: language === "ko" ? "사진 첨부 (최대 3장)" : "写真を添付（最大3枚）",
+    imageLabel: language === "ko" ? "사진 첨부 (선택, 최대 3장)" : "写真を添付（任意、最大3枚）",
     uploadBtn: language === "ko" ? "사진 추가" : "写真を追加",
     uploading: language === "ko" ? "업로드 중..." : "アップロード中...",
     cancel: language === "ko" ? "취소" : "キャンセル",
@@ -57,16 +57,16 @@ export default function ReviewWriteModal({ isOpen, onClose, onSuccess }: ReviewW
     submitting: language === "ko" ? "등록 중..." : "投稿中...",
     successMsg: language === "ko" ? "리뷰가 등록되었습니다!" : "レビューが投稿されました！",
     errorMsg: language === "ko" ? "등록에 실패했습니다." : "投稿に失敗しました。",
-        contentRequired: language === "ko" ? "리뷰 내용을 입력해주세요." : "レビュー内容を入力してください。",
-    imageRequired: language === "ko" ? "사진을 첨부해주세요." : "写真を添付してください。",
+    contentRequired: language === "ko" ? "리뷰 내용을 입력해주세요." : "レビュー内容を入力してください。",
     lineNameLabel: language === "ko" ? "LINE NAME" : "LINE NAME",
     lineNamePlaceholder: language === "ko" ? "주문 시 입력한 LINE ID" : "注文時に入力したLINE ID",
     searchOrders: language === "ko" ? "조회" : "検索",
     searching: language === "ko" ? "조회 중..." : "検索中...",
-    productLabel: language === "ko" ? "구매 상품" : "購入商品",
+    productLabel: language === "ko" ? "구매 상품 (복수 선택 가능)" : "購入商品（複数選択可）",
     productRequired: language === "ko" ? "상품을 선택해주세요." : "商品を選択してください。",
     noOrders: language === "ko" ? "주문 내역이 없습니다." : "注文履歴がありません。",
     lineNameRequired: language === "ko" ? "LINE NAME을 입력해주세요." : "LINE NAMEを入力してください。",
+    selectedCount: language === "ko" ? "개 선택됨" : "件選択中",
   };
 
   // LINE NAME으로 주문내역 조회 (이미 리뷰 작성한 상품 제외)
@@ -79,10 +79,9 @@ export default function ReviewWriteModal({ isOpen, onClose, onSuccess }: ReviewW
     setSearchingOrders(true);
     setOrderSearched(true);
     setOrderItems([]);
-    setSelectedProduct(null);
+    setSelectedProducts([]);
 
     // 1. 해당 LINE NAME으로 이미 작성한 리뷰의 product_id 조회
-    // 마스킹 패턴: 4자 이상은 앞 3자 + ***, 3자 이하는 마지막 1글자만 *
     const maskedPattern = lineName.trim().length > 3
       ? lineName.trim().slice(0, 3) + "***"
       : lineName.trim().length > 1
@@ -120,14 +119,12 @@ export default function ReviewWriteModal({ isOpen, onClose, onSuccess }: ReviewW
     if (error) {
       console.error("주문 조회 에러:", error);
     } else if (data) {
-      // 주문 상품들을 평탄화 (중복 제거 + 이미 리뷰 작성한 상품 제외)
       const items: OrderItem[] = [];
       const seenProducts = new Set<string>();
 
       data.forEach((order) => {
         (order.order_items as OrderItem[] | null)?.forEach((item) => {
           const key = `${item.product_id}_${item.option_name || ""}`;
-          // 이미 리뷰 작성한 상품은 제외
           if (!seenProducts.has(key) && !reviewedProductIds.has(item.product_id)) {
             seenProducts.add(key);
             items.push(item);
@@ -139,6 +136,18 @@ export default function ReviewWriteModal({ isOpen, onClose, onSuccess }: ReviewW
     }
 
     setSearchingOrders(false);
+  };
+
+  // 상품 선택/해제 토글
+  const toggleProductSelection = (item: OrderItem) => {
+    setSelectedProducts((prev) => {
+      const isSelected = prev.some((p) => p.id === item.id);
+      if (isSelected) {
+        return prev.filter((p) => p.id !== item.id);
+      } else {
+        return [...prev, item];
+      }
+    });
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -177,7 +186,6 @@ export default function ReviewWriteModal({ isOpen, onClose, onSuccess }: ReviewW
     setImageUrls((prev) => [...prev, ...newUrls]);
     setUploading(false);
 
-    // 파일 input 초기화 (같은 파일 다시 선택 가능하게)
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -190,12 +198,8 @@ export default function ReviewWriteModal({ isOpen, onClose, onSuccess }: ReviewW
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!selectedProduct) {
+    if (selectedProducts.length === 0) {
       alert(t.productRequired);
-      return;
-    }
-    if (imageUrls.length === 0) {
-      alert(t.imageRequired);
       return;
     }
     if (!lineName.trim()) {
@@ -214,24 +218,23 @@ export default function ReviewWriteModal({ isOpen, onClose, onSuccess }: ReviewW
     setSubmitting(true);
 
     // LINE NAME 마스킹
-    // 4자 이상: 앞 3자리만 노출 + *** (예: cookies_lover → coo***)
-    // 3자 이하: 마지막 1글자만 마스킹 (예: abc → ab*, ab → a*, a → *)
     const maskedName = lineName.length > 3
       ? lineName.slice(0, 3) + "***"
       : lineName.length > 1
         ? lineName.slice(0, -1) + "*"
         : "*";
 
-    // 별점 1~3점: 바로 노출되지만 내용은 비공개 (비밀번호로 확인) + 자동 댓글 예약
-    // 별점 4~5점: 바로 노출 (공개)
     const isLowRating = rating <= 3;
 
-    // 1~3점일 경우 15~60분 뒤 자동 댓글 예약
     let autoReplyAt = null;
     if (isLowRating) {
-      const delayMinutes = Math.floor(Math.random() * 46) + 15; // 15~60분
+      const delayMinutes = Math.floor(Math.random() * 46) + 15;
       autoReplyAt = new Date(Date.now() + delayMinutes * 60 * 1000).toISOString();
     }
+
+    // 선택된 상품들의 ID 배열과 이름 배열
+    const productIds = selectedProducts.map((p) => parseInt(p.product_id));
+    const productNames = selectedProducts.map((p) => p.product_name);
 
     const { error } = await supabase.from("reviews").insert({
       images: imageUrls.length > 0 ? imageUrls : null,
@@ -240,10 +243,12 @@ export default function ReviewWriteModal({ isOpen, onClose, onSuccess }: ReviewW
       author_name: maskedName,
       password: password.trim(),
       type: "user",
-      is_active: true, // 모든 리뷰 바로 노출 (1~3점은 내용만 비공개)
-      sort_order: 999, // 사용자 리뷰는 뒤쪽에 정렬
+      is_active: true,
+      sort_order: 999,
       auto_reply_at: autoReplyAt,
-      product_id: selectedProduct.product_id,
+      product_id: productIds[0], // 첫 번째 상품 (기존 호환성)
+      product_ids: productIds, // 전체 상품 ID 배열
+      product_names: productNames, // 상품명 배열 (해시태그용)
     });
 
     setSubmitting(false);
@@ -267,7 +272,7 @@ export default function ReviewWriteModal({ isOpen, onClose, onSuccess }: ReviewW
     setImageUrls([]);
     setLineName("");
     setOrderItems([]);
-    setSelectedProduct(null);
+    setSelectedProducts([]);
     setOrderSearched(false);
   };
 
@@ -315,62 +320,69 @@ export default function ReviewWriteModal({ isOpen, onClose, onSuccess }: ReviewW
             </div>
           </div>
 
-          {/* 구매 상품 선택 */}
+          {/* 구매 상품 선택 (다중 선택) */}
           {orderSearched && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 {t.productLabel} <span className="text-red-500">*</span>
+                {selectedProducts.length > 0 && (
+                  <span className="ml-2 text-xs text-blue-600">
+                    ({selectedProducts.length}{t.selectedCount})
+                  </span>
+                )}
               </label>
               {orderItems.length === 0 ? (
                 <p className="text-sm text-gray-500 bg-gray-50 p-3 rounded-lg">{t.noOrders}</p>
               ) : (
                 <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {orderItems.map((item) => (
-                    <label
-                      key={item.id}
-                      className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${
-                        selectedProduct?.id === item.id
-                          ? "border-gray-900 bg-gray-50"
-                          : "border-gray-200 hover:border-gray-300"
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="product"
-                        checked={selectedProduct?.id === item.id}
-                        onChange={() => setSelectedProduct(item)}
-                        className="sr-only"
-                      />
-                      {item.product_image && (
-                        <div className="relative w-12 h-12 rounded overflow-hidden bg-gray-100 flex-shrink-0">
-                          <Image
-                            src={item.product_image}
-                            alt={item.product_name}
-                            fill
-                            className="object-cover"
-                            unoptimized
-                          />
+                  {orderItems.map((item) => {
+                    const isSelected = selectedProducts.some((p) => p.id === item.id);
+                    return (
+                      <label
+                        key={item.id}
+                        className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${
+                          isSelected
+                            ? "border-gray-900 bg-gray-50"
+                            : "border-gray-200 hover:border-gray-300"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleProductSelection(item)}
+                          className="sr-only"
+                        />
+                        {item.product_image && (
+                          <div className="relative w-12 h-12 rounded overflow-hidden bg-gray-100 flex-shrink-0">
+                            <Image
+                              src={item.product_image}
+                              alt={item.product_name}
+                              fill
+                              className="object-cover"
+                              unoptimized
+                            />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">{item.product_name}</p>
+                          {item.option_name && (
+                            <p className="text-xs text-gray-500 truncate">{item.option_name}</p>
+                          )}
                         </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 truncate">{item.product_name}</p>
-                        {item.option_name && (
-                          <p className="text-xs text-gray-500 truncate">{item.option_name}</p>
-                        )}
-                      </div>
-                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                        selectedProduct?.id === item.id
-                          ? "border-gray-900 bg-gray-900"
-                          : "border-gray-300"
-                      }`}>
-                        {selectedProduct?.id === item.id && (
-                          <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                          </svg>
-                        )}
-                      </div>
-                    </label>
-                  ))}
+                        <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
+                          isSelected
+                            ? "border-gray-900 bg-gray-900"
+                            : "border-gray-300"
+                        }`}>
+                          {isSelected && (
+                            <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          )}
+                        </div>
+                      </label>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -432,10 +444,10 @@ export default function ReviewWriteModal({ isOpen, onClose, onSuccess }: ReviewW
             <p className="text-xs text-gray-400 mt-1 text-right">{content.length}/500</p>
           </div>
 
-          {/* 이미지 업로드 (최대 3장) */}
+          {/* 이미지 업로드 (선택사항, 최대 3장) */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              {t.imageLabel} <span className="text-red-500">*</span>
+              {t.imageLabel}
             </label>
             <input
               type="file"
