@@ -146,8 +146,8 @@ async function getRandomProductId(): Promise<string | null> {
 
 export async function GET() {
   try {
-    // 하루 생성 개수: 14~15개 (주간 100개 목표)
-    const dailyCount = Math.floor(Math.random() * 2) + 14; // 14 or 15
+    // 하루 생성 개수: 1개
+    const dailyCount = 1;
     let createdCount = 0;
     const errors: string[] = [];
 

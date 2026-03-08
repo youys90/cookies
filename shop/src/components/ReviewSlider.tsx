@@ -39,12 +39,16 @@ export default function ReviewSlider() {
       .eq("is_active", true)
       .gte("rating", 4) // 4~5점만 공개
       .order("created_at", { ascending: false })
-      .limit(15);
+      .limit(30); // 사진 있는 것만 필터링하므로 넉넉히 조회
 
     if (error) {
       console.error("리뷰 조회 실패:", error);
     } else {
-      setReviews(data || []);
+      // 사진 있는 리뷰만 필터링 (최대 15개)
+      const reviewsWithImages = (data || [])
+        .filter((r) => r.images?.length > 0 || r.image_url)
+        .slice(0, 15);
+      setReviews(reviewsWithImages);
     }
     setLoading(false);
   };
