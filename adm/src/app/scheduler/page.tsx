@@ -45,6 +45,11 @@ export default function SchedulerPage() {
   const [executing, setExecuting] = useState<string | null>(null);
   const [todayExecuted, setTodayExecuted] = useState<Record<string, boolean>>({});
 
+  // AI 리뷰 생성 갯수 모달
+  const [showCountModal, setShowCountModal] = useState(false);
+  const [reviewCount, setReviewCount] = useState(1);
+  const [pendingJob, setPendingJob] = useState<SchedulerJob | null>(null);
+
   useEffect(() => {
     fetchLogs();
   }, []);
@@ -86,16 +91,62 @@ export default function SchedulerPage() {
       return;
     }
 
+    // AI 리뷰 생성인 경우 갯수 모달 표시
+    if (job.name === "fake-reviews") {
+      setPendingJob(job);
+      setReviewCount(1);
+      setShowCountModal(true);
+      return;
+    }
+
+    // 다른 작업은 기존 방식
     if (!confirm(`"${job.description}" 작업을 실행하시겠습니까?`)) {
       return;
     }
 
+    await runJob(job);
+  };
+
+  const handleReviewCountSubmit = async () => {
+    if (!pendingJob) return;
+
+    // 2개 이상일 때 경고 2번
+    if (reviewCount >= 2) {
+      const warning1 = confirm(
+        `⚠️ 경고: ${reviewCount}개의 리뷰가 동시에 생성됩니다.\n\n` +
+        `동시에 여러 개의 리뷰가 생성되면 작성 시간이 같아서 인위적으로 보일 수 있습니다.\n\n` +
+        `계속하시겠습니까?`
+      );
+      if (!warning1) {
+        setShowCountModal(false);
+        setPendingJob(null);
+        return;
+      }
+
+      const warning2 = confirm(
+        `⚠️ 최종 확인: 정말로 ${reviewCount}개를 한번에 생성하시겠습니까?\n\n` +
+        `자연스러운 리뷰 분포를 위해서는 1개씩 여러 날에 걸쳐 생성하는 것을 권장합니다.`
+      );
+      if (!warning2) {
+        setShowCountModal(false);
+        setPendingJob(null);
+        return;
+      }
+    }
+
+    setShowCountModal(false);
+    await runJob(pendingJob, reviewCount);
+    setPendingJob(null);
+  };
+
+  const runJob = async (job: SchedulerJob, count?: number) => {
     setExecuting(job.name);
 
     try {
       // shop 서버의 cron API 호출
       const shopUrl = process.env.NEXT_PUBLIC_SHOP_URL || "https://cookies-git-dev-youyeongsiks-projects.vercel.app";
-      const response = await fetch(`${shopUrl}${job.apiPath}`);
+      const url = count ? `${shopUrl}${job.apiPath}?count=${count}` : `${shopUrl}${job.apiPath}`;
+      const response = await fetch(url);
       const result = await response.json();
 
       // 실행 기록 저장
@@ -291,6 +342,52 @@ export default function SchedulerPage() {
           </div>
         </div>
       </div>
+
+      {/* AI 리뷰 갯수 입력 모달 */}
+      {showCountModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-xl w-full max-w-sm mx-4 p-6">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">
+              AI 리뷰 생성 갯수
+            </h3>
+            <p className="text-sm text-gray-500 mb-4">
+              생성할 리뷰 갯수를 입력하세요.
+            </p>
+            <input
+              type="number"
+              min={1}
+              max={20}
+              value={reviewCount}
+              onChange={(e) => setReviewCount(Math.max(1, Math.min(20, parseInt(e.target.value) || 1)))}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-lg text-center focus:outline-none focus:ring-2 focus:ring-gray-900"
+            />
+            {reviewCount >= 2 && (
+              <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-xs text-yellow-700">
+                  ⚠️ 2개 이상 생성 시 동시 생성으로 인해 인위적으로 보일 수 있습니다.
+                </p>
+              </div>
+            )}
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowCountModal(false);
+                  setPendingJob(null);
+                }}
+                className="flex-1 py-2.5 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleReviewCountSubmit}
+                className="flex-1 py-2.5 bg-gray-900 text-white rounded-lg hover:bg-gray-800"
+              >
+                실행
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 실행 기록 */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100">

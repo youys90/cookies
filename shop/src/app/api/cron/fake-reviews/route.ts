@@ -127,11 +127,11 @@ function getDefaultReviewContent(rating: number): string {
   }
 }
 
-// 랜덤 상품 ID 가져오기
-async function getRandomProductId(): Promise<string | null> {
+// 랜덤 상품 1~2개 가져오기 (id, name 포함)
+async function getRandomProducts(): Promise<{ ids: number[]; names: string[] } | null> {
   const { data: products, error } = await supabase
     .from("products")
-    .select("id")
+    .select("id, name")
     .eq("is_active", true)
     .limit(100);
 
@@ -140,21 +140,30 @@ async function getRandomProductId(): Promise<string | null> {
     return null;
   }
 
-  const randomProduct = products[Math.floor(Math.random() * products.length)];
-  return randomProduct.id;
+  // 1~2개 랜덤 선택
+  const count = Math.random() < 0.5 ? 1 : 2;
+  const shuffled = products.sort(() => Math.random() - 0.5);
+  const selected = shuffled.slice(0, Math.min(count, products.length));
+
+  return {
+    ids: selected.map((p) => p.id),
+    names: selected.map((p) => p.name),
+  };
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    // 하루 생성 개수: 1개
-    const dailyCount = 1;
+    // URL에서 count 파라미터 추출 (기본값: 1)
+    const { searchParams } = new URL(request.url);
+    const countParam = searchParams.get("count");
+    const dailyCount = countParam ? Math.min(Math.max(1, parseInt(countParam) || 1), 20) : 1;
     let createdCount = 0;
     const errors: string[] = [];
 
     for (let i = 0; i < dailyCount; i++) {
-      const productId = await getRandomProductId();
-      if (!productId) {
-        errors.push(`상품 ID 조회 실패 (${i + 1}번째)`);
+      const products = await getRandomProducts();
+      if (!products) {
+        errors.push(`상품 조회 실패 (${i + 1}번째)`);
         continue;
       }
 
@@ -162,11 +171,13 @@ export async function GET() {
       const nickname = getRandomNickname();
       const content = await generateReviewContent(rating);
 
-      // 리뷰 삽입 (type: 'fake', 모두 공개, 사진 없음)
+      // 리뷰 삽입 (type: 'fake', 모두 공개, 사진 없음, 상품 해시태그 포함)
       const { error: insertError } = await supabase
         .from("reviews")
         .insert({
-          product_id: productId,
+          product_id: products.ids[0], // 첫 번째 상품 (기존 호환성)
+          product_ids: products.ids, // 전체 상품 ID 배열
+          product_names: products.names, // 상품명 배열 (해시태그용)
           rating,
           author_name: maskNickname(nickname),
           content,
