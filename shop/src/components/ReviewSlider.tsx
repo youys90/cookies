@@ -33,22 +33,34 @@ export default function ReviewSlider() {
   }, []);
 
   const fetchReviews = async () => {
-    const { data, error } = await supabase
+    // 사진 있는 리뷰만 조회 (images가 빈 배열이 아닌 것 + image_url이 있는 것)
+    const { data: imgReviews, error: err1 } = await supabase
       .from("reviews")
       .select("id, image_url, images, rating, content, author_name")
       .eq("is_active", true)
-      .gte("rating", 4) // 4~5점만 공개
+      .gte("rating", 4)
+      .not("images", "is", null)
       .order("created_at", { ascending: false })
-      .limit(30); // 사진 있는 것만 필터링하므로 넉넉히 조회
+      .limit(15);
 
-    if (error) {
-      console.error("리뷰 조회 실패:", error);
+    const { data: urlReviews, error: err2 } = await supabase
+      .from("reviews")
+      .select("id, image_url, images, rating, content, author_name")
+      .eq("is_active", true)
+      .gte("rating", 4)
+      .not("image_url", "is", null)
+      .is("images", null)
+      .order("created_at", { ascending: false })
+      .limit(15);
+
+    if (err1 && err2) {
+      console.error("리뷰 조회 실패:", err1, err2);
     } else {
-      // 사진 있는 리뷰만 필터링 (최대 15개)
-      const reviewsWithImages = (data || [])
-        .filter((r) => r.images?.length > 0 || r.image_url)
-        .slice(0, 15);
-      setReviews(reviewsWithImages);
+      const combined = [...(imgReviews || []), ...(urlReviews || [])]
+        .filter((r) => r.images?.length > 0 || r.image_url);
+      // 중복 제거 후 최대 15개
+      const unique = combined.filter((r, i, arr) => arr.findIndex((x) => x.id === r.id) === i);
+      setReviews(unique.slice(0, 15));
     }
     setLoading(false);
   };
