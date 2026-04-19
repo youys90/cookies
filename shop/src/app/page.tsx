@@ -1,11 +1,12 @@
 "use client";
-
+// v1.0.1
 import { useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Banner from "@/components/Banner";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import ProductCard from "@/components/ProductCard";
 import StaffPasswordModal from "@/components/StaffPasswordModal";
+import ReviewSlider from "@/components/ReviewSlider";
 import { supabase } from "@/lib/supabase";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -219,7 +220,10 @@ export default function Home() {
       {/* Banner */}
       <Banner />
 
-      {/* Language Switcher - 배너 바로 아래 */}
+      {/* Review Slider - 배너 바로 아래 */}
+      <ReviewSlider />
+
+      {/* Language Switcher */}
       <LanguageSwitcher />
 
       {/* Products Section */}

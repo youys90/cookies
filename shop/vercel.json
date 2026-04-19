@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/auto-reply",
+      "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/fake-reviews",
+      "schedule": "0 1 * * *"
+    }
+  ]
+}
