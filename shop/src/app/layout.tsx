@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Noto_Sans_KR, Noto_Sans_JP } from "next/font/google";
+import { Noto_Sans_KR, Noto_Sans_JP, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -19,9 +19,16 @@ const notoSansJp = Noto_Sans_JP({
   variable: "--font-noto-jp",
 });
 
+const playfair = Playfair_Display({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  style: ["normal", "italic"],
+  variable: "--font-playfair",
+});
+
 export const metadata: Metadata = {
-  title: "Cookies - ジュエリー",
-  description: "特別なジュエリーブランド Cookies",
+  title: "mignon — little happiness",
+  description: "心ときめくアイテムをお届けします。 mignon の小さな雑貨店",
 };
 
 export default function RootLayout({
@@ -31,7 +38,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja">
-      <body className={`${notoSansKr.variable} ${notoSansJp.variable} font-sans antialiased`}>
+      <body className={`${notoSansKr.variable} ${notoSansJp.variable} ${playfair.variable} font-sans antialiased`}>
         <DevBanner />
         <LanguageProvider>
           <CartProvider>

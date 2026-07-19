@@ -1,12 +1,12 @@
 "use client";
-// v1.0.1
+// mignon 메인 - 셀렉트샵 미니멀 패턴 (자체 작성)
+// 구조: 짧은 히어로 → 카테고리 8개 슬림 → NEW ARRIVAL 그리드 → BEST 그리드 → ALL PRODUCTS(쿠키즈 검색/필터/페이지네이션 유지)
 import { useState, useEffect } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import Banner from "@/components/Banner";
-import LanguageSwitcher from "@/components/LanguageSwitcher";
+import { useSearchParams } from "next/navigation";
+import Link from "next/link";
+import Image from "next/image";
 import ProductCard from "@/components/ProductCard";
 import StaffPasswordModal from "@/components/StaffPasswordModal";
-import ReviewSlider from "@/components/ReviewSlider";
 import { supabase } from "@/lib/supabase";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -23,444 +23,327 @@ interface Product {
   category_ko?: string;
   sub_category?: string;
   description?: string;
+  created_at?: string;
 }
 
-const PAGE_SIZE_OPTIONS = [10, 50, 100];
+const PAGE_SIZE_OPTIONS = [25, 50, 100]; // 5의 배수 (5컬럼 그리드)
+
+// ── mignon 카테고리 8개 ──
+type MignonCat = {
+  key: string;
+  labelJp: string;
+  labelEn: string;
+  icon: string;
+  dbCategory: string;
+  subFilter: string[];
+  saleOnly?: boolean;
+};
+const MIGNON_CATEGORIES: MignonCat[] = [
+  { key: "acc",        labelJp: "アクセサリー",     labelEn: "ACC",        icon: "ring",     dbCategory: "アクセサリー",     subFilter: ["ピアス","リング","ブレスレット"] },
+  { key: "bag",        labelJp: "バッグ",            labelEn: "BAG",        icon: "bag",      dbCategory: "ファッション雑貨", subFilter: ["ミニバッグ"] },
+  { key: "jewelry",    labelJp: "ジュエリー",        labelEn: "JEWELRY",    icon: "necklace", dbCategory: "アクセサリー",     subFilter: ["ネックレス"] },
+  { key: "hair",       labelJp: "ヘアアクセサリー",  labelEn: "HAIR ACC",   icon: "ribbon",   dbCategory: "ヘアアクセサリー", subFilter: [] },
+  { key: "lifestyle",  labelJp: "ライフスタイル",    labelEn: "LIFESTYLE",  icon: "cup",      dbCategory: "ファッション雑貨", subFilter: ["ポーチ","靴下","キャップ","財布"] },
+  { key: "interior",   labelJp: "インテリア",        labelEn: "INTERIOR",   icon: "lamp",     dbCategory: "その他（ETC）",   subFilter: [] },
+  { key: "stationery", labelJp: "ステーショナリー",  labelEn: "STATIONERY", icon: "note",     dbCategory: "その他（ETC）",   subFilter: [] },
+  { key: "sale",       labelJp: "SALE",              labelEn: "SALE",       icon: "heart",    dbCategory: "",                 subFilter: [], saleOnly: true },
+];
+
+function CategoryIcon({ name }: { name: string }) {
+  const c = "w-7 h-7 md:w-8 md:h-8 stroke-[var(--color-text)]";
+  switch (name) {
+    case "ring":     return (<svg className={c} viewBox="0 0 48 48" fill="none" strokeWidth="1.3"><circle cx="24" cy="30" r="9" /><path d="M16 22l4-7h8l4 7" /><path d="M22 14l2 2 2-2" /></svg>);
+    case "bag":      return (<svg className={c} viewBox="0 0 48 48" fill="none" strokeWidth="1.3"><path d="M13 17h22l-2 21H15L13 17z" /><path d="M19 17v-2a5 5 0 0110 0v2" /></svg>);
+    case "necklace": return (<svg className={c} viewBox="0 0 48 48" fill="none" strokeWidth="1.3"><path d="M11 13c4 12 13 19 13 19s9-7 13-19" /><path d="M24 32l-2.5 4h5l-2.5-4z" /></svg>);
+    case "ribbon":   return (<svg className={c} viewBox="0 0 48 48" fill="none" strokeWidth="1.3"><path d="M18 18c-4-4-10-2-10 4s6 8 10 4c-4 4-2 10 4 10s8-6 4-10c4 4 10 2 10-4s-6-8-10-4c4-4 2-10-4-10s-8 6-4 10z" /><circle cx="24" cy="24" r="2" /></svg>);
+    case "cup":      return (<svg className={c} viewBox="0 0 48 48" fill="none" strokeWidth="1.3"><path d="M14 18h18v14a5 5 0 01-5 5h-8a5 5 0 01-5-5V18z" /><path d="M32 22h3a4 4 0 010 8h-3" /></svg>);
+    case "lamp":     return (<svg className={c} viewBox="0 0 48 48" fill="none" strokeWidth="1.3"><path d="M17 18l3-7h8l3 7" /><path d="M17 18l2 9h10l2-9" /><path d="M24 27v9M18 36h12" /></svg>);
+    case "note":     return (<svg className={c} viewBox="0 0 48 48" fill="none" strokeWidth="1.3"><rect x="13" y="11" width="22" height="26" rx="1.5" /><path d="M17 17h14M17 22h14M17 27h10" /></svg>);
+    case "heart":    return (<svg className={c} viewBox="0 0 48 48" fill="none" strokeWidth="1.3"><path d="M24 36s-11-6-11-15a6 6 0 0111-3 6 6 0 0111 3c0 9-11 15-11 15z" /></svg>);
+    default: return null;
+  }
+}
 
 export default function Home() {
   const { language, t } = useLanguage();
   const searchParams = useSearchParams();
-  const router = useRouter();
   const [products, setProducts] = useState<Product[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState(searchParams.get("cat") || "all");
-  const [selectedSubCategory, setSelectedSubCategory] = useState("all");
+  const [heroItems, setHeroItems] = useState<Product[]>([]); // 히어로 모자이크 3장용
+  const [selectedMignonCat, setSelectedMignonCat] = useState<string>(searchParams.get("cat") || "all");
   const [loading, setLoading] = useState(true);
   const [showStaffModal, setShowStaffModal] = useState(false);
   const [hasStaffAccess, setHasStaffAccess] = useState(false);
-
-  // 페이지네이션
   const [currentPage, setCurrentPage] = useState(Number(searchParams.get("page")) || 1);
-  const [pageSize, setPageSize] = useState(Number(searchParams.get("size")) || 50);
+  const [pageSize, setPageSize] = useState(Number(searchParams.get("size")) || 25);
   const [totalCount, setTotalCount] = useState(0);
   const [searchKeyword, setSearchKeyword] = useState(searchParams.get("search") || "");
   const [searchInput, setSearchInput] = useState(searchParams.get("search") || "");
 
-  // 카테고리 (staffOnly 포함 - 비밀번호 기능은 나중에)
-  const categoryKeys = ["all", "accessory", "hair", "winter", "keyring", "eyewear", "fashion", "etc", "staffOnly"];
-  const categoryMap: Record<string, string> = {
-    all: "all",
-    accessory: "アクセサリー",
-    hair: "ヘアアクセサリー",
-    winter: "冬物アイテム",
-    keyring: "キーリング",
-    eyewear: "メガネ／サングラス",
-    fashion: "ファッション雑貨",
-    etc: "その他（ETC）",
-    staffOnly: "➡ Premium High-Quality ✨"
-  };
-
-  // 하위 카테고리 (카테고리 키 -> 하위 카테고리 키 배열)
-  const subCategoryKeys: Record<string, string[]> = {
-    accessory: ["earrings", "necklace", "ring", "bracelet", "etc"],
-    hair: ["hairpin", "clippin", "hairband", "headband", "etc"],
-    winter: ["gloves", "scarf", "beanie", "knithat", "etc"],
-    keyring: ["bagkeyring", "charkeyring", "strap", "etc"],
-    eyewear: ["fashionglass", "sunglass", "glasscase", "etc"],
-    fashion: ["pouch", "minibag", "wallet", "socks", "cap", "etc"],
-    etc: ["season", "event", "test", "etc"],
-  };
-
-  // 하위 카테고리 키 -> DB 값 (일본어)
-  const subCategoryMap: Record<string, string> = {
-    earrings: "ピアス", necklace: "ネックレス", ring: "リング", bracelet: "ブレスレット",
-    hairpin: "ヘアピン", clippin: "クリップピン", hairband: "ヘアゴム", headband: "ヘアバンド",
-    gloves: "手袋", scarf: "マフラー", beanie: "ビーニー", knithat: "ニット帽",
-    bagkeyring: "バッグキーリング", charkeyring: "キャラクターキーリング", strap: "ストラップ",
-    fashionglass: "ファッション眼鏡", sunglass: "サングラス", glasscase: "眼鏡ケース",
-    pouch: "ポーチ", minibag: "ミニバッグ", wallet: "財布", socks: "靴下", cap: "キャップ",
-    season: "シーズン限定", event: "イベント商品", test: "テスト商品", etc: "その他",
-  };
-
   useEffect(() => {
-    // 세션 스토리지에서 스태프 접근 권한 확인
     const staffAccess = sessionStorage.getItem("staff_access");
-    if (staffAccess === "true") {
-      setHasStaffAccess(true);
-    }
-    // URL에 ?staff=1 있으면 비밀번호 모달 표시
-    if (searchParams.get("staff") === "1" && staffAccess !== "true") {
-      setShowStaffModal(true);
-    }
+    if (staffAccess === "true") setHasStaffAccess(true);
+    if (searchParams.get("staff") === "1" && staffAccess !== "true") setShowStaffModal(true);
+    fetchHero();
   }, []);
 
-  // URL 파라미터 변경 감지 (searchParams에서 직접 읽기 - Next.js router.push 대응)
   useEffect(() => {
     const page = Number(searchParams.get("page")) || 1;
-    const size = Number(searchParams.get("size")) || 50;
+    const size = Number(searchParams.get("size")) || 25;
     const cat = searchParams.get("cat") || "all";
     const search = searchParams.get("search") || "";
-
     setCurrentPage(page);
     setPageSize(size);
-    setSelectedCategory(cat);
+    setSelectedMignonCat(cat);
     setSearchKeyword(search);
     setSearchInput(search);
   }, [searchParams]);
 
-  // 상태 변경 시 URL 업데이트 (브라우저 히스토리에 반영)
   useEffect(() => {
     const params = new URLSearchParams();
     if (currentPage !== 1) params.set("page", String(currentPage));
-    if (pageSize !== 50) params.set("size", String(pageSize));
-    if (selectedCategory !== "all") params.set("cat", selectedCategory);
+    if (pageSize !== 25) params.set("size", String(pageSize));
+    if (selectedMignonCat !== "all") params.set("cat", selectedMignonCat);
     if (searchKeyword) params.set("search", searchKeyword);
-
     const newUrl = params.toString() ? "/?" + params.toString() : "/";
     if (window.location.pathname + window.location.search !== newUrl) {
       window.history.replaceState(null, "", newUrl);
     }
-  }, [currentPage, pageSize, selectedCategory, searchKeyword]);
+  }, [currentPage, pageSize, selectedMignonCat, searchKeyword]);
 
-  // 카테고리/하위카테고리/페이지/검색 변경 시 상품 조회
   useEffect(() => {
     fetchProducts();
-  }, [selectedCategory, selectedSubCategory, currentPage, pageSize, searchKeyword]);
+  }, [selectedMignonCat, currentPage, pageSize, searchKeyword]);
+
+  const fetchHero = async () => {
+    // 히어로 모자이크 3장용 — 최신 상품 중 이미지 있는 것
+    const { data } = await supabase
+      .from("products")
+      .select("*")
+      .eq("is_active", true)
+      .neq("category", "➡ Premium High-Quality ✨")
+      .not("image", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(3);
+    setHeroItems((data as Product[]) || []);
+  };
 
   const fetchProducts = async () => {
     setLoading(true);
+    let query = supabase.from("products").select("*", { count: "exact" }).eq("is_active", true).neq("category", "➡ Premium High-Quality ✨");
 
-    // 카테고리 필터 조건
-    let query = supabase
-      .from('products')
-      .select('*', { count: 'exact' })
-      .eq('is_active', true);
-
-    // 카테고리 필터
-    if (selectedCategory === "all") {
-      query = query.neq('category', '➡ Premium High-Quality ✨');
-    } else {
-      query = query.eq('category', categoryMap[selectedCategory]);
+    const cat = MIGNON_CATEGORIES.find((c) => c.key === selectedMignonCat);
+    if (cat) {
+      if (cat.saleOnly) {
+        query = query.not("original_price", "is", null);
+      } else {
+        query = query.eq("category", cat.dbCategory);
+        if (cat.subFilter.length > 0) {
+          query = query.in("sub_category", cat.subFilter);
+        }
+      }
     }
-
-    // 하위 카테고리 필터
-    if (selectedSubCategory !== "all") {
-      query = query.eq('sub_category', subCategoryMap[selectedSubCategory]);
-    }
-
-    // 검색 필터
     if (searchKeyword) {
       query = query.or("name.ilike.%" + searchKeyword + "%,name_ja.ilike.%" + searchKeyword + "%,name_ko.ilike.%" + searchKeyword + "%");
     }
-
-    // 페이지네이션 (range는 0-based)
     const from = (currentPage - 1) * pageSize;
     const to = from + pageSize - 1;
-
-    const { data, error, count } = await query
-      .order('created_at', { ascending: false })
-      .range(from, to);
-
-    if (error) {
-      console.error('상품 조회 실패:', error);
-    } else {
-      setProducts(data || []);
+    const { data, error, count } = await query.order("created_at", { ascending: false }).range(from, to);
+    if (error) console.error("상품 조회 실패:", error);
+    else {
+      setProducts((data as Product[]) || []);
       setTotalCount(count || 0);
     }
     setLoading(false);
   };
 
-  const handleCategoryClick = (catKey: string) => {
-    // staffOnly 카테고리 클릭 시 접근 권한 확인
-    if (catKey === "staffOnly") {
-      if (hasStaffAccess) {
-        setSelectedCategory(catKey);
-        setSelectedSubCategory("all");
-        setCurrentPage(1);
-        setSearchKeyword("");
-        setSearchInput("");
-        setSearchKeyword("");
-        setSearchInput("");
-      } else {
-        setShowStaffModal(true);
-      }
-    } else {
-      setSelectedCategory(catKey);
-      setSelectedSubCategory("all");
-      setCurrentPage(1);
-    }
-  };
-
-  const handleSubCategoryClick = (subCatKey: string) => {
-    setSelectedSubCategory(subCatKey);
+  const handleMignonCategoryClick = (cat: MignonCat) => {
+    setSelectedMignonCat(cat.key);
     setCurrentPage(1);
     setSearchKeyword("");
     setSearchInput("");
+    // 스크롤 안 함 - 같은 자리에서 콘텐츠만 갱신
   };
 
-  const handlePageSizeChange = (newSize: number) => {
-    setPageSize(newSize);
-    setCurrentPage(1);
-  };
-
-  // 페이지네이션 계산
-  const totalPages = Math.ceil(totalCount / pageSize);
+  const handlePageSizeChange = (newSize: number) => { setPageSize(newSize); setCurrentPage(1); };
 
   const handleStaffAccessSuccess = () => {
     setHasStaffAccess(true);
     setShowStaffModal(false);
-    setSelectedCategory("staffOnly");
-    setSelectedSubCategory("all");
   };
 
-  // 현재 선택된 카테고리의 하위 카테고리 목록
-  const currentSubCategories = subCategoryKeys[selectedCategory] || [];
+  const totalPages = Math.ceil(totalCount / pageSize);
+  const currentCat = MIGNON_CATEGORIES.find((c) => c.key === selectedMignonCat);
 
   return (
-    <div>
-      {/* Banner */}
-      <Banner />
-
-      {/* Review Slider - 배너 바로 아래 */}
-      <ReviewSlider />
-
-      {/* Language Switcher */}
-      <LanguageSwitcher />
-
-      {/* Products Section */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        {/* Section Title */}
-        <div className="text-center mb-12">
-          <h2 className="text-2xl font-light tracking-widest text-gray-900 mb-2">
-            COLLECTION
-          </h2>
-          <p className="text-sm text-gray-500">{t("home.collection")}</p>
-        </div>
-
-        
-        {/* 검색 */}
-        <div className="mb-6">
-          <form onSubmit={(e) => { e.preventDefault(); setSearchKeyword(searchInput); setCurrentPage(1); }} className="flex justify-center gap-2">
-            <div className="relative w-full max-w-md">
-              <input
-                type="text"
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                placeholder={language === 'ko' ? '상품명 검색...' : '商品名で検索...'}
-                className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-              />
-              {searchInput && (
-                <button type="button" onClick={() => { setSearchInput(""); setSearchKeyword(""); setCurrentPage(1); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+    <div className="bg-white text-[var(--color-text)]">
+      {/* ─── 히어로 (큰 비주얼 모자이크: BEST 3개 상품 활용) ─── */}
+      <section className="bg-white">
+        <div className="max-w-[1400px] mx-auto px-4 lg:px-8 pt-6 lg:pt-8 pb-10 lg:pb-12">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 lg:gap-4 h-[420px] md:h-[560px] lg:h-[640px]">
+            {/* 좌 큰 비주얼 + 카피 오버레이 */}
+            <Link href="/?cat=all" className="relative md:col-span-2 row-span-2 bg-[var(--color-bg-cream)] overflow-hidden group">
+              {heroItems[0]?.image ? (
+                <Image src={heroItems[0].image} alt="hero" fill className="object-cover group-hover:scale-[1.02] transition-transform duration-700" sizes="(max-width: 768px) 100vw, 66vw" priority />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-[#F5EFE6] to-[#E8DECF]" />
               )}
-            </div>
-            <button type="submit" className="px-4 py-2 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-800">
-              {language === 'ko' ? '검색' : '検索'}
-            </button>
-          </form>
-          {searchKeyword && (
-            <p className="text-center text-sm text-gray-500 mt-2">
-              {language === 'ko' ? '"' + searchKeyword + '" 검색 결과' : '"' + searchKeyword + '" の検索結果'}
-            </p>
-          )}
-        </div>
+              <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" />
+              <div className="absolute left-6 lg:left-12 bottom-8 lg:bottom-12 text-white">
+                <p className="font-serif text-[12px] lg:text-[14px] tracking-[0.3em] mb-2 opacity-90">2026 S/S</p>
+                <p className="font-serif text-[40px] lg:text-[64px] leading-none tracking-tight">mignon</p>
+                <p className="font-serif italic text-[14px] lg:text-[16px] opacity-90 mt-2">little happiness</p>
+                <p className="text-[11px] lg:text-[12px] opacity-80 mt-5 leading-relaxed max-w-[280px]">
+                  {language === "ja" ? "東京から、ときめくアイテムをあなたへ。" : "도쿄에서, 두근거리는 아이템을 당신에게."}
+                </p>
+                <span className="inline-block mt-6 text-[11px] tracking-[0.3em] border-b border-white/80 pb-1">SHOP NOW +</span>
+              </div>
+            </Link>
 
-        {/* Category Filter - 스크롤 가능 */}
-        <div className="flex justify-start md:justify-center overflow-x-auto pb-2 mb-4 -mx-4 px-4 md:mx-0 md:px-0">
-          <div className="flex space-x-3 md:space-x-4">
-            {categoryKeys.map((catKey) => (
-              <button
-                key={catKey}
-                onClick={() => handleCategoryClick(catKey)}
-                className={`px-3 md:px-4 py-2 text-sm tracking-wide transition-colors whitespace-nowrap ${
-                  selectedCategory === catKey
-                    ? "text-gray-900 border-b-2 border-gray-900"
-                    : "text-gray-400 hover:text-gray-600"
-                }`}
-              >
-                {t(`category.${catKey}`)}
-              </button>
-            ))}
+            {/* 우 상단 */}
+            <Link href="/?cat=acc" className="relative bg-[var(--color-bg-soft)] overflow-hidden group hidden md:block">
+              {heroItems[1]?.image ? (
+                <Image src={heroItems[1].image} alt="acc" fill className="object-cover group-hover:scale-[1.04] transition-transform duration-700" sizes="33vw" />
+              ) : (
+                <div className="w-full h-full" />
+              )}
+              <div className="absolute left-5 bottom-5 text-white">
+                <p className="text-[10px] tracking-[0.3em] opacity-90 mb-1">CATEGORY</p>
+                <p className="font-serif text-[22px] lg:text-[26px] leading-none">ACC</p>
+              </div>
+              <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+            </Link>
+
+            {/* 우 하단 */}
+            <Link href="/?cat=bag" className="relative bg-[var(--color-bg-soft)] overflow-hidden group hidden md:block">
+              {heroItems[2]?.image ? (
+                <Image src={heroItems[2].image} alt="bag" fill className="object-cover group-hover:scale-[1.04] transition-transform duration-700" sizes="33vw" />
+              ) : (
+                <div className="w-full h-full" />
+              )}
+              <div className="absolute left-5 bottom-5 text-white">
+                <p className="text-[10px] tracking-[0.3em] opacity-90 mb-1">CATEGORY</p>
+                <p className="font-serif text-[22px] lg:text-[26px] leading-none">BAG</p>
+              </div>
+              <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+            </Link>
           </div>
         </div>
+      </section>
 
-        {/* Sub-category Filter - 하위 카테고리가 있을 때만 표시 */}
-        {currentSubCategories.length > 0 && (
-          <div className="flex justify-start md:justify-center overflow-x-auto pb-2 mb-12 -mx-4 px-4 md:mx-0 md:px-0">
-            <div className="flex space-x-2 md:space-x-3">
-              <button
-                onClick={() => handleSubCategoryClick("all")}
-                className={`px-3 py-1.5 text-xs tracking-wide transition-colors whitespace-nowrap rounded-full ${
-                  selectedSubCategory === "all"
-                    ? "bg-gray-900 text-white"
-                    : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-                }`}
-              >
-                {t("subcat.all")}
-              </button>
-              {currentSubCategories.map((subCatKey) => (
-                <button
-                  key={subCatKey}
-                  onClick={() => handleSubCategoryClick(subCatKey)}
-                  className={`px-3 py-1.5 text-xs tracking-wide transition-colors whitespace-nowrap rounded-full ${
-                    selectedSubCategory === subCatKey
-                      ? "bg-gray-900 text-white"
-                      : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-                  }`}
-                >
-                  {t(`subcat.${subCatKey}`)}
+      {/* ─── 카테고리 8개 (슬림) ─── */}
+      <section className="border-b border-[var(--color-line-soft)] bg-white">
+        <div className="max-w-[1400px] mx-auto px-4 lg:px-8 py-7 lg:py-9">
+          <div className="grid grid-cols-4 md:grid-cols-8 gap-y-5 gap-x-2">
+            {MIGNON_CATEGORIES.map((cat) => {
+              const active = selectedMignonCat === cat.key;
+              return (
+                <button key={cat.key} onClick={() => handleMignonCategoryClick(cat)} className="flex flex-col items-center group cursor-pointer">
+                  <div className={`w-14 h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center transition border ${active ? "border-[var(--color-text)] bg-[var(--color-bg-cream)]" : "border-[var(--color-line)] bg-[var(--color-bg-soft)] group-hover:border-[var(--color-text-soft)]"}`}>
+                    <CategoryIcon name={cat.icon} />
+                  </div>
+                  <span className={`mt-2.5 text-[10px] md:text-[11px] tracking-[0.18em] ${active ? "text-[var(--color-text)]" : "text-[var(--color-text-soft)] group-hover:text-[var(--color-text)]"}`}>
+                    {cat.labelEn}
+                  </span>
                 </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* 하위 카테고리 없으면 mb-12 유지 */}
-        {currentSubCategories.length === 0 && <div className="mb-8" />}
-
-        {/* 상품 개수 및 페이지 사이즈 선택 */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3">
-          <p className="text-sm text-gray-500">
-            {totalCount > 0 ? (
-              language === 'ko' ? `총 ${totalCount}개` : `全${totalCount}件`
-            ) : null}
-          </p>
-          <div className="flex items-center gap-1">
-            {PAGE_SIZE_OPTIONS.map((size) => (
-              <button
-                key={size}
-                onClick={() => handlePageSizeChange(size)}
-                className={`px-3 py-1.5 text-xs rounded-full ${
-                  pageSize === size
-                    ? 'bg-gray-900 text-white'
-                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                }`}
-              >
-                {size}{language === 'ko' ? '개씩' : '件'}
-              </button>
-            ))}
+              );
+            })}
           </div>
         </div>
+      </section>
 
-        {/* Product Grid - 순번 없이 */}
+      {/* ─── 상품 그리드 (전체 or 선택 카테고리 or NEW IN) ─── */}
+      <section id="products" className="max-w-[1400px] mx-auto px-4 lg:px-8 py-10 lg:py-14">
+        <div className="text-center mb-7 lg:mb-9">
+          <h2 className="text-[11px] tracking-[0.25em] text-[var(--color-text)]">
+            {searchParams.get("sort") === "new"
+              ? "NEW IN"
+              : currentCat && currentCat.key !== "all"
+                ? currentCat.labelEn
+                : "ALL PRODUCTS"}
+          </h2>
+          <p className="text-[10px] text-[var(--color-text-mute)] mt-1.5">
+            {searchParams.get("sort") === "new"
+              ? (language === "ja" ? "新着アイテム" : "신상품")
+              : currentCat && currentCat.key !== "all"
+                ? (language === "ja" ? currentCat.labelJp : currentCat.labelEn)
+                : (language === "ja" ? "全アイテム" : "전체")}
+            {totalCount > 0 && <span className="ml-1">· {totalCount}</span>}
+          </p>
+        </div>
+
+        {/* 검색 (slim) */}
+        <form onSubmit={(e) => { e.preventDefault(); setSearchKeyword(searchInput); setCurrentPage(1); }} className="mb-6 flex justify-center">
+          <div className="relative w-full max-w-[480px]">
+            <input
+              type="text"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder={language === "ko" ? "상품명 검색" : "商品名で検索"}
+              className="w-full pl-4 pr-24 py-2.5 bg-white border border-[var(--color-line)] text-[12px] text-[var(--color-text)] placeholder:text-[var(--color-text-mute)] focus:outline-none focus:border-[var(--color-text)] rounded-none"
+            />
+            <button type="submit" className="absolute right-0 top-0 bottom-0 px-5 bg-[var(--color-text)] text-white text-[11px] tracking-[0.25em]">
+              SEARCH
+            </button>
+          </div>
+        </form>
+
+        {/* 페이지 사이즈 */}
+        <div className="flex justify-end items-center gap-1 mb-5 text-[11px] text-[var(--color-text-soft)]">
+          <span className="mr-2">VIEW</span>
+          {PAGE_SIZE_OPTIONS.map((size, idx) => (
+            <span key={size} className="flex items-center">
+              <button
+                onClick={() => handlePageSizeChange(size)}
+                className={`px-1 ${pageSize === size ? "text-[var(--color-text)] underline underline-offset-2" : "hover:text-[var(--color-text)]"}`}
+              >
+                {size}
+              </button>
+              {idx < PAGE_SIZE_OPTIONS.length - 1 && <span className="text-[var(--color-text-mute)]">|</span>}
+            </span>
+          ))}
+        </div>
+
+        {/* 상품 그리드 */}
         {loading ? (
-          <div className="text-center text-gray-500 py-20">{t("common.loading")}</div>
+          <div className="text-center text-[var(--color-text-soft)] py-20 text-[12px] tracking-widest">LOADING...</div>
         ) : products.length === 0 ? (
-          <div className="text-center text-gray-500 py-20">{t("home.noProducts")}</div>
+          <div className="text-center text-[var(--color-text-soft)] py-20 text-[12px] tracking-widest">NO PRODUCTS</div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-x-3 gap-y-8 md:gap-x-4 md:gap-y-10">
             {products.map((product) => (
-              <ProductCard key={product.id} product={product} returnQuery={"page=" + currentPage + "&size=" + pageSize + "&cat=" + selectedCategory + (searchKeyword ? "&search=" + searchKeyword : "")} />
+              <ProductCard key={product.id} product={product} returnQuery={"page=" + currentPage + "&size=" + pageSize + "&cat=" + selectedMignonCat + (searchKeyword ? "&search=" + searchKeyword : "")} />
             ))}
           </div>
         )}
 
-        {/* 페이지네이션 */}
+        {/* 페이지네이션 (셀렉트샵 슬림) */}
         {totalPages > 1 && (
-          <div className="flex justify-center items-center mt-12 gap-2">
-            <button
-              onClick={() => setCurrentPage(1)}
-              disabled={currentPage === 1}
-              className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 disabled:text-gray-300 disabled:cursor-not-allowed"
-            >
-              {'<<'}
-            </button>
-            <button
-              onClick={() => setCurrentPage(currentPage - 1)}
-              disabled={currentPage === 1}
-              className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 disabled:text-gray-300 disabled:cursor-not-allowed"
-            >
-              {'<'}
-            </button>
-
-            {/* 페이지 번호 */}
+          <div className="flex justify-center items-center mt-14 gap-3 text-[11px] text-[var(--color-text-soft)] tracking-widest">
+            <button onClick={() => setCurrentPage(1)} disabled={currentPage === 1} className="hover:text-[var(--color-text)] disabled:opacity-30">{"<<"}</button>
+            <button onClick={() => setCurrentPage(currentPage - 1)} disabled={currentPage === 1} className="hover:text-[var(--color-text)] disabled:opacity-30">PREV</button>
             {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
               let pageNum: number;
-              if (totalPages <= 5) {
-                pageNum = i + 1;
-              } else if (currentPage <= 3) {
-                pageNum = i + 1;
-              } else if (currentPage >= totalPages - 2) {
-                pageNum = totalPages - 4 + i;
-              } else {
-                pageNum = currentPage - 2 + i;
-              }
+              if (totalPages <= 5) pageNum = i + 1;
+              else if (currentPage <= 3) pageNum = i + 1;
+              else if (currentPage >= totalPages - 2) pageNum = totalPages - 4 + i;
+              else pageNum = currentPage - 2 + i;
               return (
                 <button
                   key={pageNum}
                   onClick={() => setCurrentPage(pageNum)}
-                  className={`px-3 py-2 text-sm rounded ${
-                    currentPage === pageNum
-                      ? 'bg-gray-900 text-white'
-                      : 'text-gray-600 hover:bg-gray-100'
-                  }`}
+                  className={`px-1.5 ${currentPage === pageNum ? "text-[var(--color-text)] font-medium underline underline-offset-4" : "hover:text-[var(--color-text)]"}`}
                 >
                   {pageNum}
                 </button>
               );
             })}
-
-            <button
-              onClick={() => setCurrentPage(currentPage + 1)}
-              disabled={currentPage === totalPages}
-              className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 disabled:text-gray-300 disabled:cursor-not-allowed"
-            >
-              {'>'}
-            </button>
-            <button
-              onClick={() => setCurrentPage(totalPages)}
-              disabled={currentPage === totalPages}
-              className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 disabled:text-gray-300 disabled:cursor-not-allowed"
-            >
-              {'>>'}
-            </button>
+            <button onClick={() => setCurrentPage(currentPage + 1)} disabled={currentPage === totalPages} className="hover:text-[var(--color-text)] disabled:opacity-30">NEXT</button>
+            <button onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages} className="hover:text-[var(--color-text)] disabled:opacity-30">{">>"}</button>
           </div>
         )}
       </section>
 
-      {/* About Section */}
-      <section className="bg-gray-50 py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid md:grid-cols-3 gap-8 text-center">
-            <div>
-              <div className="w-12 h-12 mx-auto mb-4 flex items-center justify-center">
-                <svg className="w-8 h-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                </svg>
-              </div>
-              <h3 className="text-sm font-medium text-gray-900 mb-2">{t("home.freeShipping")}</h3>
-              <p className="text-xs text-gray-500">{t("home.freeShippingDesc")}</p>
-            </div>
-            <div>
-              <div className="w-12 h-12 mx-auto mb-4 flex items-center justify-center">
-                <svg className="w-8 h-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                </svg>
-              </div>
-              <h3 className="text-sm font-medium text-gray-900 mb-2">{t("home.quality")}</h3>
-              <p className="text-xs text-gray-500">{t("home.qualityDesc")}</p>
-            </div>
-            <div>
-              <div className="w-12 h-12 mx-auto mb-4 flex items-center justify-center">
-                <svg className="w-8 h-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" />
-                </svg>
-              </div>
-              <h3 className="text-sm font-medium text-gray-900 mb-2">{t("home.gift")}</h3>
-              <p className="text-xs text-gray-500">{t("home.giftDesc")}</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Staff Password Modal */}
-      <StaffPasswordModal
-        isOpen={showStaffModal}
-        onClose={() => setShowStaffModal(false)}
-        onSuccess={handleStaffAccessSuccess}
-      />
+      <StaffPasswordModal isOpen={showStaffModal} onClose={() => setShowStaffModal(false)} onSuccess={handleStaffAccessSuccess} />
     </div>
   );
 }

@@ -1,26 +1,74 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* 베이스: 화이트 + 다크 텍스트 (미니멀 셀렉트샵 톤) */
+  --background: #FFFFFF;
+  --foreground: #1A1A1A;
+
+  --color-bg:           #FFFFFF;
+  --color-bg-soft:      #FAFAF8;
+  --color-bg-cream:     #F7F3EC;
+  --color-bg-beige:     #EFE6D6;
+  --color-text:         #1A1A1A;
+  --color-text-soft:    #6B6B6B;
+  --color-text-mute:    #A0A0A0;
+  --color-line:         #E8E5E0;
+  --color-line-soft:    #F0EDE6;
+  --color-point:        #C8907F;
+  --color-point-soft:   #E4BFB2;
+  --color-sale:         #C44A4A;
+
+  /* legacy alias (기존 코드 호환용) */
+  --color-cream:        #FAFAF8;
+  --color-cream-2:      #F7F3EC;
+  --color-cream-3:      #EFE6D6;
+  --color-beige-card:   #EFE6D6;
+  --color-beige-card-2: #E8DECF;
+  --color-brown:        #1A1A1A;
+  --color-brown-soft:   #6B6B6B;
+  --color-coral:        #C8907F;
+  --color-coral-light:  #E4BFB2;
+  --color-pink-soft:    #F5D5CC;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-bg: var(--color-bg);
+  --color-bg-soft: var(--color-bg-soft);
+  --color-bg-cream: var(--color-bg-cream);
+  --color-bg-beige: var(--color-bg-beige);
+  --color-text: var(--color-text);
+  --color-text-soft: var(--color-text-soft);
+  --color-text-mute: var(--color-text-mute);
+  --color-line: var(--color-line);
+  --color-line-soft: var(--color-line-soft);
+  --color-point: var(--color-point);
+  --color-sale: var(--color-sale);
+  --font-sans: var(--font-noto-jp), var(--font-noto-kr), Arial, Helvetica, sans-serif;
+  --font-serif: var(--font-playfair), Georgia, serif;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  letter-spacing: 0.01em;
+}
+
+/* 상단 슬림바 무한 루프 */
+@keyframes marquee-left {
+  from { transform: translateX(0%); }
+  to   { transform: translateX(-50%); }
+}
+.marquee-track {
+  display: flex;
+  width: max-content;
+  animation: marquee-left 30s linear infinite;
+}
+.marquee-track > * {
+  flex-shrink: 0;
+  white-space: nowrap;
+  padding: 0 2rem;
 }
