@@ -415,6 +415,13 @@ export default function ProductsPage() {
             📥 CSV 일괄등록
           </button>
           <Link
+            href="/products/bulk-new"
+            className="px-4 py-2 text-sm text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
+            title="여러 상품을 한 페이지에서 동시에 등록"
+          >
+            📦 일괄 등록
+          </Link>
+          <Link
             href="/products/new"
             className="px-4 py-2 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-800 transition-colors"
           >

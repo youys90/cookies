@@ -38,6 +38,7 @@ interface Product {
   price: number;
   original_price?: number;
   image: string;
+  images?: string[] | unknown;
   category: string;
   category_ja?: string;
   category_ko?: string;
@@ -46,6 +47,12 @@ interface Product {
   description_ja?: string;
   description_ko?: string;
   stock?: number;
+}
+
+interface ImageItem {
+  file: File | null;
+  preview: string;
+  url?: string;
 }
 
 interface ProductOption {
@@ -69,9 +76,9 @@ export default function EditProductPage() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [translating, setTranslating] = useState(false);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [originalImage, setOriginalImage] = useState<string>("");
+
+  // 다중 이미지 편집 (판석이형 피드백: 수정 시 사진도 편집 가능)
+  const [images, setImages] = useState<ImageItem[]>([]);
   const [formData, setFormData] = useState({
     nameJa: "",
     nameKo: "",
@@ -130,8 +137,17 @@ export default function EditProductPage() {
       descriptionKo: product.description_ko || "",
       stock: product.stock ? String(product.stock) : "",
     });
-    setOriginalImage(product.image);
-    setImagePreview(product.image);
+    // 기존 이미지들을 ImageItem 배열로 로드 (images 배열 우선, 없으면 image 단일)
+    const existingImages: ImageItem[] = [];
+    const imgArr = Array.isArray(product.images) ? (product.images as string[]) : [];
+    if (imgArr.length > 0) {
+      imgArr.forEach((u) => {
+        if (typeof u === "string" && u) existingImages.push({ file: null, preview: u, url: u });
+      });
+    } else if (product.image) {
+      existingImages.push({ file: null, preview: product.image, url: product.image });
+    }
+    setImages(existingImages);
     setLoading(false);
   };
 
@@ -147,37 +163,80 @@ export default function EditProductPage() {
     }
   };
 
+  // ── 다중 이미지 편집 ──────────────────────────────
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setImageFile(file);
+    const files = e.target.files;
+    if (!files) return;
+    const newImages: ImageItem[] = [];
+    Array.from(files).forEach((file) => {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setImagePreview(reader.result as string);
+        newImages.push({ file, preview: reader.result as string });
+        if (newImages.length === files.length) {
+          setImages((prev) => [...prev, ...newImages]);
+        }
       };
       reader.readAsDataURL(file);
-    }
+    });
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const removeImage = (index: number) => setImages((prev) => prev.filter((_, i) => i !== index));
+
+  const moveImageUp = (index: number) => {
+    if (index === 0) return;
+    setImages((prev) => {
+      const a = [...prev];
+      [a[index - 1], a[index]] = [a[index], a[index - 1]];
+      return a;
+    });
+  };
+
+  const moveImageDown = (index: number) => {
+    if (index === images.length - 1) return;
+    setImages((prev) => {
+      const a = [...prev];
+      [a[index], a[index + 1]] = [a[index + 1], a[index]];
+      return a;
+    });
+  };
+
+  const setAsMain = (index: number) => {
+    if (index === 0) return;
+    setImages((prev) => {
+      const a = [...prev];
+      const [item] = a.splice(index, 1);
+      a.unshift(item);
+      return a;
+    });
   };
 
   const uploadImage = async (file: File): Promise<string | null> => {
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${Date.now()}.${fileExt}`;
+    const fileExt = file.name.split(".").pop();
+    const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
     const filePath = `products/${fileName}`;
-
     const { error: uploadError } = await supabase.storage
-      .from('product-images')
+      .from("product-images")
       .upload(filePath, file);
-
     if (uploadError) {
-      console.error('이미지 업로드 실패:', uploadError);
+      console.error("이미지 업로드 실패:", uploadError);
       return null;
     }
-
-    const { data } = supabase.storage
-      .from('product-images')
-      .getPublicUrl(filePath);
-
+    const { data } = supabase.storage.from("product-images").getPublicUrl(filePath);
     return data.publicUrl;
+  };
+
+  const uploadAllImages = async (): Promise<string[]> => {
+    const urls: string[] = [];
+    for (const img of images) {
+      if (img.file) {
+        const u = await uploadImage(img.file);
+        if (u) urls.push(u);
+      } else if (img.url) {
+        urls.push(img.url);
+      }
+    }
+    return urls;
   };
 
   // 번역 함수 (MyMemory + Google Translate fallback)
@@ -344,17 +403,17 @@ export default function EditProductPage() {
       };
     }
 
-    let imageUrl = originalImage;
+    if (images.length === 0) {
+      alert("최소 1개의 이미지를 등록해주세요.");
+      setUploading(false);
+      return;
+    }
 
-    if (imageFile) {
-      const uploadedUrl = await uploadImage(imageFile);
-      if (uploadedUrl) {
-        imageUrl = uploadedUrl;
-      } else {
-        alert('이미지 업로드에 실패했습니다.');
-        setUploading(false);
-        return;
-      }
+    const uploadedUrls = await uploadAllImages();
+    if (uploadedUrls.length === 0) {
+      alert("이미지 업로드에 실패했습니다.");
+      setUploading(false);
+      return;
     }
 
     const { error } = await supabase
@@ -370,7 +429,8 @@ export default function EditProductPage() {
         category_ja: finalData.categoryJa,
         category_ko: finalData.categoryKo,
         sub_category: finalData.subCategoryJa || null,
-        image: imageUrl,
+        image: uploadedUrls[0],
+        images: uploadedUrls,
         description: finalData.descriptionJa || finalData.descriptionKo,
         description_ja: finalData.descriptionJa,
         description_ko: finalData.descriptionKo,
@@ -410,34 +470,52 @@ export default function EditProductPage() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                상품 이미지
+                상품 이미지 <span className="text-red-500">*</span>
+                <span className="text-gray-400 font-normal ml-2">(첫 번째가 메인 · 여러 장 선택 가능 · 순서 변경/삭제)</span>
               </label>
+
+              {images.length > 0 && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mb-4">
+                  {images.map((img, index) => (
+                    <div key={index} className="relative group">
+                      <div className={`relative aspect-square rounded-lg overflow-hidden border-2 ${index === 0 ? "border-blue-500" : "border-gray-200"}`}>
+                        <Image src={img.preview} alt={`이미지 ${index + 1}`} fill className="object-cover" unoptimized />
+                        {index === 0 && (
+                          <div className="absolute top-1 left-1 bg-blue-500 text-white text-xs px-1.5 py-0.5 rounded">메인</div>
+                        )}
+                      </div>
+                      <div className="absolute top-1 right-1 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button type="button" onClick={() => removeImage(index)} className="w-6 h-6 bg-red-500 text-white rounded-full text-xs flex items-center justify-center hover:bg-red-600" title="삭제">✕</button>
+                        {index !== 0 && (
+                          <button type="button" onClick={() => setAsMain(index)} className="w-6 h-6 bg-blue-500 text-white rounded-full text-xs flex items-center justify-center hover:bg-blue-600" title="메인으로 설정">★</button>
+                        )}
+                      </div>
+                      <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button type="button" onClick={() => moveImageUp(index)} disabled={index === 0} className="w-6 h-6 bg-gray-700 text-white rounded text-xs flex items-center justify-center hover:bg-gray-800 disabled:opacity-30" title="앞으로">←</button>
+                        <button type="button" onClick={() => moveImageDown(index)} disabled={index === images.length - 1} className="w-6 h-6 bg-gray-700 text-white rounded text-xs flex items-center justify-center hover:bg-gray-800 disabled:opacity-30" title="뒤로">→</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <div
                 onClick={() => fileInputRef.current?.click()}
                 className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:border-gray-400 transition-colors"
               >
-                {imagePreview ? (
-                  <div className="relative w-full aspect-square max-w-[200px] mx-auto">
-                    <Image
-                      src={imagePreview}
-                      alt="미리보기"
-                      fill
-                      className="object-cover rounded-lg"
-                    />
-                  </div>
-                ) : (
-                  <div className="py-8">
-                    <svg className="w-12 h-12 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <p className="text-sm text-gray-500">클릭하여 이미지 선택</p>
-                  </div>
-                )}
+                <div className="py-4">
+                  <svg className="w-10 h-10 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
+                  </svg>
+                  <p className="text-sm text-gray-500">{images.length === 0 ? "클릭하여 이미지 선택" : "이미지 추가"}</p>
+                  <p className="text-xs text-gray-400 mt-1">JPG, PNG (여러 장 선택 가능)</p>
+                </div>
               </div>
               <input
                 ref={fileInputRef}
                 type="file"
                 accept="image/*"
+                multiple
                 onChange={handleImageChange}
                 className="hidden"
               />
