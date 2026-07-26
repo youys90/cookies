@@ -4,6 +4,7 @@ import "./globals.css";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import DevBanner from "@/components/DevBanner";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { CartProvider } from "@/contexts/CartContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 
@@ -43,6 +44,7 @@ export default function RootLayout({
         <LanguageProvider>
           <CartProvider>
             <Header />
+            <LanguageSwitcher />
             <main className="min-h-screen">{children}</main>
             <Footer />
           </CartProvider>
