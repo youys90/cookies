@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
+import BulkActionBar from "@/components/BulkActionBar";
+import DeleteConfirmModal from "@/components/DeleteConfirmModal";
 
 interface ReviewReply {
   id: string;
@@ -40,6 +42,77 @@ export default function ReviewsPage() {
   const [showReplyModal, setShowReplyModal] = useState(false);
   const [replyingReview, setReplyingReview] = useState<Review | null>(null);
   const [replyContent, setReplyContent] = useState("");
+
+  // 다중 선택 · 벌크
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showBulkDelete, setShowBulkDelete] = useState(false);
+  const [pendingDeleteIds, setPendingDeleteIds] = useState<string[]>([]);
+
+  // AI 답변 초안
+  const [aiDrafts, setAiDrafts] = useState<{ tone: string; text: string }[]>([]);
+  const [loadingDrafts, setLoadingDrafts] = useState(false);
+
+  const toggleReviewSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const requestBulkDelete = () => {
+    setPendingDeleteIds(Array.from(selectedIds));
+    setShowBulkDelete(true);
+  };
+
+  const confirmBulkDelete = async () => {
+    if (pendingDeleteIds.length === 0) return;
+    const { error } = await supabase.from("reviews").delete().in("id", pendingDeleteIds);
+    if (error) {
+      alert("일괄 삭제 실패: " + error.message);
+      return;
+    }
+    setShowBulkDelete(false);
+    setSelectedIds(new Set());
+    setPendingDeleteIds([]);
+    fetchReviews();
+  };
+
+  const handleBulkToggleActive = async (active: boolean) => {
+    if (selectedIds.size === 0) return;
+    const ids = Array.from(selectedIds);
+    const { error } = await supabase
+      .from("reviews")
+      .update({ is_active: active })
+      .in("id", ids);
+    if (error) {
+      alert("일괄 상태변경 실패: " + error.message);
+      return;
+    }
+    fetchReviews();
+  };
+
+  const generateAiDrafts = async (review: Review) => {
+    setLoadingDrafts(true);
+    setAiDrafts([]);
+    try {
+      const res = await fetch("/api/ai/review-reply-draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rating: review.rating,
+          content: review.content || "",
+          language: "ja",
+        }),
+      });
+      const json = await res.json();
+      if (json?.result?.drafts) setAiDrafts(json.result.drafts);
+    } catch (e) {
+      console.error("AI 초안 생성 실패:", e);
+    }
+    setLoadingDrafts(false);
+  };
 
   // 폼 상태
   const [formData, setFormData] = useState({
@@ -291,11 +364,13 @@ export default function ReviewsPage() {
     fetchReviews();
   };
 
-  // 댓글 모달 열기
+  // 댓글 모달 열기 (열면서 자동으로 AI 초안 생성)
   const openReplyModal = (review: Review) => {
     setReplyingReview(review);
     setReplyContent("");
+    setAiDrafts([]);
     setShowReplyModal(true);
+    generateAiDrafts(review);
   };
 
   const renderStars = (rating: number) => {
@@ -428,10 +503,20 @@ export default function ReviewsPage() {
             .map((review) => (
             <div
               key={review.id}
-              className={`bg-white rounded-xl shadow-sm overflow-hidden ${
+              className={`bg-white rounded-xl shadow-sm overflow-hidden relative ${
                 !review.is_active ? "opacity-50" : ""
-              }`}
+              } ${selectedIds.has(review.id) ? "ring-2 ring-yellow-400" : ""}`}
             >
+              {/* 다중 선택 체크박스 */}
+              <label className="absolute top-2 left-2 z-10 w-6 h-6 bg-white/85 backdrop-blur-sm rounded flex items-center justify-center cursor-pointer shadow-sm">
+                <input
+                  type="checkbox"
+                  checked={selectedIds.has(review.id)}
+                  onChange={() => toggleReviewSelect(review.id)}
+                  className="w-4 h-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900 cursor-pointer"
+                  aria-label={`${review.author_name} 선택`}
+                />
+              </label>
               {/* 이미지 (images 배열 우선, 없으면 image_url) */}
               {(() => {
                 const thumbnailUrl = review.images?.[0] || review.image_url;
@@ -728,6 +813,26 @@ export default function ReviewsPage() {
         </div>
       )}
 
+      {/* 벌크 액션 바 */}
+      <BulkActionBar
+        count={selectedIds.size}
+        onDelete={requestBulkDelete}
+        onToggleActive={handleBulkToggleActive}
+        onClear={() => setSelectedIds(new Set())}
+      />
+
+      {/* 벌크 삭제 확인 모달 */}
+      <DeleteConfirmModal
+        open={showBulkDelete}
+        count={pendingDeleteIds.length}
+        onClose={() => {
+          setShowBulkDelete(false);
+          setPendingDeleteIds([]);
+        }}
+        onConfirm={confirmBulkDelete}
+        title="리뷰 일괄 삭제"
+      />
+
       {/* 댓글 작성 모달 */}
       {showReplyModal && replyingReview && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
@@ -748,6 +853,45 @@ export default function ReviewsPage() {
                 <p className="text-sm text-gray-600 line-clamp-2">
                   "{replyingReview.content}"
                 </p>
+              </div>
+
+              {/* AI 답변 초안 (자동 생성) */}
+              <div className="mb-3">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-medium text-purple-700">
+                    ✨ AI 답변 초안
+                    {loadingDrafts && <span className="ml-2 text-gray-400 font-normal">생성 중…</span>}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => generateAiDrafts(replyingReview)}
+                    disabled={loadingDrafts}
+                    className="text-xs text-purple-600 hover:text-purple-800 disabled:opacity-50"
+                  >
+                    다시 생성
+                  </button>
+                </div>
+                {aiDrafts.length > 0 && (
+                  <div className="space-y-1.5">
+                    {aiDrafts.map((d, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => setReplyContent(d.text)}
+                        className="w-full text-left px-3 py-2 text-xs bg-purple-50 hover:bg-purple-100 border border-purple-100 rounded-lg transition"
+                        title="클릭해서 이 초안 사용"
+                      >
+                        <span className="inline-block px-1.5 py-0.5 mr-1.5 text-[10px] bg-purple-600 text-white rounded uppercase">
+                          {d.tone}
+                        </span>
+                        <span className="text-gray-700">{d.text}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {!loadingDrafts && aiDrafts.length === 0 && (
+                  <p className="text-xs text-gray-400 italic">초안 생성 실패 또는 없음</p>
+                )}
               </div>
 
               {/* 댓글 입력 */}

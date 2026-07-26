@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import DeleteConfirmModal from "@/components/DeleteConfirmModal";
 
 interface OrderItem {
   id: string;
@@ -52,6 +53,55 @@ export default function OrdersPage() {
   const [selectedStatus, setSelectedStatus] = useState(searchParams.get("status") || "전체");
   const [searchKeyword, setSearchKeyword] = useState(searchParams.get("search") || "");
   const [searchInput, setSearchInput] = useState(searchParams.get("search") || "");
+
+  // 다중 선택
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showBulkDelete, setShowBulkDelete] = useState(false);
+
+  const toggleOne = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  const toggleAll = () => {
+    setSelectedIds((prev) => {
+      const allChecked = orders.length > 0 && orders.every((o) => prev.has(o.id));
+      if (allChecked) return new Set();
+      return new Set(orders.map((o) => o.id));
+    });
+  };
+  const clearSelection = () => setSelectedIds(new Set());
+
+  const handleBulkStatus = async (newStatus: string) => {
+    if (selectedIds.size === 0) return;
+    const ids = Array.from(selectedIds);
+    const { error } = await supabase
+      .from("orders")
+      .update({ status: newStatus, updated_at: new Date().toISOString() })
+      .in("id", ids);
+    if (error) {
+      alert("일괄 상태 변경 실패: " + error.message);
+      return;
+    }
+    fetchOrders();
+  };
+
+  const confirmBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    const ids = Array.from(selectedIds);
+    // order_items도 함께 삭제 (FK CASCADE로 처리될 것)
+    const { error } = await supabase.from("orders").delete().in("id", ids);
+    if (error) {
+      alert("일괄 삭제 실패: " + error.message);
+      return;
+    }
+    setShowBulkDelete(false);
+    setSelectedIds(new Set());
+    fetchOrders();
+  };
 
   // URL 파라미터 변경 감지
   useEffect(() => {
@@ -273,6 +323,22 @@ export default function OrdersPage() {
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
+                <th className="px-4 py-3 text-center w-12">
+                  <input
+                    type="checkbox"
+                    checked={orders.length > 0 && orders.every((o) => selectedIds.has(o.id))}
+                    ref={(el) => {
+                      if (el) {
+                        const some = orders.some((o) => selectedIds.has(o.id));
+                        const all = orders.length > 0 && orders.every((o) => selectedIds.has(o.id));
+                        el.indeterminate = some && !all;
+                      }
+                    }}
+                    onChange={toggleAll}
+                    className="w-4 h-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900 cursor-pointer"
+                    aria-label="전체 선택"
+                  />
+                </th>
                 <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase w-16">No.</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">주문번호</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">고객명</th>
@@ -285,8 +351,19 @@ export default function OrdersPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {orders.map((order, index) => (
-                <tr key={order.id} className="hover:bg-gray-50">
+              {orders.map((order, index) => {
+                const checked = selectedIds.has(order.id);
+                return (
+                <tr key={order.id} className={`hover:bg-gray-50 ${checked ? "bg-yellow-50" : ""}`}>
+                  <td className="px-4 py-4 text-center">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleOne(order.id)}
+                      className="w-4 h-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900 cursor-pointer"
+                      aria-label={`${order.order_number} 선택`}
+                    />
+                  </td>
                   <td className="px-4 py-4 text-center">
                     <span className="text-sm font-medium text-gray-500">
                       {startIndex + index}
@@ -312,7 +389,8 @@ export default function OrdersPage() {
                     </button>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -378,6 +456,55 @@ export default function OrdersPage() {
           </button>
         </div>
       )}
+
+      {/* 벌크 액션 바 (주문 상태 변경 · 삭제) */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-gray-900 text-white rounded-xl shadow-2xl border border-gray-800 flex items-center gap-1 px-3 py-2 max-w-[95vw] overflow-x-auto">
+          <div className="flex items-center gap-2 pr-3 border-r border-gray-700">
+            <span className="text-sm">
+              <span className="font-medium">{selectedIds.size}건</span> 선택됨
+            </span>
+          </div>
+          {(["pending", "confirmed", "completed", "cancelled"] as const).map((s) => (
+            <button
+              key={s}
+              onClick={() => handleBulkStatus(s)}
+              className="px-3 py-1.5 text-xs rounded hover:bg-gray-800 transition"
+              title={`선택 항목을 '${statusLabels[s].label}'(으)로`}
+            >
+              → {statusLabels[s].label}
+            </button>
+          ))}
+          <button
+            onClick={() => setShowBulkDelete(true)}
+            className="px-3 py-1.5 text-xs rounded bg-red-600 hover:bg-red-500 transition ml-1"
+          >
+            삭제
+          </button>
+          <div className="pl-2 border-l border-gray-700 ml-1">
+            <button
+              onClick={clearSelection}
+              className="w-7 h-7 flex items-center justify-center rounded hover:bg-gray-800 transition"
+              aria-label="선택 해제"
+              title="선택 해제"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M6 6l12 12M6 18L18 6" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 벌크 삭제 확인 모달 */}
+      <DeleteConfirmModal
+        open={showBulkDelete}
+        count={selectedIds.size}
+        onClose={() => setShowBulkDelete(false)}
+        onConfirm={confirmBulkDelete}
+        title="주문 일괄 삭제"
+        description={`선택한 ${selectedIds.size}건의 주문과 연결된 주문상품(order_items)까지 함께 삭제됩니다. 되돌릴 수 없습니다.`}
+      />
 
       {/* 주문 상세 모달 */}
       {selectedOrder && (

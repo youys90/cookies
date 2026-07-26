@@ -48,6 +48,8 @@ export default function NewProductPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [translating, setTranslating] = useState(false);
+  const [aiRunning, setAiRunning] = useState(false);
+  const [aiHint, setAiHint] = useState<string>("");
 
   const [images, setImages] = useState<ImageItem[]>([]);
 
@@ -269,6 +271,48 @@ export default function NewProductPage() {
     return '번역';
   };
 
+  // ── AI 자동 채우기 (Vision) ───────────────────────
+  // 첫 번째 이미지를 /api/ai/analyze-image로 보내서 상품명·카테고리·설명 자동 채움.
+  // API 키 없으면 서버에서 mock 응답. 결제·키 설정되면 자동으로 실제 AI 호출.
+  const handleAiFill = async () => {
+    if (images.length === 0 || !images[0].file) {
+      alert("먼저 이미지를 업로드하세요");
+      return;
+    }
+    setAiRunning(true);
+    try {
+      const form = new FormData();
+      form.append("image", images[0].file);
+      if (aiHint.trim()) form.append("hint", aiHint.trim());
+      const res = await fetch("/api/ai/analyze-image", { method: "POST", body: form });
+      const json = await res.json();
+      const r = json?.result;
+      if (!r) {
+        alert("AI 응답 없음: " + (json?.error || "알 수 없는 오류"));
+      } else {
+        const catIdx = categoriesJa.indexOf(r.category);
+        setFormData((prev) => ({
+          ...prev,
+          nameJa: r.name_ja || prev.nameJa,
+          nameKo: r.name_ko || prev.nameKo,
+          descriptionJa: r.description_ja || prev.descriptionJa,
+          descriptionKo: r.description_ko || prev.descriptionKo,
+          categoryJa: r.category || prev.categoryJa,
+          categoryKo: catIdx >= 0 ? categoriesKo[catIdx] : prev.categoryKo,
+          subCategoryJa: r.sub_category || prev.subCategoryJa,
+        }));
+        if (json.mock) {
+          alert(
+            "AI 자동 채우기 완료 (mock 모드)\n\nANTHROPIC_API_KEY 설정 후 서버 재시작하면 실제 AI 응답으로 자동 전환됩니다."
+          );
+        }
+      }
+    } catch (e) {
+      alert("AI 분석 오류: " + String(e));
+    }
+    setAiRunning(false);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -378,10 +422,33 @@ export default function NewProductPage() {
           <div className="bg-white rounded-xl shadow-sm p-4 md:p-6 space-y-5">
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              상품 이미지 <span className="text-red-500">*</span>
-              <span className="text-gray-400 font-normal ml-2">(첫 번째가 메인 이미지)</span>
-            </label>
+            <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
+              <label className="block text-sm font-medium text-gray-700">
+                상품 이미지 <span className="text-red-500">*</span>
+                <span className="text-gray-400 font-normal ml-2">(첫 번째가 메인 이미지)</span>
+              </label>
+              {images.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={aiHint}
+                    onChange={(e) => setAiHint(e.target.value)}
+                    placeholder="AI 힌트(선택): 예) 골드, 데일리"
+                    className="px-2 py-1 text-xs border border-gray-200 rounded w-48 focus:outline-none focus:ring-2 focus:ring-purple-400"
+                    disabled={aiRunning}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAiFill}
+                    disabled={aiRunning}
+                    className="px-3 py-1.5 text-xs font-medium bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:opacity-90 transition disabled:opacity-50 whitespace-nowrap"
+                    title="첫 이미지를 AI가 분석해서 상품명·카테고리·설명을 자동 채웁니다 (한/일)"
+                  >
+                    {aiRunning ? "✨ AI 분석 중..." : "✨ AI로 자동 채우기"}
+                  </button>
+                </div>
+              )}
+            </div>
 
             {images.length > 0 && (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mb-4">
