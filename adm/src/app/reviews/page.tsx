@@ -26,10 +26,21 @@ interface Review {
   auto_reply_at: string | null;
   created_at: string;
   review_replies?: ReviewReply[];
+  product_id?: number | null;
+  product_ids?: number[] | null;
+  product_names?: string[] | null;
+}
+
+interface ProductThumb {
+  id: number;
+  image: string;
+  name: string;
 }
 
 export default function ReviewsPage() {
   const [reviews, setReviews] = useState<Review[]>([]);
+  // 리뷰에 붙일 관련 상품 썸네일 (id → {image, name})
+  const [productMap, setProductMap] = useState<Map<number, ProductThumb>>(new Map());
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingReview, setEditingReview] = useState<Review | null>(null);
@@ -171,8 +182,26 @@ export default function ReviewsPage() {
 
     if (error) {
       console.error("리뷰 조회 실패:", error);
-    } else {
-      setReviews(data || []);
+      setLoading(false);
+      return;
+    }
+    const list = (data as Review[]) || [];
+    setReviews(list);
+
+    // 관련 상품 id 모두 수집 → 한 번에 조회 후 map 저장
+    const idSet = new Set<number>();
+    list.forEach((r) => {
+      if (r.product_id) idSet.add(r.product_id);
+      if (Array.isArray(r.product_ids)) r.product_ids.forEach((id) => idSet.add(id));
+    });
+    if (idSet.size > 0) {
+      const { data: prods } = await supabase
+        .from("products")
+        .select("id, image, name")
+        .in("id", Array.from(idSet));
+      const m = new Map<number, ProductThumb>();
+      (prods || []).forEach((p) => m.set(p.id as number, p as ProductThumb));
+      setProductMap(m);
     }
     setLoading(false);
   };
@@ -638,6 +667,35 @@ export default function ReviewsPage() {
                 <div className="flex items-center mb-2">
                   {renderStars(review.rating)}
                 </div>
+
+                {/* 관련 상품 썸네일 (판석이형 4-2) */}
+                {(() => {
+                  const ids: number[] = Array.isArray(review.product_ids) && review.product_ids.length > 0
+                    ? review.product_ids
+                    : review.product_id
+                      ? [review.product_id]
+                      : [];
+                  if (ids.length === 0) return null;
+                  return (
+                    <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+                      {ids.slice(0, 4).map((pid) => {
+                        const p = productMap.get(pid);
+                        if (!p) return (
+                          <div key={pid} className="w-9 h-9 bg-gray-100 rounded flex items-center justify-center text-[9px] text-gray-400" title={`#${pid} (삭제됨?)`}>?</div>
+                        );
+                        return (
+                          <div key={pid} className="relative w-9 h-9 bg-gray-100 rounded overflow-hidden border border-gray-200" title={p.name}>
+                            <Image src={p.image} alt={p.name} fill className="object-cover" unoptimized />
+                          </div>
+                        );
+                      })}
+                      {ids.length > 4 && (
+                        <span className="text-[10px] text-gray-400">+{ids.length - 4}</span>
+                      )}
+                    </div>
+                  );
+                })()}
+
                 {review.content && (
                   <p className="text-sm text-gray-700 mb-2 line-clamp-2">
                     "{review.content}"

@@ -55,7 +55,9 @@ export default function ReviewWriteModal({ isOpen, onClose, onSuccess }: ReviewW
     cancel: language === "ko" ? "취소" : "キャンセル",
     submit: language === "ko" ? "등록하기" : "投稿する",
     submitting: language === "ko" ? "등록 중..." : "投稿中...",
-    successMsg: language === "ko" ? "리뷰가 등록되었습니다!" : "レビューが投稿されました！",
+    successMsg: language === "ko"
+      ? "리뷰가 접수되었습니다! 관리자 검토 후 노출됩니다."
+      : "レビューを受け付けました。運営の確認後に公開されます。",
     errorMsg: language === "ko" ? "등록에 실패했습니다." : "投稿に失敗しました。",
     contentRequired: language === "ko" ? "리뷰 내용을 입력해주세요." : "レビュー内容を入力してください。",
     lineNameLabel: language === "ko" ? "LINE NAME" : "LINE NAME",
@@ -243,7 +245,7 @@ export default function ReviewWriteModal({ isOpen, onClose, onSuccess }: ReviewW
       author_name: maskedName,
       password: password.trim(),
       type: "user",
-      is_active: true,
+      is_active: false, // 손님 리뷰도 관리자 승인 후 노출 (판석이형 정책)
       sort_order: 999,
       auto_reply_at: autoReplyAt,
       product_id: productIds[0], // 첫 번째 상품 (기존 호환성)
