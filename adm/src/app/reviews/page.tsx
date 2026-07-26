@@ -5,6 +5,7 @@ import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import BulkActionBar from "@/components/BulkActionBar";
 import DeleteConfirmModal from "@/components/DeleteConfirmModal";
+import ProductPicker from "@/components/ProductPicker";
 
 interface ReviewReply {
   id: string;
@@ -158,7 +159,7 @@ export default function ReviewsPage() {
     setLoadingDrafts(false);
   };
 
-  // 폼 상태
+  // 폼 상태 (관련 상품 필드 추가)
   const [formData, setFormData] = useState({
     images: [] as string[],
     rating: 5,
@@ -166,8 +167,14 @@ export default function ReviewsPage() {
     author_name: "",
     is_active: true,
     sort_order: 0,
+    product_ids: [] as number[],
+    product_names: [] as string[],
+    product_thumbs: [] as string[], // UI 미리보기용 (DB 저장 X)
   });
   const MAX_IMAGES = 3;
+
+  // 관련 상품 선택 모달
+  const [showProductPicker, setShowProductPicker] = useState(false);
 
   useEffect(() => {
     fetchReviews();
@@ -279,6 +286,9 @@ export default function ReviewsPage() {
           author_name: formData.author_name,
           is_active: formData.is_active,
           sort_order: formData.sort_order,
+          product_id: formData.product_ids[0] || null,
+          product_ids: formData.product_ids.length > 0 ? formData.product_ids : null,
+          product_names: formData.product_names.length > 0 ? formData.product_names : null,
           updated_at: new Date().toISOString(),
         })
         .eq("id", editingReview.id);
@@ -299,6 +309,9 @@ export default function ReviewsPage() {
         is_active: formData.is_active,
         sort_order: formData.sort_order,
         type: "admin",
+        product_id: formData.product_ids[0] || null,
+        product_ids: formData.product_ids.length > 0 ? formData.product_ids : null,
+        product_names: formData.product_names.length > 0 ? formData.product_names : null,
       });
 
       if (error) {
@@ -343,8 +356,14 @@ export default function ReviewsPage() {
   const openModal = (review?: Review) => {
     if (review) {
       setEditingReview(review);
-      // images 배열 우선, 없으면 image_url로 배열 생성
       const existingImages = review.images || (review.image_url ? [review.image_url] : []);
+      const ids = Array.isArray(review.product_ids) && review.product_ids.length > 0
+        ? review.product_ids
+        : review.product_id
+          ? [review.product_id]
+          : [];
+      const names = Array.isArray(review.product_names) ? review.product_names : [];
+      const thumbs = ids.map((id) => productMap.get(id)?.image || "");
       setFormData({
         images: existingImages,
         rating: review.rating,
@@ -352,6 +371,9 @@ export default function ReviewsPage() {
         author_name: review.author_name,
         is_active: review.is_active,
         sort_order: review.sort_order,
+        product_ids: ids,
+        product_names: names,
+        product_thumbs: thumbs,
       });
     } else {
       setEditingReview(null);
@@ -362,6 +384,9 @@ export default function ReviewsPage() {
         author_name: "",
         is_active: true,
         sort_order: reviews.length,
+        product_ids: [],
+        product_names: [],
+        product_thumbs: [],
       });
     }
     setShowModal(true);
@@ -377,6 +402,9 @@ export default function ReviewsPage() {
       author_name: "",
       is_active: true,
       sort_order: 0,
+      product_ids: [],
+      product_names: [],
+      product_thumbs: [],
     });
   };
 
@@ -840,6 +868,58 @@ export default function ReviewsPage() {
                 </div>
               </div>
 
+              {/* 관련 상품 (판석이형 4-2 + 4-4) */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    관련 상품 <span className="text-gray-400 font-normal">({formData.product_ids.length}개)</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowProductPicker(true)}
+                    className="text-xs text-blue-600 hover:text-blue-800"
+                  >
+                    + 상품 선택
+                  </button>
+                </div>
+                {formData.product_ids.length === 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowProductPicker(true)}
+                    className="w-full py-3 border-2 border-dashed border-gray-200 rounded-lg text-xs text-gray-400 hover:border-gray-400 hover:text-gray-600"
+                  >
+                    이 리뷰가 어떤 상품에 대한 것인지 선택 (선택사항)
+                  </button>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5">
+                    {formData.product_ids.map((pid, i) => (
+                      <span key={pid} className="inline-flex items-center gap-1.5 pl-1 pr-2 py-1 bg-blue-50 text-blue-700 rounded text-xs">
+                        {formData.product_thumbs[i] && (
+                          <span className="relative w-6 h-6 bg-white rounded overflow-hidden">
+                            <Image src={formData.product_thumbs[i]} alt="" fill className="object-cover" unoptimized />
+                          </span>
+                        )}
+                        <span className="max-w-[140px] truncate">{formData.product_names[i] || `#${pid}`}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFormData((prev) => ({
+                              ...prev,
+                              product_ids: prev.product_ids.filter((_, k) => k !== i),
+                              product_names: prev.product_names.filter((_, k) => k !== i),
+                              product_thumbs: prev.product_thumbs.filter((_, k) => k !== i),
+                            }));
+                          }}
+                          className="text-blue-500 hover:text-blue-800 leading-none"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {/* 별점 */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1014,6 +1094,21 @@ export default function ReviewsPage() {
         }}
         onConfirm={confirmBulkDelete}
         title="리뷰 일괄 삭제"
+      />
+
+      {/* 관련 상품 선택 모달 */}
+      <ProductPicker
+        open={showProductPicker}
+        onClose={() => setShowProductPicker(false)}
+        initialSelectedIds={formData.product_ids}
+        onConfirm={(products) => {
+          setFormData((prev) => ({
+            ...prev,
+            product_ids: products.map((p) => p.id),
+            product_names: products.map((p) => p.name_ja || p.name),
+            product_thumbs: products.map((p) => p.image),
+          }));
+        }}
       />
 
       {/* 댓글 작성 모달 */}

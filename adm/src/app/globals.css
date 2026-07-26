@@ -1,26 +1,29 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f7f5f0;
+  --foreground: #1a1a1a;
+
+  /* CREAM 브랜드 액센트 (adm에도 살짝 적용) */
+  --color-cream:    #f7f5f0;
+  --color-cream-2:  #efeae0;
+  --color-brand:    #C8907F;
+  --color-brand-dk: #A67665;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-cream:    var(--color-cream);
+  --color-cream-2:  var(--color-cream-2);
+  --color-brand:    var(--color-brand);
+  --color-brand-dk: var(--color-brand-dk);
+  --font-sans: var(--font-noto-kr), var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  --font-serif: var(--font-playfair-adm), Georgia, serif;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
 }

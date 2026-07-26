@@ -77,11 +77,12 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-[var(--color-cream)] px-4">
+      <div className="bg-white p-8 rounded-xl shadow-sm border border-[var(--color-cream-2)] w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">CREAM Admin</h1>
-          <p className="text-sm text-gray-500 mt-2">관리자 로그인</p>
+          <h1 className="font-serif text-[36px] tracking-[0.05em] text-[var(--color-brand)]">CREAM</h1>
+          <p className="text-[10px] tracking-[0.3em] text-gray-400 mt-1">ADMIN</p>
+          <p className="text-sm text-gray-500 mt-4">관리자 로그인</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">

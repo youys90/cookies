@@ -29,12 +29,14 @@ export default function Sidebar() {
   return (
     <>
       <aside className="w-64 bg-gray-900 min-h-screen fixed left-0 top-0">
-        {/* Logo */}
-        <div className="h-16 flex items-center px-6 border-b border-gray-800">
-          <span className="text-xl font-medium tracking-wide text-white">
-            CREAM
-          </span>
-          <span className="ml-2 text-xs text-gray-500">ADMIN</span>
+        {/* Logo — CREAM 브랜드 강조 */}
+        <div className="h-16 flex items-center justify-between px-6 border-b border-gray-800">
+          <div className="flex items-baseline gap-2">
+            <span className="font-serif text-[26px] tracking-[0.05em] text-[var(--color-brand)] leading-none">
+              CREAM
+            </span>
+            <span className="text-[10px] tracking-[0.25em] text-gray-500">ADMIN</span>
+          </div>
         </div>
 
         {/* User - 상단 (클릭 시 내 정보 수정) */}
