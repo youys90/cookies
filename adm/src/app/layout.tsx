@@ -11,8 +11,8 @@ const notoSansKr = Noto_Sans_KR({
 });
 
 export const metadata: Metadata = {
-  title: "Cookies Admin",
-  description: "쿠키즈 관리자 페이지",
+  title: "CREAM Admin",
+  description: "CREAM 관리자 페이지",
 };
 
 export default function RootLayout({

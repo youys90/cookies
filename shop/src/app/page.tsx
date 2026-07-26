@@ -1,5 +1,5 @@
 "use client";
-// mignon 메인 - 셀렉트샵 미니멀 패턴 (자체 작성)
+// CREAM 메인 - 셀렉트샵 미니멀 패턴 (자체 작성)
 // 구조: 짧은 히어로 → 카테고리 8개 슬림 → NEW ARRIVAL 그리드 → BEST 그리드 → ALL PRODUCTS(쿠키즈 검색/필터/페이지네이션 유지)
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
@@ -28,7 +28,7 @@ interface Product {
 
 const PAGE_SIZE_OPTIONS = [25, 50, 100]; // 5의 배수 (5컬럼 그리드)
 
-// ── mignon 카테고리 8개 ──
+// ── CREAM 카테고리 8개 ──
 type MignonCat = {
   key: string;
   labelJp: string;
@@ -190,7 +190,7 @@ export default function Home() {
               <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" />
               <div className="absolute left-6 lg:left-12 bottom-8 lg:bottom-12 text-white">
                 <p className="font-serif text-[12px] lg:text-[14px] tracking-[0.3em] mb-2 opacity-90">2026 S/S</p>
-                <p className="font-serif text-[40px] lg:text-[64px] leading-none tracking-tight">mignon</p>
+                <p className="font-serif text-[40px] lg:text-[64px] leading-none tracking-tight">CREAM</p>
                 <p className="font-serif italic text-[14px] lg:text-[16px] opacity-90 mt-2">little happiness</p>
                 <p className="text-[11px] lg:text-[12px] opacity-80 mt-5 leading-relaxed max-w-[280px]">
                   {language === "ja" ? "東京から、ときめくアイテムをあなたへ。" : "도쿄에서, 두근거리는 아이템을 당신에게."}
@@ -309,7 +309,7 @@ export default function Home() {
         ) : products.length === 0 ? (
           <div className="text-center text-[var(--color-text-soft)] py-20 text-[12px] tracking-widest">NO PRODUCTS</div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-x-3 gap-y-8 md:gap-x-4 md:gap-y-10">
+          <div className="grid grid-cols-5 gap-x-1.5 gap-y-5 md:gap-x-3 md:gap-y-8 lg:gap-x-4 lg:gap-y-10">
             {products.map((product) => (
               <ProductCard key={product.id} product={product} returnQuery={"page=" + currentPage + "&size=" + pageSize + "&cat=" + selectedMignonCat + (searchKeyword ? "&search=" + searchKeyword : "")} />
             ))}

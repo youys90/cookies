@@ -57,7 +57,7 @@ export default function Header() {
               </svg>
             </button>
             <Link href="/" className="flex items-baseline gap-2">
-              <span className="font-serif text-2xl lg:text-[28px] tracking-[0.05em] text-[var(--color-text)] leading-none">mignon</span>
+              <span className="font-serif text-2xl lg:text-[28px] tracking-[0.05em] text-[var(--color-text)] leading-none">CREAM</span>
               <span className="hidden sm:inline font-serif italic text-[10px] text-[var(--color-text-mute)] leading-none">little happiness</span>
             </Link>
           </div>

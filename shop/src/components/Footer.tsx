@@ -13,7 +13,7 @@ export default function Footer() {
           {/* 1. 회사 정보 */}
           <div className="col-span-2 md:col-span-1">
             <Link href="/" className="font-serif text-xl tracking-wider text-[var(--color-text)] block mb-3">
-              mignon
+              CREAM
             </Link>
             <p className="text-[12px] text-[var(--color-text-soft)] leading-relaxed">
               {language === "ja"
@@ -101,7 +101,7 @@ export default function Footer() {
         {/* ─── 하단 사업자 정보 ─── */}
         <div className="border-t border-[var(--color-line)] mt-12 pt-8 flex flex-col md:flex-row md:items-center md:justify-between gap-3 text-[11px] text-[var(--color-text-mute)]">
           <div className="space-y-1">
-            <p>{language === "ja" ? "運営会社: mignon" : "운영 회사: mignon"} | CEO: ―</p>
+            <p>{language === "ja" ? "運営会社: CREAM" : "운영 회사: CREAM"} | CEO: ―</p>
             <p>{language === "ja" ? "事業者番号" : "사업자등록번호"}: ― | {language === "ja" ? "通信販売" : "통신판매신고"}: ―</p>
             <p>{language === "ja" ? "住所" : "주소"}: ―</p>
           </div>

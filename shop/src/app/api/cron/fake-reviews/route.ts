@@ -95,13 +95,40 @@ function maskNickname(name: string): string {
   return "*";
 }
 
-// Gemini API로 리뷰 내용 생성
-async function generateReviewContent(rating: number): Promise<string> {
+// 최근 발행 리뷰 20건의 첫 문장 조회 → 프롬프트에 다양성 지시용으로 주입
+async function getRecentReviewSnippets(): Promise<string[]> {
+  const { data } = await supabase
+    .from("reviews")
+    .select("content")
+    .eq("type", "fake")
+    .not("content", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(20);
+  return (data || [])
+    .map((r) => (r.content || "").slice(0, 30).trim())
+    .filter(Boolean);
+}
+
+// 간단한 중복 검사 (앞 20자 완전 일치 or 전체 텍스트 동일)
+function isSimilarToExisting(newText: string, existing: string[]): boolean {
+  const head = newText.slice(0, 20).trim();
+  if (!head) return false;
+  return existing.some(
+    (e) => e === newText.trim() || (e.length >= 20 && e.slice(0, 20) === head)
+  );
+}
+
+// Gemini API로 리뷰 내용 생성 (최근 리뷰와 중복 회피 지시 포함)
+async function generateReviewContent(rating: number, recent: string[] = []): Promise<string> {
   const ratingContext = rating >= 4
     ? "満足している、良い商品、おすすめ"
     : rating === 3
       ? "普通、まあまあ、期待通り"
       : "少し残念、改善希望、期待はずれ";
+
+  const avoidSection = recent.length > 0
+    ? `\n\n【重要】以下は過去に生成された類似リビューの冒頭部分です。**同じ書き出しや同じ表現・同じ言い回しは絶対に避け、まったく違うスタイル・語順・語彙**で書いてください：\n${recent.map((r) => "- 「" + r + "…」").join("\n")}\n`
+    : "";
 
   const prompt = `あなたは日本のジュエリー通販サイトで商品を購入した顧客です。
 以下の条件で商品レビューを1つだけ書いてください：
@@ -112,7 +139,8 @@ async function generateReviewContent(rating: number): Promise<string> {
 - 絵文字は使わない
 - 「レビュー:」などの接頭辞は付けない
 - 商品名は書かない、「アクセサリー」「ジュエリー」「商品」などの一般的な言葉を使う
-
+- 書き出しにバリエーションを付ける（「思っていた〜」「〜プレゼントに」「〜届いてすぐ」「〜デザインが」など毎回変える）
+${avoidSection}
 レビュー本文のみを出力してください:`;
 
   try {
@@ -219,6 +247,11 @@ export async function GET(request: Request) {
     let createdCount = 0;
     const errors: string[] = [];
 
+    // 세션 시작 시 최근 리뷰 스니펫 로드 (중복 회피용)
+    const recentSnippets = await getRecentReviewSnippets();
+    // 이번 실행에서 생성한 것도 다음 리뷰의 회피 목록에 즉시 추가
+    const generatedThisRun: string[] = [];
+
     for (let i = 0; i < dailyCount; i++) {
       const products = await getRandomProducts();
       if (!products) {
@@ -228,21 +261,34 @@ export async function GET(request: Request) {
 
       const rating = getRandomRating();
       const nickname = await generateNickname();
-      const content = await generateReviewContent(rating);
 
-      // 리뷰 삽입 (type: 'fake', 모두 공개, 사진 없음, 상품 해시태그 포함)
+      // 최대 3회 재시도로 중복 회피
+      let content = "";
+      const combinedAvoid = [...recentSnippets, ...generatedThisRun.map((c) => c.slice(0, 30))];
+      for (let attempt = 0; attempt < 3; attempt++) {
+        content = await generateReviewContent(rating, combinedAvoid);
+        if (!isSimilarToExisting(content, [...recentSnippets, ...generatedThisRun])) break;
+      }
+      // 3회 시도 후에도 중복이면 이번 건 스킵
+      if (isSimilarToExisting(content, [...recentSnippets, ...generatedThisRun])) {
+        errors.push(`중복 리뷰로 판단되어 스킵 (${i + 1}번째)`);
+        continue;
+      }
+      generatedThisRun.push(content);
+
+      // 리뷰 삽입 (type: 'fake', ⚠ is_active=false → 관리자 승인 대기)
       const { error: insertError } = await supabase
         .from("reviews")
         .insert({
-          product_id: products.ids[0], // 첫 번째 상품 (기존 호환성)
-          product_ids: products.ids, // 전체 상품 ID 배열
-          product_names: products.names, // 상품명 배열 (해시태그용)
+          product_id: products.ids[0],
+          product_ids: products.ids,
+          product_names: products.names,
           rating,
           author_name: maskNickname(nickname),
           content,
-          images: null, // AI 리뷰는 사진 없음
+          images: null,
           type: "fake",
-          is_active: true,
+          is_active: false, // 승인 대기 (관리자가 검토 후 노출)
           password: null,
           auto_reply_at: null,
         });

@@ -27,8 +27,8 @@ const playfair = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  title: "mignon — little happiness",
-  description: "心ときめくアイテムをお届けします。 mignon の小さな雑貨店",
+  title: "CREAM (旧クッキー)",
+  description: "心ときめくアイテムをお届けします。 CREAM の小さな雑貨店",
 };
 
 export default function RootLayout({

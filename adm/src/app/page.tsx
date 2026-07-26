@@ -56,7 +56,7 @@ export default function Dashboard() {
     <div>
       <div className="mb-8">
         <h1 className="text-2xl font-medium text-gray-900">대시보드</h1>
-        <p className="text-sm text-gray-500 mt-1">Cookies 관리자 현황</p>
+        <p className="text-sm text-gray-500 mt-1">CREAM 관리자 현황</p>
       </div>
 
       {loading ? (

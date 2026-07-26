@@ -1,5 +1,5 @@
 "use client";
-// mignon BRAND 페이지 - 셀렉트샵 미니멀 톤 (자체 작성)
+// CREAM BRAND 페이지 - 셀렉트샵 미니멀 톤 (자체 작성)
 // 구조: 히어로 → 브랜드 스토리 → 큐레이션 원칙 → 매장 정보 → CONTACT
 import Image from "next/image";
 import Link from "next/link";
@@ -30,7 +30,7 @@ export default function AboutPage() {
   }, []);
 
   const t = {
-    hero_kicker: language === "ja" ? "MIGNON — SELECT SHOP" : "MIGNON — SELECT SHOP",
+    hero_kicker: language === "ja" ? "CREAM — SELECT SHOP" : "CREAM — SELECT SHOP",
     hero_title: language === "ja" ? "little happiness" : "little happiness",
     hero_desc:
       language === "ja"
@@ -40,8 +40,8 @@ export default function AboutPage() {
     story_title: language === "ja" ? "Our Story" : "Our Story",
     story_body:
       language === "ja"
-        ? "mignon（ミニョン）は「かわいらしい」を意味するフランス語。\n私たちは、東京の小さな雑貨店の心地よい空気感を、そのままあなたの日常にお届けしたいと願っています。\n\n派手な流行を追うのではなく、長く愛せる質感と、そっと寄り添うデザイン。手にした瞬間から、ふっと気持ちが軽くなるような小物たちを、ひとつひとつ丁寧に選びました。"
-        : "mignon(미뇽)은 프랑스어로 '사랑스러운'이라는 뜻입니다.\n저희는 도쿄의 작은 잡화점이 지닌 편안한 공기감을 그대로 여러분의 일상으로 전하고 싶습니다.\n\n화려한 유행을 좇기보다는 오래 사랑할 수 있는 질감과 조용히 곁을 지키는 디자인. 손에 든 순간 마음이 가벼워지는 소품들을 하나하나 정성껏 골랐습니다.",
+        ? "CREAM（クリーム）は、旧「クッキー」からリニューアルしたセレクトショップです。\n私たちは、東京の小さな雑貨店の心地よい空気感を、そのままあなたの日常にお届けしたいと願っています。\n\n派手な流行を追うのではなく、長く愛せる質感と、そっと寄り添うデザイン。手にした瞬間から、ふっと気持ちが軽くなるような小物たちを、ひとつひとつ丁寧に選びました。"
+        : "CREAM(크림)은 기존 '쿠키(Cookie)'에서 새롭게 리뉴얼한 셀렉트샵입니다.\n저희는 도쿄의 작은 잡화점이 지닌 편안한 공기감을 그대로 여러분의 일상으로 전하고 싶습니다.\n\n화려한 유행을 좇기보다는 오래 사랑할 수 있는 질감과 조용히 곁을 지키는 디자인. 손에 든 순간 마음이 가벼워지는 소품들을 하나하나 정성껏 골랐습니다.",
     concept_kicker: language === "ja" ? "02 — CURATION" : "02 — CURATION",
     concept_title: language === "ja" ? "How we curate" : "How we curate",
     p1_title: language === "ja" ? "QUALITY" : "QUALITY",
@@ -74,7 +74,7 @@ export default function AboutPage() {
             {/* 좌 텍스트 */}
             <div>
               <p className="text-[10px] tracking-[0.35em] text-[var(--color-text-mute)] mb-4">{t.hero_kicker}</p>
-              <p className="font-serif text-[56px] lg:text-[84px] leading-[0.95] tracking-tight text-[var(--color-text)]">mignon</p>
+              <p className="font-serif text-[56px] lg:text-[84px] leading-[0.95] tracking-tight text-[var(--color-text)]">CREAM</p>
               <p className="font-serif italic text-[16px] lg:text-[18px] text-[var(--color-text-soft)] mt-2">{t.hero_title}</p>
               <p className="text-[13px] lg:text-[14px] text-[var(--color-text-soft)] leading-[1.9] mt-6 whitespace-pre-line max-w-[440px]">
                 {t.hero_desc}
@@ -90,7 +90,7 @@ export default function AboutPage() {
             </div>
             {/* 우 큰 이미지 */}
             <div className="relative aspect-[4/5] lg:aspect-[5/6] bg-[var(--color-bg-soft)] overflow-hidden">
-              {heroImg && <Image src={heroImg} alt="mignon" fill className="object-cover" sizes="(max-width: 1024px) 100vw, 55vw" priority />}
+              {heroImg && <Image src={heroImg} alt="CREAM" fill className="object-cover" sizes="(max-width: 1024px) 100vw, 55vw" priority />}
             </div>
           </div>
         </div>
@@ -115,7 +115,7 @@ export default function AboutPage() {
             <div className="grid grid-cols-3 gap-3 lg:gap-5">
               {galleryImgs.map((u, i) => (
                 <div key={i} className="relative aspect-square bg-[var(--color-bg-soft)] overflow-hidden">
-                  <Image src={u} alt={`mignon ${i + 1}`} fill className="object-cover" sizes="33vw" />
+                  <Image src={u} alt={`CREAM ${i + 1}`} fill className="object-cover" sizes="33vw" />
                 </div>
               ))}
             </div>

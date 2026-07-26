@@ -32,7 +32,7 @@ export default function Sidebar() {
         {/* Logo */}
         <div className="h-16 flex items-center px-6 border-b border-gray-800">
           <span className="text-xl font-medium tracking-wide text-white">
-            Cookies
+            CREAM
           </span>
           <span className="ml-2 text-xs text-gray-500">ADMIN</span>
         </div>

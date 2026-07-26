@@ -36,6 +36,39 @@ export default function ReviewsPage() {
   const [uploading, setUploading] = useState(false);
   const [typeFilter, setTypeFilter] = useState<"all" | "admin" | "user" | "fake">("all");
   const [ratingFilter, setRatingFilter] = useState<number | null>(null);
+  const [approvalFilter, setApprovalFilter] = useState<"all" | "pending" | "approved">("all");
+
+  // 승인 대기 개수
+  const pendingCount = reviews.filter((r) => !r.is_active).length;
+
+  // 개별 승인/거절
+  const approveReview = async (id: string) => {
+    const { error } = await supabase
+      .from("reviews")
+      .update({ is_active: true, updated_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) {
+      alert("승인 실패: " + error.message);
+      return;
+    }
+    fetchReviews();
+  };
+
+  // 승인 대기 벌크: 선택된 모두 승인
+  const bulkApprove = async () => {
+    if (selectedIds.size === 0) return;
+    const ids = Array.from(selectedIds);
+    const { error } = await supabase
+      .from("reviews")
+      .update({ is_active: true, updated_at: new Date().toISOString() })
+      .in("id", ids);
+    if (error) {
+      alert("일괄 승인 실패: " + error.message);
+      return;
+    }
+    setSelectedIds(new Set());
+    fetchReviews();
+  };
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 댓글 관련 상태
@@ -325,7 +358,7 @@ export default function ReviewsPage() {
     const { error } = await supabase.from("review_replies").insert({
       review_id: replyingReview.id,
       content: replyContent.trim(),
-      author_name: "Cookies",
+      author_name: "CREAM",
     });
 
     if (error) {
@@ -450,6 +483,47 @@ export default function ReviewsPage() {
         </button>
       </div>
 
+      {/* 승인 상태 필터 */}
+      <div className="flex flex-wrap gap-2 mb-4">
+        <button
+          onClick={() => setApprovalFilter("all")}
+          className={`px-4 py-2 text-sm rounded-lg transition-colors ${
+            approvalFilter === "all"
+              ? "bg-gray-900 text-white"
+              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+          }`}
+        >
+          전체 상태
+        </button>
+        <button
+          onClick={() => setApprovalFilter("pending")}
+          className={`px-4 py-2 text-sm rounded-lg transition-colors flex items-center gap-1.5 ${
+            approvalFilter === "pending"
+              ? "bg-orange-500 text-white"
+              : "bg-orange-50 text-orange-700 hover:bg-orange-100"
+          }`}
+        >
+          ⏳ 승인 대기
+          {pendingCount > 0 && (
+            <span className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-xs font-medium ${
+              approvalFilter === "pending" ? "bg-white text-orange-600" : "bg-orange-600 text-white"
+            }`}>
+              {pendingCount}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => setApprovalFilter("approved")}
+          className={`px-4 py-2 text-sm rounded-lg transition-colors ${
+            approvalFilter === "approved"
+              ? "bg-green-600 text-white"
+              : "bg-green-50 text-green-700 hover:bg-green-100"
+          }`}
+        >
+          ✓ 노출중
+        </button>
+      </div>
+
       {/* 별점 필터 */}
       <div className="flex flex-wrap gap-2 mb-6">
         <button
@@ -496,6 +570,9 @@ export default function ReviewsPage() {
               if (typeFilter === "admin" && review.type !== "admin" && review.type) return false;
               if (typeFilter === "user" && review.type !== "user") return false;
               if (typeFilter === "fake" && review.type !== "fake") return false;
+              // 승인 상태 필터
+              if (approvalFilter === "pending" && review.is_active) return false;
+              if (approvalFilter === "approved" && !review.is_active) return false;
               // 별점 필터
               if (ratingFilter !== null && review.rating !== ratingFilter) return false;
               return true;
@@ -601,6 +678,15 @@ export default function ReviewsPage() {
 
               {/* 액션 */}
               <div className="px-4 pb-4 flex gap-2">
+                {!review.is_active && (
+                  <button
+                    onClick={() => approveReview(review.id)}
+                    className="flex-1 py-2 text-xs rounded-lg bg-orange-500 text-white hover:bg-orange-600 font-medium"
+                    title="승인 후 노출"
+                  >
+                    ⏳→✓ 승인
+                  </button>
+                )}
                 <button
                   onClick={() => handleToggleActive(review)}
                   className={`flex-1 py-2 text-xs rounded-lg ${
@@ -609,7 +695,7 @@ export default function ReviewsPage() {
                       : "bg-green-100 text-green-600 hover:bg-green-200"
                   }`}
                 >
-                  {review.is_active ? "숨기기" : "노출"}
+                  {review.is_active ? "숨기기" : "노출만"}
                 </button>
                 <button
                   onClick={() => openModal(review)}
@@ -813,13 +899,52 @@ export default function ReviewsPage() {
         </div>
       )}
 
-      {/* 벌크 액션 바 */}
-      <BulkActionBar
-        count={selectedIds.size}
-        onDelete={requestBulkDelete}
-        onToggleActive={handleBulkToggleActive}
-        onClear={() => setSelectedIds(new Set())}
-      />
+      {/* 벌크 액션 바 (승인 · 노출토글 · 삭제) */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-gray-900 text-white rounded-xl shadow-2xl border border-gray-800 flex items-center gap-1 px-3 py-2 max-w-[95vw] overflow-x-auto">
+          <div className="flex items-center gap-2 pr-3 border-r border-gray-700">
+            <span className="text-sm">
+              <span className="font-medium">{selectedIds.size}개</span> 선택
+            </span>
+          </div>
+          <button
+            onClick={bulkApprove}
+            className="px-3 py-1.5 text-xs rounded bg-orange-500 hover:bg-orange-400 transition font-medium"
+            title="선택 항목을 승인(노출)"
+          >
+            ⏳→✓ 일괄 승인
+          </button>
+          <button
+            onClick={() => handleBulkToggleActive(true)}
+            className="px-3 py-1.5 text-xs rounded hover:bg-gray-800 transition"
+          >
+            노출↑
+          </button>
+          <button
+            onClick={() => handleBulkToggleActive(false)}
+            className="px-3 py-1.5 text-xs rounded hover:bg-gray-800 transition"
+          >
+            숨김↓
+          </button>
+          <button
+            onClick={requestBulkDelete}
+            className="px-3 py-1.5 text-xs rounded bg-red-600 hover:bg-red-500 transition"
+          >
+            삭제
+          </button>
+          <div className="pl-2 border-l border-gray-700 ml-1">
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              className="w-7 h-7 flex items-center justify-center rounded hover:bg-gray-800 transition"
+              aria-label="선택 해제"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M6 6l12 12M6 18L18 6" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 벌크 삭제 확인 모달 */}
       <DeleteConfirmModal
