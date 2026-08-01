@@ -227,8 +227,8 @@ async function getRandomProducts(): Promise<{ ids: number[]; names: string[] } |
     return null;
   }
 
-  // 1~2개 랜덤 선택
-  const count = Math.random() < 0.5 ? 1 : 2;
+  // 실행당 1개 (cron이 주 3회 화·목·토로 실행 → 주 3개, 판석이형 "일주일에 한두개" 요구 준수)
+  const count = 1;
   const shuffled = products.sort(() => Math.random() - 0.5);
   const selected = shuffled.slice(0, Math.min(count, products.length));
 
