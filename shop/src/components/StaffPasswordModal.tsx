@@ -1,5 +1,10 @@
 "use client";
 
+// 프리미엄 접근 모달
+// - 비밀번호는 서버 API(/api/staff/verify)에서만 검증
+// - 성공 시 서버가 HMAC 서명된 httpOnly 쿠키 발급 (클라 조작 불가)
+// - 실패 5회/10분 초과 시 10분 잠금 (429)
+
 import { useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -9,33 +14,47 @@ interface StaffPasswordModalProps {
   onSuccess: () => void;
 }
 
-// 스태프 비밀번호 (나중에 환경변수나 DB로 이동 가능)
-const STAFF_PASSWORD = "1004";
-
 export default function StaffPasswordModal({ isOpen, onClose, onSuccess }: StaffPasswordModalProps) {
   const { t } = useLanguage();
   const [password, setPassword] = useState("");
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+    setSubmitting(true);
 
-    if (password === STAFF_PASSWORD) {
-      // 세션 스토리지에 접근 권한 저장 (브라우저 닫으면 초기화)
-      sessionStorage.setItem("staff_access", "true");
-      setPassword("");
-      setError(false);
-      onSuccess();
-    } else {
-      setError(true);
+    try {
+      const res = await fetch("/api/staff/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
+
+      if (res.status === 429) {
+        const data = await res.json().catch(() => ({}));
+        const sec = data.retryAfterSec || 600;
+        const min = Math.ceil(sec / 60);
+        setError(`시도 횟수를 초과했습니다. ${min}분 후 다시 시도해주세요.`);
+      } else if (!res.ok) {
+        setError(t("staff.error"));
+      } else {
+        setPassword("");
+        onSuccess();
+      }
+    } catch {
+      setError("네트워크 오류가 발생했습니다.");
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const handleClose = () => {
     setPassword("");
-    setError(false);
+    setError(null);
     onClose();
   };
 
@@ -58,31 +77,32 @@ export default function StaffPasswordModal({ isOpen, onClose, onSuccess }: Staff
             value={password}
             onChange={(e) => {
               setPassword(e.target.value);
-              setError(false);
+              setError(null);
             }}
             placeholder={t("staff.placeholder")}
             className={`w-full px-4 py-3 border rounded-lg outline-none transition-colors ${
               error ? "border-red-500" : "border-gray-300 focus:border-gray-900"
             }`}
             autoFocus
+            disabled={submitting}
           />
-          {error && (
-            <p className="text-red-500 text-sm mt-2">{t("staff.error")}</p>
-          )}
+          {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
 
           <div className="flex space-x-3 mt-6">
             <button
               type="button"
               onClick={handleClose}
-              className="flex-1 py-3 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors"
+              disabled={submitting}
+              className="flex-1 py-3 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50"
             >
               {t("common.cancel")}
             </button>
             <button
               type="submit"
-              className="flex-1 py-3 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
+              disabled={submitting || !password}
+              className="flex-1 py-3 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50"
             >
-              {t("common.confirm")}
+              {submitting ? "..." : t("common.confirm")}
             </button>
           </div>
         </form>

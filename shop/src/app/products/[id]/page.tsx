@@ -71,11 +71,16 @@ export default function ProductDetailPage() {
       console.error('상품 조회 실패:', error);
       setProduct(null);
     } else {
-      // Premium 카테고리 상품은 비밀번호 인증 필요
+      // Premium 카테고리 상품은 서버 세션 쿠키 검증 (클라 조작 불가)
       if (data?.category === '➡ Premium High-Quality ✨') {
-        const staffAccess = sessionStorage.getItem('staff_access');
-        if (staffAccess !== 'true') {
-          // 권한 없으면 홈으로 리다이렉트
+        try {
+          const r = await fetch('/api/staff/session', { cache: 'no-store' });
+          const j = await r.json();
+          if (!j.ok) {
+            router.push('/');
+            return;
+          }
+        } catch {
           router.push('/');
           return;
         }

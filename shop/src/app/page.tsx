@@ -80,9 +80,17 @@ export default function Home() {
   const [searchInput, setSearchInput] = useState(searchParams.get("search") || "");
 
   useEffect(() => {
-    const staffAccess = sessionStorage.getItem("staff_access");
-    if (staffAccess === "true") setHasStaffAccess(true);
-    if (searchParams.get("staff") === "1" && staffAccess !== "true") setShowStaffModal(true);
+    // 서버 세션 쿠키 검증 (HMAC 서명, 클라이언트 조작 불가)
+    (async () => {
+      try {
+        const r = await fetch("/api/staff/session", { cache: "no-store" });
+        const j = await r.json();
+        if (j.ok) setHasStaffAccess(true);
+        else if (searchParams.get("staff") === "1") setShowStaffModal(true);
+      } catch {
+        if (searchParams.get("staff") === "1") setShowStaffModal(true);
+      }
+    })();
     fetchHero();
   }, []);
 
