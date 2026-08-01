@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/cron/fake-reviews",
-      "schedule": "0 1 * * *"
+      "schedule": "0 1 * * 2,4,6"
     }
   ]
 }
