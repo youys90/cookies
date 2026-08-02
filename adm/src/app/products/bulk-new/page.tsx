@@ -17,6 +17,7 @@ const categoriesJa = [
   "メガネ／サングラス",
   "ファッション雑貨",
   "その他（ETC）",
+  "➡ Premium High-Quality ✨",
 ];
 const categoriesKo = [
   "악세사리",
@@ -26,6 +27,7 @@ const categoriesKo = [
   "안경/선글라스",
   "패션잡화",
   "기타",
+  "➡ Premium High-Quality ✨",
 ];
 
 interface Row {

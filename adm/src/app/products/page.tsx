@@ -4,7 +4,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
-import { categories } from "@/data/products";
 import { supabase } from "@/lib/supabase";
 import BulkActionBar from "@/components/BulkActionBar";
 import DeleteConfirmModal from "@/components/DeleteConfirmModal";
@@ -21,6 +20,7 @@ interface Product {
   price: number;
   original_price?: number;
   image: string;
+  images?: string[];
   category: string;
   category_ko?: string;
   category_ja?: string;
@@ -72,6 +72,8 @@ export default function ProductsPage() {
   const [productList, setProductList] = useState<Product[]>([]);
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get("cat") || "전체");
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [categories, setCategories] = useState<string[]>([]);
 
   // 페이지네이션
   const [currentPage, setCurrentPage] = useState(Number(searchParams.get("page")) || 1);
@@ -118,8 +120,29 @@ export default function ProductsPage() {
     fetchProducts();
   }, [selectedCategory, currentPage, pageSize, searchKeyword]);
 
+  // 카테고리 DB 조회 (지시 15/19: adm은 categories 테이블 관리 체계)
+  useEffect(() => {
+    const fetchCategories = async () => {
+      const { data, error } = await supabase
+        .from("categories")
+        .select("name_ja, sort_order")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true });
+      if (error) {
+        console.error("카테고리 조회 실패:", error);
+        return;
+      }
+      const names = (data || [])
+        .map((c: { name_ja: string | null }) => c.name_ja)
+        .filter((n): n is string => !!n);
+      setCategories(names);
+    };
+    fetchCategories();
+  }, []);
+
   const fetchProducts = async () => {
     setLoading(true);
+    setFetchError(null);
 
     let query = supabase.from("products").select("*", { count: "exact" });
 
@@ -142,6 +165,7 @@ export default function ProductsPage() {
 
     if (error) {
       console.error("상품 조회 실패:", error);
+      setFetchError(error.message || "상품 목록을 불러오지 못했습니다.");
     } else {
       setProductList(data || []);
       setTotalCount(count || 0);
@@ -494,6 +518,22 @@ export default function ProductsPage() {
           </div>
         </div>
       </div>
+
+      {/* Fetch Error Banner */}
+      {fetchError && (
+        <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-4 mb-4 flex items-center justify-between">
+          <div className="text-sm">
+            <span className="font-medium">상품 목록을 불러오지 못했습니다.</span>
+            <span className="ml-2 text-red-500">{fetchError}</span>
+          </div>
+          <button
+            onClick={() => fetchProducts()}
+            className="px-3 py-1.5 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+          >
+            재시도
+          </button>
+        </div>
+      )}
 
       {/* Table */}
       <div className="bg-white rounded-xl shadow-sm overflow-hidden">

@@ -1,7 +1,7 @@
 "use client";
-// 카테고리 관리 (하위 뎁스, 아이콘 업로드, 순서, 활성/비활성)
+// 카테고리 관리 (하위 뎁스, 아이콘 선택, 순서, 활성/비활성)
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import { translateKoJa } from "@/lib/translate";
@@ -21,9 +21,6 @@ type Category = {
   updated_at?: string;
 };
 
-const BUCKET = "product-images";
-const ICON_MAX_SIZE = 5 * 1024 * 1024; // 5MB
-
 export default function CategoriesPage() {
   const [rows, setRows] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,11 +37,7 @@ export default function CategoriesPage() {
     icon_url: "" as string,
     is_active: true,
   });
-  const [uploadingIcon, setUploadingIcon] = useState(false);
-  const [iconError, setIconError] = useState<string | null>(null);
-  const iconInputRef = useRef<HTMLInputElement>(null);
-
-  // AI 번역
+  // 무료 번역 (MyMemory/Google)
   const [translating, setTranslating] = useState<"ko-ja" | "ja-ko" | null>(null);
 
   // 아이콘 선택 모달
@@ -104,13 +97,32 @@ export default function CategoriesPage() {
     return byParent;
   }, [rows]);
 
+  // 자기 자신의 모든 자손 id 계산 (순환 참조 방지용)
+  const getDescendantIds = (id: number): Set<number> => {
+    const descendants = new Set<number>();
+    const stack = [id];
+    while (stack.length > 0) {
+      const current = stack.pop()!;
+      rows.forEach((r) => {
+        if (r.parent_id === current && !descendants.has(r.id)) {
+          descendants.add(r.id);
+          stack.push(r.id);
+        }
+      });
+    }
+    return descendants;
+  };
+
   const openCreate = (parent: Category | null = null) => {
     setEditing(null);
+    const siblings = rows.filter((r) => r.parent_id === (parent?.id ?? null));
+    const maxOrder = siblings.length > 0 ? Math.max(...siblings.map((r) => r.sort_order), 0) : 0;
     setForm({
       name_ko: "",
       name_ja: "",
+      name_en: "",
       parent_id: parent ? parent.id : null,
-      sort_order: (rows.filter((r) => r.parent_id === (parent?.id ?? null)).at(-1)?.sort_order ?? 0) + 10,
+      sort_order: maxOrder + 10,
       icon_url: "",
       is_active: true,
     });
@@ -134,7 +146,6 @@ export default function CategoriesPage() {
   const closeForm = () => {
     setShowForm(false);
     setEditing(null);
-    setIconError(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -184,38 +195,6 @@ export default function CategoriesPage() {
     const { error } = await supabase.from("categories").delete().eq("id", row.id);
     if (error) return alert("삭제 실패: " + error.message);
     fetchAll();
-  };
-
-  const handleIconUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setIconError(null);
-
-    if (file.size > ICON_MAX_SIZE) {
-      setIconError("5MB 이하 이미지만 업로드 가능합니다.");
-      return;
-    }
-    if (!file.type.startsWith("image/")) {
-      setIconError("이미지 파일만 업로드 가능합니다.");
-      return;
-    }
-
-    setUploadingIcon(true);
-    const ext = file.name.split(".").pop() || "png";
-    const key = `categories/icon_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
-    const { error: upErr } = await supabase.storage.from(BUCKET).upload(key, file, {
-      upsert: true,
-      contentType: file.type,
-    });
-    if (upErr) {
-      setUploadingIcon(false);
-      setIconError("업로드 실패: " + upErr.message);
-      return;
-    }
-    const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(key);
-    setForm((p) => ({ ...p, icon_url: urlData.publicUrl }));
-    setUploadingIcon(false);
-    if (iconInputRef.current) iconInputRef.current.value = "";
   };
 
   const toggleExpand = (id: number) => {
@@ -331,11 +310,15 @@ export default function CategoriesPage() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
                 >
                   <option value="">(최상위)</option>
-                  {rows
-                    .filter((r) => !editing || r.id !== editing.id) // 자기 자신 제외
-                    .map((r) => (
-                      <option key={r.id} value={r.id}>{r.name_ko} / {r.name_ja}</option>
-                    ))}
+                  {(() => {
+                    // 편집 중이면 자기 자신 + 모든 자손을 제외 (순환 참조 방지)
+                    const excludeIds = editing ? new Set<number>([editing.id, ...getDescendantIds(editing.id)]) : new Set<number>();
+                    return rows
+                      .filter((r) => !excludeIds.has(r.id))
+                      .map((r) => (
+                        <option key={r.id} value={r.id}>{r.name_ko} / {r.name_ja}</option>
+                      ));
+                  })()}
                 </select>
               </div>
 
@@ -348,7 +331,7 @@ export default function CategoriesPage() {
                       onClick={() => translate("ko-ja")}
                       disabled={!!translating}
                       className="text-[10px] text-blue-600 hover:text-blue-800 disabled:opacity-40"
-                      title="한국어 → 일본어 자동 번역 (AI)"
+                      title="한국어 → 일본어 자동 번역 (MyMemory/Google 무료)"
                     >
                       🌐 → 일본어 {translating === "ko-ja" ? "번역 중..." : ""}
                     </button>
@@ -369,7 +352,7 @@ export default function CategoriesPage() {
                       onClick={() => translate("ja-ko")}
                       disabled={!!translating}
                       className="text-[10px] text-blue-600 hover:text-blue-800 disabled:opacity-40"
-                      title="일본어 → 한국어 자동 번역 (AI)"
+                      title="일본어 → 한국어 자동 번역 (MyMemory/Google 무료)"
                     >
                       🌐 → 한국어 {translating === "ja-ko" ? "번역 중..." : ""}
                     </button>
@@ -458,7 +441,6 @@ export default function CategoriesPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={uploadingIcon}
                   className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm hover:bg-gray-800 disabled:opacity-50"
                 >
                   {editing ? "수정 저장" : "등록"}

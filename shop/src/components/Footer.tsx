@@ -27,9 +27,8 @@ export default function Footer() {
             <h4 className="text-[11px] tracking-[0.2em] text-[var(--color-text)] mb-4">SHOP</h4>
             <ul className="space-y-2.5 text-[12px] text-[var(--color-text-soft)]">
               <li><Link href="/?cat=all" className="hover:text-[var(--color-text)]">NEW IN</Link></li>
-              <li><Link href="/?cat=all" className="hover:text-[var(--color-text)]">BEST</Link></li>
-              <li><Link href="/?cat=accessory" className="hover:text-[var(--color-text)]">{language === "ja" ? "アクセサリー" : "ACC"}</Link></li>
-              <li><Link href="/?cat=fashion" className="hover:text-[var(--color-text)]">{language === "ja" ? "ファッション" : "FASHION"}</Link></li>
+              <li><Link href="/?cat=acc" className="hover:text-[var(--color-text)]">{language === "ja" ? "アクセサリー" : "ACC"}</Link></li>
+              <li><Link href="/?cat=bag" className="hover:text-[var(--color-text)]">{language === "ja" ? "バッグ" : "BAG"}</Link></li>
               <li><Link href="/?cat=sale" className="hover:text-[var(--color-text)]">SALE</Link></li>
             </ul>
           </div>

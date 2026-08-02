@@ -5,7 +5,7 @@
 // - 성공 시 서버가 HMAC 서명된 httpOnly 쿠키 발급 (클라 조작 불가)
 // - 실패 5회/10분 초과 시 10분 잠금 (429)
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 interface StaffPasswordModalProps {
@@ -15,10 +15,23 @@ interface StaffPasswordModalProps {
 }
 
 export default function StaffPasswordModal({ isOpen, onClose, onSuccess }: StaffPasswordModalProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setPassword("");
+        setError(null);
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -38,7 +51,11 @@ export default function StaffPasswordModal({ isOpen, onClose, onSuccess }: Staff
         const data = await res.json().catch(() => ({}));
         const sec = data.retryAfterSec || 600;
         const min = Math.ceil(sec / 60);
-        setError(`시도 횟수를 초과했습니다. ${min}분 후 다시 시도해주세요.`);
+        setError(
+          language === "ja"
+            ? `試行回数を超えました。${min}分後にもう一度お試しください。`
+            : `시도 횟수를 초과했습니다. ${min}분 후 다시 시도해주세요.`
+        );
       } else if (!res.ok) {
         setError(t("staff.error"));
       } else {
@@ -46,7 +63,11 @@ export default function StaffPasswordModal({ isOpen, onClose, onSuccess }: Staff
         onSuccess();
       }
     } catch {
-      setError("네트워크 오류가 발생했습니다.");
+      setError(
+        language === "ja"
+          ? "ネットワークエラーが発生しました。"
+          : "네트워크 오류가 발생했습니다."
+      );
     } finally {
       setSubmitting(false);
     }
@@ -59,7 +80,12 @@ export default function StaffPasswordModal({ isOpen, onClose, onSuccess }: Staff
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="staff-modal-title"
+    >
       <div className="bg-white rounded-lg p-6 w-full max-w-sm mx-4">
         <div className="text-center mb-6">
           <div className="w-12 h-12 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
@@ -67,7 +93,7 @@ export default function StaffPasswordModal({ isOpen, onClose, onSuccess }: Staff
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
           </div>
-          <h3 className="text-lg font-medium text-gray-900">{t("staff.title")}</h3>
+          <h3 id="staff-modal-title" className="text-lg font-medium text-gray-900">{t("staff.title")}</h3>
           <p className="text-sm text-gray-500 mt-1">{t("staff.description")}</p>
         </div>
 
@@ -102,7 +128,7 @@ export default function StaffPasswordModal({ isOpen, onClose, onSuccess }: Staff
               disabled={submitting || !password}
               className="flex-1 py-3 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50"
             >
-              {submitting ? "..." : t("common.confirm")}
+              {submitting ? t("common.loading") : t("common.confirm")}
             </button>
           </div>
         </form>

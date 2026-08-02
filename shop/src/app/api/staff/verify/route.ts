@@ -35,7 +35,10 @@ export async function POST(req: Request) {
   }
 
   const expected = process.env.STAFF_PASSWORD;
-  if (!expected) {
+  // STAFF_SESSION_SECRET이 없으면 issueSessionValue는 성공하지만
+  // verifySessionValue가 항상 false를 반환해 '조용한 인증 실패' 루프가 발생하므로
+  // 비밀번호와 세션 서명 키를 함께 검사한다.
+  if (!expected || !process.env.STAFF_SESSION_SECRET) {
     return NextResponse.json({ ok: false, reason: "server_misconfig" }, { status: 500 });
   }
 

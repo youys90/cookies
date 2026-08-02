@@ -4,6 +4,7 @@ import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
+import { translateKoJa } from "@/lib/translate";
 
 const categoriesJa = ["アクセサリー", "ヘアアクセサリー", "冬物アイテム", "キーリング", "メガネ／サングラス", "ファッション雑貨", "その他（ETC）", "➡ Premium High-Quality ✨"];
 const categoriesKo = ["악세사리", "헤어", "겨울상품", "키링", "안경/선글라스", "패션잡화", "기타", "➡ Premium High-Quality ✨"];
@@ -73,24 +74,25 @@ export default function NewProductPage() {
 
   const getCategoryIndex = () => categoriesJa.indexOf(formData.categoryJa);
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
 
-    const newImages: ImageItem[] = [];
-    Array.from(files).forEach((file) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        newImages.push({
-          file,
-          preview: reader.result as string,
-        });
-        if (newImages.length === files.length) {
-          setImages((prev) => [...prev, ...newImages]);
-        }
-      };
-      reader.readAsDataURL(file);
-    });
+    // Promise.all + 인덱스별 배열로 선택 순서 보장 (첫 번째 = 메인)
+    const readAsDataUrl = (file: File): Promise<ImageItem> =>
+      new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve({ file, preview: reader.result as string });
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+      });
+
+    try {
+      const newImages = await Promise.all(Array.from(files).map(readAsDataUrl));
+      setImages((prev) => [...prev, ...newImages]);
+    } catch (err) {
+      console.error('이미지 읽기 실패:', err);
+    }
   };
 
   const removeImage = (index: number) => {
@@ -127,7 +129,7 @@ export default function NewProductPage() {
 
   const uploadImage = async (file: File): Promise<string | null> => {
     const fileExt = file.name.split('.').pop();
-    const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
+    const fileName = `${Date.now()}_${Math.random().toString(36).slice(2, 11)}.${fileExt}`;
     const filePath = `products/${fileName}`;
 
     const { error: uploadError } = await supabase.storage
@@ -163,60 +165,16 @@ export default function NewProductPage() {
     return uploadedUrls;
   };
 
-  // 번역 함수 (MyMemory + Google Translate fallback)
-  const translateText = async (text: string, from: string, to: string): Promise<string> => {
-    if (!text.trim()) return "";
-
-    const englishParts: string[] = [];
-    const placeholder = "{{EN}}";
-    const preserved = text.replace(/[A-Za-z]+/g, (match) => {
-      englishParts.push(match);
-      return placeholder;
-    });
-
-    const restoreEnglish = (translated: string) => {
-      let result = translated;
-      englishParts.forEach((eng) => {
-        result = result.replace(placeholder, eng);
-      });
-      return result;
-    };
-
-    // 1차: MyMemory API
-    try {
-      const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(preserved)}&langpair=${from}|${to}`);
-      const data = await res.json();
-      const translated = data.responseData?.translatedText || "";
-
-      if (translated && !translated.includes("MYMEMORY WARNING")) {
-        return restoreEnglish(translated);
-      }
-    } catch (error) {
-      console.error('MyMemory 번역 실패:', error);
-    }
-
-    // 2차: Google Translate fallback
-    try {
-      const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=${from}&tl=${to}&dt=t&q=${encodeURIComponent(preserved)}`);
-      const data = await res.json();
-      const translated = data[0]?.map((item: string[]) => item[0]).join('') || text;
-      return restoreEnglish(translated);
-    } catch (error) {
-      console.error('Google 번역 실패:', error);
-      return text;
-    }
-  };
-
   const autoTranslate = async (field: 'name' | 'description', sourceLang: 'ja' | 'ko', value: string) => {
     if (!value.trim()) return;
 
     const from = sourceLang;
-    const to = sourceLang === 'ja' ? 'ko' : 'ja';
+    const to: 'ja' | 'ko' = sourceLang === 'ja' ? 'ko' : 'ja';
     const targetField = field + (to === 'ja' ? 'Ja' : 'Ko') as keyof typeof formData;
 
     setTranslating(true);
     try {
-      const translated = await translateText(value, from, to);
+      const translated = await translateKoJa(value, from, to);
       setFormData(prev => ({ ...prev, [targetField]: translated }));
 
       if (field === 'name') {
@@ -247,8 +205,8 @@ export default function NewProductPage() {
       setTranslating(true);
       try {
         const [nameKo, descKo] = await Promise.all([
-          translateText(formData.nameJa, 'ja', 'ko'),
-          formData.descriptionJa ? translateText(formData.descriptionJa, 'ja', 'ko') : '',
+          translateKoJa(formData.nameJa, 'ja', 'ko'),
+          formData.descriptionJa ? translateKoJa(formData.descriptionJa, 'ja', 'ko') : '',
         ]);
         const catIdx = categoriesJa.indexOf(formData.categoryJa);
         setFormData(prev => ({
@@ -326,8 +284,8 @@ export default function NewProductPage() {
     let finalData = { ...formData };
     if (formData.nameJa && !formData.nameKo) {
       const [nameKo, descKo] = await Promise.all([
-        translateText(formData.nameJa, 'ja', 'ko'),
-        formData.descriptionJa ? translateText(formData.descriptionJa, 'ja', 'ko') : '',
+        translateKoJa(formData.nameJa, 'ja', 'ko'),
+        formData.descriptionJa ? translateKoJa(formData.descriptionJa, 'ja', 'ko') : '',
       ]);
       const catIdx = categoriesJa.indexOf(formData.categoryJa);
       finalData = {
@@ -338,8 +296,8 @@ export default function NewProductPage() {
       };
     } else if (formData.nameKo && !formData.nameJa) {
       const [nameJa, descJa] = await Promise.all([
-        translateText(formData.nameKo, 'ko', 'ja'),
-        formData.descriptionKo ? translateText(formData.descriptionKo, 'ko', 'ja') : '',
+        translateKoJa(formData.nameKo, 'ko', 'ja'),
+        formData.descriptionKo ? translateKoJa(formData.descriptionKo, 'ko', 'ja') : '',
       ]);
       const catIdx = categoriesKo.indexOf(formData.categoryKo);
       finalData = {

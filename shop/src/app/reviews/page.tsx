@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
@@ -59,11 +59,7 @@ export default function ReviewsPage() {
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [showLightbox, setShowLightbox] = useState(false);
 
-  useEffect(() => {
-    fetchReviews();
-  }, [selectedRating]);
-
-  const fetchReviews = async () => {
+  const fetchReviews = useCallback(async () => {
     setLoading(true);
 
     // 통계용 전체 리뷰 조회 (모든 별점 집계)
@@ -108,7 +104,11 @@ export default function ReviewsPage() {
       setReviews(data || []);
     }
     setLoading(false);
-  };
+  }, [selectedRating]);
+
+  useEffect(() => {
+    fetchReviews();
+  }, [fetchReviews]);
 
   const renderStars = (rating: number, size: "sm" | "md" | "lg" = "sm") => {
     const sizeClasses = {
@@ -159,6 +159,9 @@ export default function ReviewsPage() {
     confirm: language === "ko" ? "확인" : "確認",
     cancel: language === "ko" ? "취소" : "キャンセル",
     wrongPassword: language === "ko" ? "비밀번호가 일치하지 않습니다" : "パスワードが一致しません",
+    imageAlt: language === "ko" ? "리뷰 이미지" : "レビュー画像",
+    zoomAlt: language === "ko" ? "확대 이미지" : "拡大画像",
+    thumbAlt: language === "ko" ? "썸네일" : "サムネイル",
   };
 
   // 비공개 리뷰 확인 함수
@@ -211,6 +214,23 @@ export default function ReviewsPage() {
   const goToNext = () => {
     setLightboxIndex((prev) => (prev === lightboxImages.length - 1 ? 0 : prev + 1));
   };
+
+  // 라이트박스 키보드 접근성 (ESC 닫기, 좌/우 화살표 이동)
+  useEffect(() => {
+    if (!showLightbox) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setShowLightbox(false);
+      } else if (e.key === "ArrowLeft") {
+        goToPrev();
+      } else if (e.key === "ArrowRight") {
+        goToNext();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showLightbox, lightboxImages.length]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -372,7 +392,7 @@ export default function ReviewsPage() {
                               >
                                 <Image
                                   src={url}
-                                  alt={`리뷰 이미지 ${idx + 1}`}
+                                  alt={`${t.imageAlt} ${idx + 1}`}
                                   fill
                                   className="object-cover"
                                   unoptimized
@@ -391,7 +411,7 @@ export default function ReviewsPage() {
                             return productId ? (
                               <Link
                                 key={idx}
-                                href={`/products/${productId}`}
+                                href={`/product/${productId}`}
                                 className="inline-flex items-center px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 hover:text-gray-900 text-xs rounded-full transition-colors"
                               >
                                 #{name}
@@ -485,7 +505,7 @@ export default function ReviewsPage() {
           >
             <Image
               src={lightboxImages[lightboxIndex]}
-              alt={`확대 이미지 ${lightboxIndex + 1}`}
+              alt={`${t.zoomAlt} ${lightboxIndex + 1}`}
               fill
               className="object-contain"
               unoptimized
@@ -523,7 +543,7 @@ export default function ReviewsPage() {
                 >
                   <Image
                     src={url}
-                    alt={`썸네일 ${idx + 1}`}
+                    alt={`${t.thumbAlt} ${idx + 1}`}
                     fill
                     className="object-cover"
                     unoptimized

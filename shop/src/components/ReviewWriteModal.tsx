@@ -69,6 +69,10 @@ export default function ReviewWriteModal({ isOpen, onClose, onSuccess }: ReviewW
     noOrders: language === "ko" ? "주문 내역이 없습니다." : "注文履歴がありません。",
     lineNameRequired: language === "ko" ? "LINE NAME을 입력해주세요." : "LINE NAMEを入力してください。",
     selectedCount: language === "ko" ? "개 선택됨" : "件選択中",
+    noOrdersHelp: language === "ko"
+      ? "주문 내역이 조회되지 않나요? LINE NAME 오타 여부를 확인하시거나, 공식 LINE 채널로 문의해 주세요."
+      : "注文履歴が見つかりませんか？LINE NAMEの入力ミスをご確認いただくか、公式LINEチャンネルまでお問い合わせください。",
+    contactChannel: language === "ko" ? "LINE으로 문의하기" : "LINEで問い合わせる",
   };
 
   // LINE NAME으로 주문내역 조회 (이미 리뷰 작성한 상품 제외)
@@ -334,7 +338,20 @@ export default function ReviewWriteModal({ isOpen, onClose, onSuccess }: ReviewW
                 )}
               </label>
               {orderItems.length === 0 ? (
-                <p className="text-sm text-gray-500 bg-gray-50 p-3 rounded-lg">{t.noOrders}</p>
+                <div className="space-y-2">
+                  <p className="text-sm text-gray-500 bg-gray-50 p-3 rounded-lg">{t.noOrders}</p>
+                  <p className="text-xs text-gray-500 bg-yellow-50 border border-yellow-200 p-3 rounded-lg">
+                    {t.noOrdersHelp}
+                  </p>
+                  <a
+                    href="https://line.me/R/ti/p/@cookies"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-block text-xs px-3 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
+                  >
+                    {t.contactChannel}
+                  </a>
+                </div>
               ) : (
                 <div className="space-y-2 max-h-48 overflow-y-auto">
                   {orderItems.map((item) => {

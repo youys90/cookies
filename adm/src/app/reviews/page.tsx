@@ -51,7 +51,13 @@ export default function ReviewsPage() {
   const [approvalFilter, setApprovalFilter] = useState<"all" | "pending" | "approved">("all");
 
   // 승인 대기 개수
-  const pendingCount = reviews.filter((r) => !r.is_active).length;
+  // 주의: is_active=false 는 '승인 대기'와 '관리자 숨김' 모두를 포함할 수 있음.
+  // 승인 프로세스는 손님(user) 리뷰와 AI(fake) 리뷰 대상이므로,
+  // 관리자(admin) 등록 리뷰의 숨김 상태는 배지 카운트에서 제외한다.
+  // (스키마에 approval_status 컬럼이 추가되면 그때 재정비 예정)
+  const pendingCount = reviews.filter(
+    (r) => !r.is_active && (r.type === "user" || r.type === "fake")
+  ).length;
 
   // 개별 승인/거절
   const approveReview = async (id: string) => {
@@ -780,8 +786,13 @@ export default function ReviewsPage() {
                       ? "bg-gray-100 text-gray-600 hover:bg-gray-200"
                       : "bg-green-100 text-green-600 hover:bg-green-200"
                   }`}
+                  title={
+                    review.is_active
+                      ? "메인 페이지에서 숨김"
+                      : "승인 없이 즉시 노출"
+                  }
                 >
-                  {review.is_active ? "숨기기" : "노출만"}
+                  {review.is_active ? "숨기기" : "노출하기"}
                 </button>
                 <button
                   onClick={() => openModal(review)}

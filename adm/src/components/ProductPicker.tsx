@@ -34,10 +34,18 @@ export default function ProductPicker({
   const [selected, setSelected] = useState<Map<number, ProductLite>>(new Map());
   const [loading, setLoading] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const openedOnceRef = useRef(false);
 
-  // 초기 선택 상태 복원 (수정 모드용)
+  // 초기 선택 상태 복원 (수정 모드용) - 모달이 열리는 첫 순간에만 fetch
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      // 모달이 닫히면 플래그 리셋 (다음 열림 때 다시 초기화 가능하도록)
+      openedOnceRef.current = false;
+      return;
+    }
+    if (openedOnceRef.current) return;
+    openedOnceRef.current = true;
+
     if (initialSelectedIds.length === 0) {
       setSelected(new Map());
       return;
@@ -51,7 +59,9 @@ export default function ProductPicker({
       (data || []).forEach((p) => m.set(p.id as number, p as ProductLite));
       setSelected(m);
     })();
-  }, [open, initialSelectedIds.join(",")]);
+    // initialSelectedIds는 모달 열리는 시점의 값만 사용 (부모 리렌더 시 선택 초기화 방지)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   // 검색 (디바운스 300ms)
   useEffect(() => {

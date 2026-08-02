@@ -1,13 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCart } from "@/contexts/CartContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/lib/supabase";
 
 export default function CartPage() {
+  const router = useRouter();
   const { items, removeFromCart, updateQuantity, totalPrice, clearCart } = useCart();
   const { language, t, formatPrice } = useLanguage();
 
@@ -115,7 +117,9 @@ export default function CartPage() {
             additional_price: item.additionalPrice,
           })),
         };
-        console.log("LINE notify body:", JSON.stringify(lineNotifyBody));
+        if (process.env.NODE_ENV === "development") {
+          console.log("LINE notify body:", JSON.stringify(lineNotifyBody));
+        }
         await fetch("/api/line-notify", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -143,6 +147,40 @@ export default function CartPage() {
     setCustomerMemo("");
     setError("");
   };
+
+  // 주문 완료 후 '닫기' → 홈으로 이동 (빈 카트 empty state 노출 방지)
+  const handleCompleteAndGoHome = () => {
+    setShowOrderModal(false);
+    setOrderComplete(false);
+    setCustomerName("");
+    setCustomerLine("");
+    setCustomerPhone("");
+    setCustomerMemo("");
+    setError("");
+    router.push("/");
+  };
+
+  // 모달 열림 시 body 스크롤 잠금 + ESC 키로 닫기
+  useEffect(() => {
+    if (!showOrderModal) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (orderComplete) {
+          handleCompleteAndGoHome();
+        } else {
+          handleCloseModal();
+        }
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showOrderModal, orderComplete]);
 
   if (items.length === 0 && !orderComplete) {
     return (
@@ -175,7 +213,7 @@ export default function CartPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs text-gray-400 mb-1">{item.category}</p>
-                    <Link href={`/products/${item.id}`} className="text-sm md:text-base font-medium text-gray-900 hover:text-gray-600 line-clamp-2">
+                    <Link href={`/product/${item.id}`} className="text-sm md:text-base font-medium text-gray-900 hover:text-gray-600 line-clamp-2">
                       {item.name}
                     </Link>
                     {item.optionName && (
@@ -191,7 +229,7 @@ export default function CartPage() {
                         <span className="px-3 py-2 text-sm min-w-[40px] text-center">{item.quantity}</span>
                         <button onClick={() => updateQuantity(item.id, item.quantity + 1, item.optionId)} className="px-3 py-2 text-gray-600 hover:bg-gray-50 text-sm min-w-[40px]">+</button>
                       </div>
-                      <button onClick={() => removeFromCart(item.id, item.optionId)} className="p-2 text-gray-400 hover:text-red-500" aria-label="삭제">
+                      <button onClick={() => removeFromCart(item.id, item.optionId)} className="p-2 text-gray-400 hover:text-red-500" aria-label={t("cart.remove")}>
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
@@ -305,18 +343,15 @@ export default function CartPage() {
                       }}
                       onBlur={() => {
                         // 커서가 벗어날 때만 자동 포맷 (사용자 입력 흐름 방해 X)
-                        // 이미 하이픈을 넣었으면 그대로 존중, 없으면 3-4-4로 자동 삽입
+                        // 국내 010 번호만 3-4-4 포맷 자동 적용, 국제번호(+)나 기타 형식은 원본 유지
                         const raw = customerPhone.trim();
-                        if (!raw || raw.includes('-')) return;
-                        const prefix = raw.startsWith('+') ? '+' : '';
+                        if (!raw || raw.includes('-') || raw.startsWith('+')) return;
                         const digits = raw.replace(/[^0-9]/g, '');
-                        let formatted = digits;
-                        if (digits.length > 3 && digits.length <= 7) {
-                          formatted = `${digits.slice(0, 3)}-${digits.slice(3)}`;
-                        } else if (digits.length > 7) {
-                          formatted = `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7, 11)}`;
+                        // 국내 휴대폰(010, 11자리)만 자동 포맷
+                        if (digits.length === 11 && digits.startsWith('010')) {
+                          setCustomerPhone(`${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7, 11)}`);
                         }
-                        setCustomerPhone(prefix + formatted);
+                        // 그 외(국제번호, 짧은 번호, 유선 등)는 원본 유지
                       }}
                       placeholder={t("order.phonePlaceholder")}
                       className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
@@ -378,10 +413,10 @@ export default function CartPage() {
                   {t("order.orderNumber")}: <span className="font-medium">{orderNumber}</span>
                 </p>
                 <button
-                  onClick={handleCloseModal}
+                  onClick={handleCompleteAndGoHome}
                   className="w-full py-3.5 min-h-[48px] bg-gray-900 text-white rounded-lg hover:bg-gray-800 active:bg-gray-700 text-base font-medium"
                 >
-                  {t("order.close")}
+                  {t("cart.continueShopping")}
                 </button>
               </div>
             )}

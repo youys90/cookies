@@ -24,6 +24,7 @@ const CATEGORIES = [
   "メガネ／サングラス",
   "ファッション雑貨",
   "その他（ETC）",
+  "➡ Premium High-Quality ✨",
 ];
 
 const MOCK_RESULT: AnalyzeResult = {

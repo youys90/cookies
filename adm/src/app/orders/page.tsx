@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import DeleteConfirmModal from "@/components/DeleteConfirmModal";
@@ -133,6 +134,25 @@ export default function OrdersPage() {
 
   useEffect(() => {
     fetchOrders();
+  }, [selectedStatus, currentPage, pageSize, searchKeyword]);
+
+  // 실시간 구독: 신규 주문(INSERT), 상태 변경(UPDATE), 삭제(DELETE) 자동 반영
+  useEffect(() => {
+    const channel = supabase
+      .channel('orders-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'orders' },
+        () => {
+          fetchOrders();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedStatus, currentPage, pageSize, searchKeyword]);
 
   const fetchOrders = async () => {
@@ -570,7 +590,16 @@ export default function OrdersPage() {
                   {selectedOrder.order_items.map((item) => (
                     <div key={item.id} className="flex gap-3 p-3 bg-gray-50 rounded-lg">
                       {item.product_image && (
-                        <img src={item.product_image} alt={item.product_name} className="w-16 h-16 object-cover rounded" />
+                        <div className="relative w-16 h-16 flex-shrink-0">
+                          <Image
+                            src={item.product_image}
+                            alt={item.product_name}
+                            fill
+                            sizes="64px"
+                            loading="lazy"
+                            className="object-cover rounded"
+                          />
+                        </div>
                       )}
                       <div className="flex-1">
                         <p className="text-sm font-medium text-gray-900">{item.product_name}</p>

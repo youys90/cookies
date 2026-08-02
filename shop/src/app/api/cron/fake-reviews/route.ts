@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-// Cron job: 하루 1회 실행
+// Cron job: 주 3회 실행 (화·목·토 01:00 UTC)
 // 가짜 리뷰 자동 생성 (Gemini API 연동)
-// 주간 100개 목표 → 하루 약 14~15개
+// 실행당 1건, 주간 3건
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+// TODO: RLS 도입 시 서비스 롤로 교체 (SUPABASE_SERVICE_ROLE_KEY 사용).
+// 지금은 reviews 테이블에 RLS가 꺼져 있어 anon key로도 INSERT 가능하지만,
+// Phase 2에서 RLS를 켜면 anon key로는 조용히 실패하므로 서비스 롤 키 필요.
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 const geminiApiKey = process.env.GEMINI_API_KEY || "";
 
@@ -240,7 +243,19 @@ async function getRandomProducts(): Promise<{ ids: number[]; names: string[] } |
 
 export async function GET(request: Request) {
   try {
+    // 인증 검증: Vercel Cron이 보내는 'Authorization: Bearer $CRON_SECRET' 헤더 검증
+    // 미일치 시 401 반환 (URL만 알아도 아무나 호출하지 못하도록 차단)
+    const authHeader = request.headers.get("authorization");
+    const expectedAuth = `Bearer ${process.env.CRON_SECRET || ""}`;
+    const isAuthorized =
+      !!process.env.CRON_SECRET && authHeader === expectedAuth;
+
+    if (!isAuthorized) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     // URL에서 count 파라미터 추출 (기본값: 1)
+    // count는 인증된 관리자/크론 트리거일 때만 허용 (위 인증 통과 후이므로 안전)
     const { searchParams } = new URL(request.url);
     const countParam = searchParams.get("count");
     const dailyCount = countParam ? Math.min(Math.max(1, parseInt(countParam) || 1), 20) : 1;

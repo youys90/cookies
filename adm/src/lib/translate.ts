@@ -34,9 +34,13 @@ export async function translateKoJa(
   const { preserved, parts } = protectEnglish(text);
 
   // 1차: MyMemory API
+  // email(de) 파라미터를 붙이면 익명(5,000자/일) → 등록(10,000자/일) quota로 확장됨
+  // IP 기반 익명 quota 소진 방지 목적. 환경변수 MYMEMORY_EMAIL로 관리.
   try {
+    const email = process.env.MYMEMORY_EMAIL || process.env.NEXT_PUBLIC_MYMEMORY_EMAIL || "";
+    const emailParam = email ? `&de=${encodeURIComponent(email)}` : "";
     const res = await fetch(
-      `https://api.mymemory.translated.net/get?q=${encodeURIComponent(preserved)}&langpair=${from}|${to}`,
+      `https://api.mymemory.translated.net/get?q=${encodeURIComponent(preserved)}&langpair=${from}|${to}${emailParam}`,
     );
     const data = await res.json();
     const translated = data.responseData?.translatedText || "";

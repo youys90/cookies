@@ -1,6 +1,6 @@
 "use client";
 // 셀렉트샵 패턴 헤더 (분석 기반 자체 구현)
-// 구조: 상단 슬림바(루프) → 좌측 로고 / 중앙·우측 메뉴 / 우측 검색·SHIP TO·로그인·카트
+// 구조: 상단 슬림바(루프) → 좌측 로고 / 중앙 메뉴 / 우측 카트만 노출 (LOGIN/JOIN/MY/SEARCH/SHIP TO 제거됨 - 2026-08 리디자인)
 import Link from "next/link";
 import { useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -20,8 +20,9 @@ export default function Header() {
     ? ["2026 S/S NEW RELEASE", "全国送料無料", "通関保証無料", "新規会員10%OFFクーポン"]
     : ["2026 S/S NEW RELEASE", "전국 무료 배송", "통관보장 무료", "신규 회원 10% OFF 쿠폰"];
 
-  // 메뉴 정의 + active 매처 (현재 URL/쿼리 기준) - 4개로 단순화
-  // 리뷰는 푸터 CUSTOMER 영역에서 노출 (/reviews 라우트 자체는 유지)
+  // 메뉴 정의 + active 매처 (현재 URL/쿼리 기준) - 3개 메뉴 (SHOP/REVIEW/BRAND)
+  // 리뷰 진입점: 헤더 REVIEW 메뉴 (2026-08 판석이형 피드백 반영)
+  // 영문 브랜드 표기 정책: mainNav label은 브랜드 컨셉상 영문 고정 (i18n 미적용)
   const cat = sp?.get("cat") || "";
   const sort = sp?.get("sort") || "";
   const onMain = pathname === "/";
@@ -56,7 +57,7 @@ export default function Header() {
             </button>
             <Link href="/" className="flex items-baseline gap-2">
               <span className="font-serif text-2xl lg:text-[28px] tracking-[0.05em] text-[var(--color-text)] leading-none">CREAM</span>
-              <span className="hidden sm:inline font-serif italic text-[10px] text-[var(--color-text-mute)] leading-none">little happiness</span>
+              <span className="hidden sm:inline font-serif italic text-[10px] text-[var(--color-text-mute)] leading-none">{language === "ja" ? "little happiness" : "작은 행복"}</span>
             </Link>
           </div>
 
@@ -77,9 +78,9 @@ export default function Header() {
             ))}
           </nav>
 
-          {/* 우: 검색 / SHIP TO / 로그인·회원·마이 / 카트 */}
+          {/* 우: 카트 */}
           <div className="flex items-center gap-3 lg:gap-4 justify-end text-[12px] text-[var(--color-text)]">
-            <Link href="/cart" className="relative p-1.5 hover:text-[var(--color-point)]" aria-label={t("nav.cart")}>
+            <Link href="/cart" className="relative p-1.5 hover:text-[var(--color-point)]" aria-label={`${t("nav.cart")} (${totalItems})`}>
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <path d="M6 7h12l-1 13a2 2 0 01-2 2H9a2 2 0 01-2-2L6 7z" />
                 <path d="M9 7V5a3 3 0 016 0v2" />

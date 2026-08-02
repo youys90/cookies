@@ -36,7 +36,12 @@ export default function IconPicker({ open, currentValue, onClose, onSelect }: Ic
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (open) fetchCustom();
+    if (open) {
+      // 팝업 재오픈 시 이전 상태(에러 문구, custom 탭 잔류) 초기화
+      setError(null);
+      setTab("builtin");
+      fetchCustom();
+    }
   }, [open]);
 
   const fetchCustom = async () => {
@@ -93,8 +98,36 @@ export default function IconPicker({ open, currentValue, onClose, onSelect }: Ic
     }
   };
 
+  // publicUrl에서 스토리지 key 추출
+  // 예) https://xxx.supabase.co/storage/v1/object/public/product-images/categories/custom_...png
+  //     → categories/custom_...png
+  const extractStorageKey = (publicUrl: string): string | null => {
+    try {
+      const { pathname } = new URL(publicUrl);
+      const marker = `/object/public/${BUCKET}/`;
+      const idx = pathname.indexOf(marker);
+      if (idx === -1) return null;
+      const key = pathname.slice(idx + marker.length);
+      return key ? decodeURIComponent(key) : null;
+    } catch {
+      return null;
+    }
+  };
+
   const handleDelete = async (icon: CustomIcon) => {
     if (!confirm(`"${icon.name || `#${icon.id}`}" 아이콘을 삭제하시겠습니까?\n이미 이 아이콘을 사용 중인 카테고리는 아이콘이 사라집니다.`)) return;
+
+    // 1) 스토리지 실제 파일 먼저 삭제 (고아 파일 방지)
+    const key = extractStorageKey(icon.url);
+    if (key) {
+      const { error: rmErr } = await supabase.storage.from(BUCKET).remove([key]);
+      if (rmErr) {
+        // 스토리지 삭제 실패해도 DB 정리는 계속 진행하되 사용자에게 알림
+        console.warn("스토리지 파일 삭제 실패:", rmErr.message);
+      }
+    }
+
+    // 2) DB row 삭제
     const { error } = await supabase.from("custom_icons").delete().eq("id", icon.id);
     if (error) {
       alert("삭제 실패: " + error.message);

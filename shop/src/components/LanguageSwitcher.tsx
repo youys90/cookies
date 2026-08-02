@@ -52,7 +52,7 @@ export default function LanguageSwitcher() {
             <rect fill="#000" x="24" y="23.5" width="6" height="1.5" rx="0.5"/>
             <rect fill="#000" x="24" y="26.5" width="6" height="1.5" rx="0.5"/>
           </svg>
-          <span className="text-xs font-medium">KR</span>
+          <span className="text-xs font-medium">KO</span>
         </button>
       </div>
     </div>

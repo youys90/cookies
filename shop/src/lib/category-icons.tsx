@@ -36,7 +36,7 @@ export function guessIconKey(name: string): string {
   if (n.includes("インテリア") || n.includes("인테리어") || n.includes("interior") || n.includes("lamp")) return "lamp";
   if (n.includes("ステーショナリー") || n.includes("문구") || n.includes("stationery") || n.includes("note")) return "note";
   // 세일/기타
-  if (n.includes("sale") || n.includes("세일")) return "heart";
+  if (n.includes("sale") || n.includes("세일")) return "sparkle";
   if (n.includes("その他") || n.includes("기타") || n.includes("etc") || n.includes("misc")) return "box";
   // 최종 fallback
   return "sparkle";

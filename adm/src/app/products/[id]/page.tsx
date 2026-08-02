@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
+import { translateKoJa } from "@/lib/translate";
 
 const categoriesJa = ["アクセサリー", "ヘアアクセサリー", "冬物アイテム", "キーリング", "メガネ／サングラス", "ファッション雑貨", "その他（ETC）", "➡ Premium High-Quality ✨"];
 const categoriesKo = ["악세사리", "헤어", "겨울상품", "키링", "안경/선글라스", "패션잡화", "기타", "➡ Premium High-Quality ✨"];
@@ -213,7 +214,7 @@ export default function EditProductPage() {
 
   const uploadImage = async (file: File): Promise<string | null> => {
     const fileExt = file.name.split(".").pop();
-    const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
+    const fileName = `${Date.now()}_${Math.random().toString(36).slice(2, 11)}.${fileExt}`;
     const filePath = `products/${fileName}`;
     const { error: uploadError } = await supabase.storage
       .from("product-images")
@@ -239,60 +240,17 @@ export default function EditProductPage() {
     return urls;
   };
 
-  // 번역 함수 (MyMemory + Google Translate fallback)
-  const translateText = async (text: string, from: string, to: string): Promise<string> => {
-    if (!text.trim()) return "";
-
-    // 영문자 부분 추출해서 보존
-    const englishParts: string[] = [];
-    const placeholder = "{{EN}}";
-    const preserved = text.replace(/[A-Za-z]+/g, (match) => {
-      englishParts.push(match);
-      return placeholder;
-    });
-
-    const restoreEnglish = (translated: string) => {
-      let result = translated;
-      englishParts.forEach((eng) => {
-        result = result.replace(placeholder, eng);
-      });
-      return result;
-    };
-
-    // 1차: MyMemory API
-    try {
-      const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(preserved)}&langpair=${from}|${to}`);
-      const data = await res.json();
-      const translated = data.responseData?.translatedText || "";
-
-      if (translated && !translated.includes("MYMEMORY WARNING")) {
-        return restoreEnglish(translated);
-      }
-    } catch (error) {
-      console.error('MyMemory 번역 실패:', error);
-    }
-
-    // 2차: Google Translate fallback
-    try {
-      const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=${from}&tl=${to}&dt=t&q=${encodeURIComponent(preserved)}`);
-      const data = await res.json();
-      const translated = data[0]?.map((item: string[]) => item[0]).join('') || text;
-      return restoreEnglish(translated);
-    } catch (error) {
-      console.error('Google 번역 실패:', error);
-      return text;
-    }
-  };
+  // 번역 함수는 '@/lib/translate'의 translateKoJa 사용 (중복 제거)
 
   const autoTranslate = async (field: 'name' | 'description', sourceLang: 'ja' | 'ko', value: string) => {
     if (!value.trim()) return;
 
-    const to = sourceLang === 'ja' ? 'ko' : 'ja';
+    const to: 'ko' | 'ja' = sourceLang === 'ja' ? 'ko' : 'ja';
     const targetField = field + (to === 'ja' ? 'Ja' : 'Ko') as keyof typeof formData;
 
     setTranslating(true);
     try {
-      const translated = await translateText(value, sourceLang, to);
+      const translated = await translateKoJa(value, sourceLang, to);
       setFormData(prev => ({ ...prev, [targetField]: translated }));
 
       if (field === 'name') {
@@ -379,8 +337,8 @@ export default function EditProductPage() {
 
     if (formData.nameJa && !formData.nameKo) {
       const [nameKo, descKo] = await Promise.all([
-        translateText(formData.nameJa, 'ja', 'ko'),
-        formData.descriptionJa ? translateText(formData.descriptionJa, 'ja', 'ko') : '',
+        translateKoJa(formData.nameJa, 'ja', 'ko'),
+        formData.descriptionJa ? translateKoJa(formData.descriptionJa, 'ja', 'ko') : '',
       ]);
       const catIdx = categoriesJa.indexOf(formData.categoryJa);
       finalData = {
@@ -391,8 +349,8 @@ export default function EditProductPage() {
       };
     } else if (formData.nameKo && !formData.nameJa) {
       const [nameJa, descJa] = await Promise.all([
-        translateText(formData.nameKo, 'ko', 'ja'),
-        formData.descriptionKo ? translateText(formData.descriptionKo, 'ko', 'ja') : '',
+        translateKoJa(formData.nameKo, 'ko', 'ja'),
+        formData.descriptionKo ? translateKoJa(formData.descriptionKo, 'ko', 'ja') : '',
       ]);
       const catIdx = categoriesKo.indexOf(formData.categoryKo);
       finalData = {
@@ -428,6 +386,8 @@ export default function EditProductPage() {
         category: finalData.categoryJa || finalData.categoryKo,
         category_ja: finalData.categoryJa,
         category_ko: finalData.categoryKo,
+        // 지시사항 17: DB는 일본어 원문만 저장, 한국어는 SUB_CATEGORY_KO 사전 매핑으로 표시.
+        // subCategoryKo는 폼 표시용 상태이며 별도 컬럼으로 저장하지 않음 (products/new와 동일 정책).
         sub_category: finalData.subCategoryJa || null,
         image: uploadedUrls[0],
         images: uploadedUrls,
