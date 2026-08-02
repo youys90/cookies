@@ -74,7 +74,12 @@ export default function ProductCard({ product, returnQuery }: ProductCardProps) 
           )}
         </div>
       </div>
-      {/* 상품명·가격·카테고리 텍스트 완전 제거 (상세 진입해야 확인) */}
+      {/* 상품명만 노출 (가격/카테고리는 상세 진입 시 확인) */}
+      <div className="mt-2 md:mt-3 px-1.5 md:px-0.5">
+        <h3 className="text-[11px] md:text-[12px] leading-snug text-[var(--color-text)] line-clamp-2 min-h-[2.4em] group-hover:text-[var(--color-point)] transition">
+          {getProductName()}
+        </h3>
+      </div>
     </Link>
   );
 }
