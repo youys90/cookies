@@ -17,8 +17,8 @@ export default function Header() {
   // 슬림바 메시지 (반복용 - 한 셋트를 2벌 렌더해서 무한 루프)
   // ⚠ 정책: 조건 없이 전 상품 배송비 + 통관보장 무료 (2026-08 개정)
   const promoMsgs = language === "ja"
-    ? ["2026 S/S NEW RELEASE", "全国送料無料", "通関保証無料", "新規会員10%OFFクーポン"]
-    : ["2026 S/S NEW RELEASE", "전국 무료 배송", "통관보장 무료", "신규 회원 10% OFF 쿠폰"];
+    ? ["2026 S/S NEW RELEASE", "全国送料無料", "通関保証無料"]
+    : ["2026 S/S NEW RELEASE", "전국 무료 배송", "통관보장 무료"];
 
   // 메뉴 정의 + active 매처 (현재 URL/쿼리 기준) - 3개 메뉴 (SHOP/REVIEW/BRAND)
   // 리뷰 진입점: 헤더 REVIEW 메뉴 (2026-08 판석이형 피드백 반영)
