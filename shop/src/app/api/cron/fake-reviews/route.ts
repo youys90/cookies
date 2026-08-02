@@ -217,11 +217,11 @@ function getDefaultReviewContent(rating: number): string {
   }
 }
 
-// 랜덤 상품 1~2개 가져오기 (id, name 포함)
-async function getRandomProducts(): Promise<{ ids: number[]; names: string[] } | null> {
+// 랜덤 상품 1~2개 가져오기 (id, name, image 포함)
+async function getRandomProducts(): Promise<{ ids: number[]; names: string[]; images: string[] } | null> {
   const { data: products, error } = await supabase
     .from("products")
-    .select("id, name")
+    .select("id, name, image")
     .eq("is_active", true)
     .limit(100);
 
@@ -238,6 +238,7 @@ async function getRandomProducts(): Promise<{ ids: number[]; names: string[] } |
   return {
     ids: selected.map((p) => p.id),
     names: selected.map((p) => p.name),
+    images: selected.map((p) => p.image).filter(Boolean),
   };
 }
 
@@ -298,6 +299,7 @@ export async function GET(request: Request) {
           product_id: products.ids[0],
           product_ids: products.ids,
           product_names: products.names,
+          product_images: products.images.length > 0 ? products.images : null,
           rating,
           author_name: maskNickname(nickname),
           content,

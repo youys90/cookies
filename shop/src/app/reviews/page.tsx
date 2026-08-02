@@ -27,6 +27,7 @@ interface Review {
   product_id?: number;
   product_ids?: number[];
   product_names?: string[];
+  product_images?: string[];
 }
 
 interface ReviewStats {
@@ -403,25 +404,36 @@ export default function ReviewsPage() {
                         );
                       })()}
 
-                      {/* 상품 해시태그 */}
+                      {/* 상품 태그 (썸네일 이미지 + 이름, 판석이형 4-2) */}
                       {review.product_names && review.product_names.length > 0 && (
                         <div className="mt-3 flex flex-wrap gap-1.5">
                           {review.product_names.map((name, idx) => {
                             const productId = review.product_ids?.[idx];
+                            const thumb = review.product_images?.[idx];
+                            const inner = (
+                              <>
+                                {thumb && (
+                                  <span className="relative w-6 h-6 rounded overflow-hidden flex-shrink-0 bg-white">
+                                    <Image src={thumb} alt={name} fill sizes="24px" className="object-cover" unoptimized />
+                                  </span>
+                                )}
+                                <span>#{name}</span>
+                              </>
+                            );
                             return productId ? (
                               <Link
                                 key={idx}
                                 href={`/product/${productId}`}
-                                className="inline-flex items-center px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 hover:text-gray-900 text-xs rounded-full transition-colors"
+                                className="inline-flex items-center gap-1.5 pl-1 pr-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 hover:text-gray-900 text-xs rounded-full transition-colors"
                               >
-                                #{name}
+                                {inner}
                               </Link>
                             ) : (
                               <span
                                 key={idx}
-                                className="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full"
+                                className="inline-flex items-center gap-1.5 pl-1 pr-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full"
                               >
-                                #{name}
+                                {inner}
                               </span>
                             );
                           })}

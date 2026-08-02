@@ -30,6 +30,7 @@ interface Review {
   product_id?: number | null;
   product_ids?: number[] | null;
   product_names?: string[] | null;
+  product_images?: string[] | null;
 }
 
 interface ProductThumb {
@@ -295,6 +296,7 @@ export default function ReviewsPage() {
           product_id: formData.product_ids[0] || null,
           product_ids: formData.product_ids.length > 0 ? formData.product_ids : null,
           product_names: formData.product_names.length > 0 ? formData.product_names : null,
+          product_images: formData.product_thumbs.length > 0 ? formData.product_thumbs : null,
           updated_at: new Date().toISOString(),
         })
         .eq("id", editingReview.id);
@@ -318,6 +320,7 @@ export default function ReviewsPage() {
         product_id: formData.product_ids[0] || null,
         product_ids: formData.product_ids.length > 0 ? formData.product_ids : null,
         product_names: formData.product_names.length > 0 ? formData.product_names : null,
+        product_images: formData.product_thumbs.length > 0 ? formData.product_thumbs : null,
       });
 
       if (error) {
