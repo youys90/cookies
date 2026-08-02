@@ -1,8 +1,8 @@
 "use client";
-// 상품 카드 — 판석이형/YYS 피드백 반영:
-// - 하트/자물쇠 아이콘 제거
-// - 목록에선 상품명 숨김 (상세 진입해야 확인)
-// - 이미지만 크게 노출 (미니멀)
+// 기존 real 스타일로 복원 (사장님 요청):
+// - 이미지 · 카테고리 · 상품명만 노출 (가격 숨김)
+// - SALE 뱃지 유지
+// - 라운드 코너 + 호버 스케일 효과 (real 브랜치 동일)
 
 import Link from "next/link";
 import Image from "next/image";
@@ -30,53 +30,38 @@ interface ProductCardProps {
 }
 
 export default function ProductCard({ product, returnQuery }: ProductCardProps) {
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
 
-  const getProductName = () => (language === "ja" ? product.name_ja || product.name : product.name_ko || product.name);
+  const getProductName = () =>
+    language === "ja" ? product.name_ja || product.name : product.name_ko || product.name;
 
-  const isNew = product.created_at ? Date.now() - new Date(product.created_at).getTime() < 14 * 24 * 60 * 60 * 1000 : false;
-  const onSale = !!product.original_price;
+  const getCategory = () =>
+    language === "ja" ? product.category_ja || product.category : product.category_ko || product.category;
 
+  // 신 라우트(/product) 유지 · CREAM 리디자인 페이지로 연결
   const productUrl = returnQuery
     ? "/product/" + product.id + "?return=" + encodeURIComponent(returnQuery)
     : "/product/" + product.id;
 
-  const imgArr = Array.isArray(product.images) ? (product.images as string[]) : [];
-  const secondImg = imgArr.find((u) => u && u !== product.image);
-
   return (
-    <Link href={productUrl} className="group block" aria-label={getProductName()}>
-      <div className="relative aspect-square overflow-hidden bg-gray-50">
+    <Link href={productUrl} className="group">
+      <div className="relative aspect-square overflow-hidden bg-gray-100 rounded-lg">
         <Image
           src={product.image}
           alt={getProductName()}
           fill
-          className={`object-cover transition-all duration-500 ${secondImg ? "group-hover:opacity-0" : "group-hover:scale-[1.04]"}`}
+          className="object-cover group-hover:scale-105 transition-transform duration-300"
           sizes="(max-width: 768px) 50vw, 25vw"
         />
-        {secondImg && (
-          <Image
-            src={secondImg}
-            alt={getProductName()}
-            fill
-            className="object-cover opacity-0 group-hover:opacity-100 transition-opacity duration-500"
-            sizes="(max-width: 768px) 50vw, 25vw"
-          />
+        {product.original_price && (
+          <span className="absolute top-2 left-2 bg-red-500 text-white text-xs px-2 py-1 rounded">
+            {t("product.sale")}
+          </span>
         )}
-
-        {/* NEW / SALE 배지만 유지 */}
-        <div className="absolute top-2.5 left-2.5 flex flex-col gap-1">
-          {isNew && (
-            <span className="bg-black text-white text-[10px] tracking-[0.25em] px-2 py-0.5 leading-tight">NEW</span>
-          )}
-          {onSale && (
-            <span className="bg-red-500 text-white text-[10px] tracking-[0.25em] px-2 py-0.5 leading-tight">SALE</span>
-          )}
-        </div>
       </div>
-      {/* 상품명만 노출 (가격/카테고리는 상세 진입 시 확인) */}
-      <div className="mt-2 md:mt-3 px-1.5 md:px-0.5">
-        <h3 className="text-[11px] md:text-[12px] leading-snug text-[var(--color-text)] line-clamp-2 min-h-[2.4em] group-hover:text-[var(--color-point)] transition">
+      <div className="mt-3 md:mt-4 space-y-1 px-0.5">
+        <p className="text-[11px] text-gray-400 tracking-wide">{getCategory()}</p>
+        <h3 className="text-[13px] md:text-sm font-medium text-gray-900 group-hover:text-gray-600 line-clamp-2 min-h-[2.6em]">
           {getProductName()}
         </h3>
       </div>

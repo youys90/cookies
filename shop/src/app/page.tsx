@@ -286,10 +286,7 @@ export default function Home() {
               {/* 히어로 안 오버레이: 온라인 가격 정책 안내 (판석이형 요청) */}
               <div className="absolute inset-0 bg-black/40" />
               <div className="absolute inset-0 flex items-center justify-center px-4 md:px-8 lg:px-12">
-                <div className="text-white text-center max-w-[560px] md:max-w-[620px] w-full bg-black/55 backdrop-blur-sm border border-white/15 rounded-sm px-5 md:px-8 lg:px-10 py-5 md:py-7 lg:py-9">
-                  <p className="font-serif text-[10px] md:text-[12px] lg:text-[13px] tracking-[0.35em] opacity-90 mb-3 md:mb-4">
-                    {language === "ja" ? "IMPORTANT NOTICE" : "안내 말씀"}
-                  </p>
+                <div className="text-white text-center max-w-[560px] md:max-w-[620px] w-full bg-black/55 backdrop-blur-sm border border-white/15 rounded-sm px-5 md:px-8 lg:px-10 py-6 md:py-8 lg:py-10">
                   <h2 className="font-serif font-medium text-[18px] md:text-[28px] lg:text-[36px] leading-[1.2] tracking-[0.04em] mb-4 md:mb-5">
                     {language === "ja" ? "オンライン価格ポリシー変更のお知らせ" : "온라인 가격 정책 변경 안내"}
                   </h2>
@@ -535,7 +532,7 @@ export default function Home() {
         ) : products.length === 0 ? (
           <div className="text-center text-[var(--color-text-soft)] py-20 text-[12px] tracking-widest">NO PRODUCTS</div>
         ) : (
-          <div className="grid grid-cols-4 gap-0 md:gap-3 lg:gap-5 -mx-4 md:mx-0">
+          <div className="grid grid-cols-2 gap-3 md:gap-4 lg:gap-6">
             {products.map((product) => (
               <ProductCard key={product.id} product={product} returnQuery={"page=" + currentPage + "&size=" + pageSize + "&cat=" + selectedMignonCat + (searchKeyword ? "&search=" + searchKeyword : "")} />
             ))}
