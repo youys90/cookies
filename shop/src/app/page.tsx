@@ -346,11 +346,10 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ─── 무료 혜택 배너 + 온라인 가격 정책 안내 (판석이형 요청) ─── */}
+      {/* ─── 무료 혜택 강조 (정책 안내는 히어로 안으로 이동) ─── */}
       <section className="bg-[var(--color-bg-cream)] border-y border-[var(--color-line-soft)]">
-        <div className="max-w-[1400px] mx-auto px-4 lg:px-8 py-6 md:py-8">
-          {/* 상단: 무료 혜택 강조 */}
-          <div className="flex items-center justify-center gap-6 md:gap-16 py-3">
+        <div className="max-w-[1400px] mx-auto px-4 lg:px-8 py-5 md:py-7">
+          <div className="flex items-center justify-center gap-6 md:gap-16">
             <div className="flex items-center gap-2 md:gap-3">
               <svg className="w-6 h-6 md:w-8 md:h-8 text-[var(--color-text)]" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <path d="M3 8h14v14H3z" />
@@ -382,27 +381,6 @@ export default function Home() {
             </div>
           </div>
 
-          {/* 하단: 정책 안내 공지 */}
-          <div className="mt-5 md:mt-6 max-w-[820px] mx-auto bg-white/60 border border-[var(--color-line-soft)] rounded-sm px-5 md:px-7 py-4 md:py-5">
-            <p className="text-center font-serif text-[11px] md:text-[12px] tracking-[0.2em] text-[var(--color-text)] mb-2.5">
-              {language === "ja" ? "オンライン価格ポリシー変更のお知らせ" : "온라인 가격 정책 변경 안내"}
-            </p>
-            <p className="text-center text-[10.5px] md:text-[11.5px] leading-[1.75] text-[var(--color-text-soft)]">
-              {language === "ja" ? (
-                <>
-                  ご利用の便宜のため、送料と通関保証費用をすべて<span className="text-[var(--color-text)] font-medium">無料</span>でご提供いたします。<br />
-                  これに伴い、一部のオンライン商品の販売価格が若干調整されます。<br />
-                  <span className="text-[var(--color-text-mute)]">店舗に直接お越しのお客様には、従来通り店舗価格にて販売しております。</span>
-                </>
-              ) : (
-                <>
-                  이용 편의를 위해 배송비와 통관보장 비용을 모두 <span className="text-[var(--color-text)] font-medium">무료</span>로 제공합니다.<br />
-                  이에 따라 일부 온라인 상품의 판매 가격이 소폭 조정됩니다.<br />
-                  <span className="text-[var(--color-text-mute)]">매장 방문 시에는 기존 매장 가격으로 구매하실 수 있습니다.</span>
-                </>
-              )}
-            </p>
-          </div>
         </div>
       </section>
 

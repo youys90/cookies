@@ -83,9 +83,6 @@ export default function AboutPage() {
                 <Link href="/" className="inline-flex items-center h-11 px-6 bg-[var(--color-text)] text-white text-[11px] tracking-[0.3em]">
                   {t.shop_cta}
                 </Link>
-                <a href="#" className="inline-flex items-center h-11 px-5 border border-[var(--color-text)] text-[11px] tracking-[0.3em]">
-                  {t.line_cta}
-                </a>
               </div>
             </div>
             {/* 우 큰 이미지 */}
@@ -176,11 +173,7 @@ export default function AboutPage() {
           <p className="text-[10px] tracking-[0.35em] text-[var(--color-text-mute)] mb-3">{t.contact_kicker}</p>
           <h2 className="font-serif text-[36px] lg:text-[48px] leading-tight">{t.contact_title}</h2>
           <div className="w-8 h-px bg-[var(--color-text)] mx-auto my-6" />
-          <p className="text-[13px] text-[var(--color-text-soft)] leading-[1.9] mb-8">{t.contact_body}</p>
-          <a href="#" className="inline-flex items-center gap-2 h-12 px-8 bg-[#06C755] text-white text-[12px] tracking-[0.25em]">
-            <span className="font-medium">LINE</span>
-            <span>{t.line_cta}</span>
-          </a>
+          <p className="text-[13px] text-[var(--color-text-soft)] leading-[1.9]">{t.contact_body}</p>
         </div>
       </section>
     </div>

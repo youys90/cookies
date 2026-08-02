@@ -26,10 +26,11 @@ export default function Header() {
   const sort = sp?.get("sort") || "";
   const onMain = pathname === "/";
   const mainNav = [
-    { label: "NEW",   href: "/?sort=new",   active: onMain && sort === "new" },
-    { label: "SHOP",  href: "/",            active: onMain && !cat && !sort },
-    { label: "BRAND", href: "/about",       active: pathname === "/about" },
-    { label: "SALE",  href: "/?cat=sale",   active: onMain && cat === "sale" },
+    { label: "NEW",    href: "/?sort=new",   active: onMain && sort === "new" },
+    { label: "SHOP",   href: "/",            active: onMain && !cat && !sort },
+    { label: "REVIEW", href: "/reviews",     active: pathname === "/reviews" },
+    { label: "BRAND",  href: "/about",       active: pathname === "/about" },
+    { label: "SALE",   href: "/?cat=sale",   active: onMain && cat === "sale" },
   ];
 
   return (
@@ -80,20 +81,6 @@ export default function Header() {
 
           {/* 우: 검색 / SHIP TO / 로그인·회원·마이 / 카트 */}
           <div className="flex items-center gap-3 lg:gap-4 justify-end text-[12px] text-[var(--color-text)]">
-            <button aria-label="search" className="p-1.5 hover:text-[var(--color-point)]">
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <circle cx="11" cy="11" r="7" /><path d="M21 21l-4-4" />
-              </svg>
-            </button>
-
-<div className="hidden md:flex items-center gap-2 text-[var(--color-text-soft)]">
-              <Link href="#" className="hover:text-[var(--color-text)]">{language === "ja" ? "LOGIN" : "LOGIN"}</Link>
-              <span>·</span>
-              <Link href="#" className="hover:text-[var(--color-text)]">{language === "ja" ? "JOIN" : "JOIN"}</Link>
-              <span>·</span>
-              <Link href="#" className="hover:text-[var(--color-text)]">{language === "ja" ? "MY" : "MY"}</Link>
-            </div>
-
             <Link href="/cart" className="relative p-1.5 hover:text-[var(--color-point)]" aria-label={t("nav.cart")}>
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <path d="M6 7h12l-1 13a2 2 0 01-2 2H9a2 2 0 01-2-2L6 7z" />
@@ -121,11 +108,6 @@ export default function Header() {
                 {n.label}{n.active && <span className="ml-2 text-[var(--color-point)]">·</span>}
               </Link>
             ))}
-            <div className="pt-3 mt-2 border-t border-[var(--color-line-soft)] flex gap-3 text-[12px] text-[var(--color-text-soft)]">
-              <Link href="#">LOGIN</Link><span>·</span>
-              <Link href="#">JOIN</Link><span>·</span>
-              <Link href="#">MY PAGE</Link>
-            </div>
           </nav>
         </div>
       )}

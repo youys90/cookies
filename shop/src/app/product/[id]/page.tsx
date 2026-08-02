@@ -40,7 +40,6 @@ export default function ProductDetail() {
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
-  const [wished, setWished] = useState(false);
   const [option, setOption] = useState<string>("");
   const [imgIdx, setImgIdx] = useState(0);
   const [openAcc, setOpenAcc] = useState<AccordionKey | null>("info");
@@ -275,22 +274,13 @@ export default function ProductDetail() {
               </span>
             </div>
 
-            {/* 액션 버튼 3개 (한 줄 동등) */}
-            <div className="grid grid-cols-3 gap-2 mt-5">
+            {/* 액션 버튼 2개 */}
+            <div className="grid grid-cols-2 gap-2 mt-5">
               <button
                 onClick={handleAddToCart}
                 className="h-12 border border-[var(--color-text)] bg-white text-[11px] tracking-[0.25em] hover:bg-[var(--color-bg-soft)] transition"
               >
                 {added ? "ADDED" : "ADD TO SHOPPING"}
-              </button>
-              <button
-                onClick={() => setWished((w) => !w)}
-                className="h-12 border border-[var(--color-text)] bg-white text-[11px] tracking-[0.25em] hover:bg-[var(--color-bg-soft)] transition inline-flex items-center justify-center gap-1.5"
-              >
-                WISH LIST
-                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill={wished ? "var(--color-point)" : "none"} stroke={wished ? "var(--color-point)" : "currentColor"} strokeWidth="1.5">
-                  <path d="M12 21s-7-4-7-10a4 4 0 017-2 4 4 0 017 2c0 6-7 10-7 10z" />
-                </svg>
               </button>
               <button
                 onClick={handleBuyNow}
