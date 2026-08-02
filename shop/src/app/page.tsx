@@ -284,13 +284,13 @@ export default function Home() {
                 <div className="w-full h-full bg-gradient-to-br from-[#F5EFE6] to-[#E8DECF]" />
               )}
               {/* 히어로 안 오버레이: 온라인 가격 정책 안내 (판석이형 요청) */}
-              <div className="absolute inset-0 bg-black/40" />
+              <div className="absolute inset-0 bg-black/45" />
               <div className="absolute inset-0 flex items-center justify-center px-4 md:px-8 lg:px-12">
-                <div className="text-white text-center max-w-[560px] md:max-w-[620px] w-full bg-black/55 backdrop-blur-sm border border-white/15 rounded-sm px-5 md:px-8 lg:px-10 py-6 md:py-8 lg:py-10">
-                  <h2 className="font-serif font-medium text-[18px] md:text-[28px] lg:text-[36px] leading-[1.2] tracking-[0.04em] mb-4 md:mb-5">
+                <div className="text-white text-center max-w-[980px] w-full bg-black/60 backdrop-blur-sm border border-white/20 rounded-sm px-6 md:px-12 lg:px-16 py-8 md:py-12 lg:py-16">
+                  <h2 className="font-serif font-medium text-[30px] md:text-[52px] lg:text-[68px] leading-[1.15] tracking-[0.04em] mb-7 md:mb-9">
                     {language === "ja" ? "オンライン価格ポリシー変更のお知らせ" : "온라인 가격 정책 변경 안내"}
                   </h2>
-                  <p className="text-[10px] md:text-[13px] lg:text-[15px] leading-[1.75] font-light">
+                  <p className="text-[15px] md:text-[20px] lg:text-[24px] leading-[1.8] font-light">
                     {language === "ja" ? (
                       <>
                         ご利用の便宜のため、<b className="font-semibold">送料と通関保証費用をすべて無料</b>でご提供いたします。<br />
@@ -305,7 +305,7 @@ export default function Home() {
                       </>
                     )}
                   </p>
-                  <p className="mt-4 md:mt-6 text-[9px] md:text-[10px] lg:text-[12px] tracking-[0.25em] opacity-85">
+                  <p className="mt-7 md:mt-10 text-[13px] md:text-[16px] lg:text-[18px] tracking-[0.25em] opacity-85">
                     {language === "ja" ? "いつもご愛顧いただきありがとうございます." : "항상 감사합니다."}
                   </p>
                 </div>
