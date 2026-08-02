@@ -658,7 +658,12 @@ export default function Home() {
               </p>
             </div>
             <button
-              onClick={() => setShowStaffModal(true)}
+              onClick={() => {
+                // lockedView 정보로 pendingSpecialCat 재세팅 후 모달 열기
+                // (취소 후 다시 열 때 categoryId 유실 방지)
+                setPendingSpecialCat(lockedView);
+                setShowStaffModal(true);
+              }}
               className="mt-2 px-6 py-2.5 bg-purple-700 text-white text-sm rounded-lg hover:bg-purple-800 transition"
             >
               🔑 {language === "ja" ? "パスワードを入力" : "비밀번호 입력"}
@@ -705,7 +710,11 @@ export default function Home() {
 
       <StaffPasswordModal
         isOpen={showStaffModal}
-        onClose={() => { setShowStaffModal(false); setPendingSpecialCat(null); }}
+        onClose={() => {
+          setShowStaffModal(false);
+          // 잠금 화면(lockedView) 상태면 pendingSpecialCat 유지 (사장님이 다시 [비밀번호 입력] 눌러도 categoryId 유지되도록)
+          if (!lockedView) setPendingSpecialCat(null);
+        }}
         onSuccess={handleStaffAccessSuccess}
         categoryId={pendingSpecialCat?.id ?? null}
         categoryLabel={pendingSpecialCat?.label}
