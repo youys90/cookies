@@ -13,8 +13,6 @@ export default function Header() {
   const pathname = usePathname();
   const sp = useSearchParams();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [shipOpen, setShipOpen] = useState(false);
-  const [ship, setShip] = useState<"JP" | "KR" | "US">("JP");
 
   // 슬림바 메시지 (반복용 - 한 셋트를 2벌 렌더해서 무한 루프)
   const promoMsgs = language === "ja"
@@ -87,31 +85,7 @@ export default function Header() {
               </svg>
             </button>
 
-            {/* SHIP TO */}
-            <div className="hidden md:block relative">
-              <button
-                onClick={() => setShipOpen(v => !v)}
-                className="flex items-center gap-1.5 px-2 py-1.5 border border-[var(--color-line)] rounded-sm tracking-widest hover:border-[var(--color-text)] transition"
-                aria-label="ship to"
-              >
-                <span className="text-[10px] text-[var(--color-text-soft)]">SHIP TO</span>
-                <span className="text-[11px]">{ship === "JP" ? "🇯🇵 JP" : ship === "KR" ? "🇰🇷 KR" : "🇺🇸 US"}</span>
-                <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 5l3 3 3-3" /></svg>
-              </button>
-              {shipOpen && (
-                <ul className="absolute right-0 top-[110%] bg-white border border-[var(--color-line)] py-1 min-w-[140px] shadow-sm z-50">
-                  {(["JP", "KR", "US"] as const).map(s => (
-                    <li key={s}>
-                      <button onClick={() => { setShip(s); setShipOpen(false); }} className="w-full text-left px-3 py-1.5 text-[12px] hover:bg-[var(--color-bg-soft)]">
-                        {s === "JP" ? "🇯🇵 Japan" : s === "KR" ? "🇰🇷 South Korea" : "🇺🇸 United States"}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            <div className="hidden md:flex items-center gap-2 text-[var(--color-text-soft)]">
+<div className="hidden md:flex items-center gap-2 text-[var(--color-text-soft)]">
               <Link href="#" className="hover:text-[var(--color-text)]">{language === "ja" ? "LOGIN" : "LOGIN"}</Link>
               <span>·</span>
               <Link href="#" className="hover:text-[var(--color-text)]">{language === "ja" ? "JOIN" : "JOIN"}</Link>
