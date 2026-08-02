@@ -102,7 +102,7 @@ export default function Home() {
   const [subCategories, setSubCategories] = useState<string[]>([]);
   const [selectedSubCat, setSelectedSubCat] = useState<string>(searchParams.get("sub") || "");
   // adm에서 관리하는 categories 테이블 (최상위) — 하드코딩 MIGNON_CATEGORIES 대체
-  const [dbCategories, setDbCategories] = useState<Array<{ id: number; name_ko: string; name_ja: string; icon_url: string | null; sort_order: number }>>([]);
+  const [dbCategories, setDbCategories] = useState<Array<{ id: number; name_ko: string; name_ja: string; name_en?: string | null; icon_url: string | null; sort_order: number }>>([]);
   const [loading, setLoading] = useState(true);
   const [showStaffModal, setShowStaffModal] = useState(false);
   const [hasStaffAccess, setHasStaffAccess] = useState(false);
@@ -132,7 +132,7 @@ export default function Home() {
   const fetchDbCategories = async () => {
     const { data } = await supabase
       .from("categories")
-      .select("id, name_ko, name_ja, icon_url, sort_order")
+      .select("id, name_ko, name_ja, name_en, icon_url, sort_order")
       .is("parent_id", null)
       .eq("is_active", true)
       .order("sort_order", { ascending: true });
@@ -392,7 +392,8 @@ export default function Home() {
             {dbCategories.length > 0 ? (
               dbCategories.map((cat) => {
                 const active = selectedMignonCat === cat.name_ja;
-                const label = language === "ja" ? cat.name_ja : cat.name_ko;
+                // name_en 있으면 언어 무관 짧은 영문 라벨 우선 (사장님 요구)
+                const label = cat.name_en || (language === "ja" ? cat.name_ja : cat.name_ko);
                 return (
                   <button
                     key={cat.id}

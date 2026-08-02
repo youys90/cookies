@@ -12,6 +12,7 @@ type Category = {
   id: number;
   name_ko: string;
   name_ja: string;
+  name_en?: string | null;
   parent_id: number | null;
   sort_order: number;
   icon_url: string | null;
@@ -33,6 +34,7 @@ export default function CategoriesPage() {
   const [form, setForm] = useState({
     name_ko: "",
     name_ja: "",
+    name_en: "",
     parent_id: null as number | null,
     sort_order: 0,
     icon_url: "" as string,
@@ -120,6 +122,7 @@ export default function CategoriesPage() {
     setForm({
       name_ko: row.name_ko,
       name_ja: row.name_ja,
+      name_en: row.name_en || "",
       parent_id: row.parent_id,
       sort_order: row.sort_order,
       icon_url: row.icon_url || "",
@@ -147,6 +150,7 @@ export default function CategoriesPage() {
         .update({
           name_ko: form.name_ko,
           name_ja: form.name_ja,
+          name_en: form.name_en || null,
           parent_id: form.parent_id,
           sort_order: form.sort_order,
           icon_url: form.icon_url || null,
@@ -158,6 +162,7 @@ export default function CategoriesPage() {
       const { error } = await supabase.from("categories").insert({
         name_ko: form.name_ko,
         name_ja: form.name_ja,
+        name_en: form.name_en || null,
         parent_id: form.parent_id,
         sort_order: form.sort_order,
         icon_url: form.icon_url || null,
@@ -377,6 +382,21 @@ export default function CategoriesPage() {
                     required
                   />
                 </div>
+              </div>
+
+              {/* 영문 라벨 - shop 홈에서 언어 무관 짧게 노출 */}
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">
+                  영문 라벨 <span className="text-gray-400 font-normal">(shop 홈에 언어 무관 노출, 짧게 · 예: ACC, HAIR ACC, FASHION)</span>
+                </label>
+                <input
+                  type="text"
+                  value={form.name_en || ""}
+                  onChange={(e) => setForm((p) => ({ ...p, name_en: e.target.value.toUpperCase() }))}
+                  placeholder="ACC"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm uppercase"
+                />
+                <p className="text-[10px] text-gray-400 mt-1">비워두면 언어별 이름(한국어/일본어)이 그대로 노출됨.</p>
               </div>
 
               {/* 아이콘 (팝업으로 선택) */}
