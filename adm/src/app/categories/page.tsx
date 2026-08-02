@@ -225,13 +225,19 @@ export default function CategoriesPage() {
             {hasChildren ? (isExpanded ? "▾" : "▸") : "·"}
           </button>
 
-          {/* 아이콘 */}
+          {/* 아이콘: builtin: prefix면 SVG 렌더, http URL이면 이미지 (원 안에 딱 맞게 crop) */}
           <div className="w-10 h-10 flex-shrink-0 bg-gray-100 rounded-full overflow-hidden flex items-center justify-center border border-gray-200">
-            {row.icon_url ? (
-              <Image src={row.icon_url} alt={row.name_ko} width={40} height={40} className="object-cover w-full h-full" unoptimized />
-            ) : (
-              <span className="text-[10px] text-gray-400">no icon</span>
-            )}
+            {(() => {
+              if (!row.icon_url) return <span className="text-[10px] text-gray-400">no icon</span>;
+              if (row.icon_url.startsWith(BUILTIN_ICON_PREFIX)) {
+                return <BuiltinCategoryIcon name={row.icon_url.slice(BUILTIN_ICON_PREFIX.length)} className="w-5 h-5 text-gray-700" />;
+              }
+              return (
+                <div className="relative w-full h-full">
+                  <Image src={row.icon_url} alt={row.name_ko} fill sizes="40px" className="object-cover" unoptimized />
+                </div>
+              );
+            })()}
           </div>
 
           <div className="flex-1 min-w-0">
