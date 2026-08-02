@@ -300,8 +300,23 @@ export default function CartPage() {
                       autoComplete="tel"
                       value={customerPhone}
                       onChange={(e) => {
-                        const value = e.target.value.replace(/[^0-9-+]/g, '');
-                        setCustomerPhone(value);
+                        // 숫자·하이픈·+만 허용
+                        const raw = e.target.value.replace(/[^0-9-+]/g, '');
+                        // 사용자가 하이픈을 하나라도 넣었으면 자릿수/포맷 존중 (그대로 저장)
+                        if (raw.includes('-')) {
+                          setCustomerPhone(raw);
+                          return;
+                        }
+                        // 하이픈 없는 숫자만 입력 → 3-4-4 자동 포맷
+                        const prefix = raw.startsWith('+') ? '+' : '';
+                        const digits = raw.replace(/[^0-9]/g, '');
+                        let formatted = digits;
+                        if (digits.length > 3 && digits.length <= 7) {
+                          formatted = `${digits.slice(0, 3)}-${digits.slice(3)}`;
+                        } else if (digits.length > 7) {
+                          formatted = `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7, 11)}`;
+                        }
+                        setCustomerPhone(prefix + formatted);
                       }}
                       placeholder={t("order.phonePlaceholder")}
                       className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
