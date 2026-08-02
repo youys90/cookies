@@ -59,8 +59,7 @@ export default function ProductCard({ product, returnQuery }: ProductCardProps) 
           </span>
         )}
       </div>
-      <div className="mt-3 md:mt-4 space-y-1 px-0.5">
-        <p className="text-[11px] text-gray-400 tracking-wide">{getCategory()}</p>
+      <div className="mt-3 md:mt-4 px-0.5">
         <h3 className="text-[13px] md:text-sm font-medium text-gray-900 group-hover:text-gray-600 line-clamp-2 min-h-[2.6em]">
           {getProductName()}
         </h3>
