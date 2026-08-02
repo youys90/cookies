@@ -222,18 +222,37 @@ export default function Home() {
   };
 
   const handleMignonCategoryClick = (cat: MignonCat) => {
+    if (!hasStaffAccess) {
+      setShowStaffModal(true);
+      return;
+    }
+  
     setSelectedMignonCat(cat.key);
-    setSelectedSubCat(""); // 상위 바뀌면 하위 초기화
+    setSelectedSubCat("");
     setCurrentPage(1);
     setSearchKeyword("");
     setSearchInput("");
-    // 하위 카테고리 자동 조회
+  
     if (cat.key !== "all" && !cat.saleOnly && cat.dbCategory) {
       fetchSubCategories(cat.dbCategory);
     } else {
       setSubCategories([]);
     }
   };
+
+  // const handleMignonCategoryClick = (cat: MignonCat) => {
+  //   setSelectedMignonCat(cat.key);
+  //   setSelectedSubCat(""); // 상위 바뀌면 하위 초기화
+  //   setCurrentPage(1);
+  //   setSearchKeyword("");
+  //   setSearchInput("");
+  //   // 하위 카테고리 자동 조회
+  //   if (cat.key !== "all" && !cat.saleOnly && cat.dbCategory) {
+  //     fetchSubCategories(cat.dbCategory);
+  //   } else {
+  //     setSubCategories([]);
+  //   }
+  // };
 
   // 상위 카테고리의 실제 sub_category distinct 조회
   const fetchSubCategories = async (dbCategory: string) => {
