@@ -39,6 +39,35 @@ export default function CategoriesPage() {
   const [iconError, setIconError] = useState<string | null>(null);
   const iconInputRef = useRef<HTMLInputElement>(null);
 
+  // AI 번역
+  const [translating, setTranslating] = useState<"ko-ja" | "ja-ko" | null>(null);
+
+  const translate = async (direction: "ko-ja" | "ja-ko") => {
+    const from = direction === "ko-ja" ? "ko" : "ja";
+    const to = direction === "ko-ja" ? "ja" : "ko";
+    const src = direction === "ko-ja" ? form.name_ko : form.name_ja;
+    if (!src.trim()) {
+      alert(direction === "ko-ja" ? "한국어 이름 먼저 입력해주세요." : "일본어 이름 먼저 입력해주세요.");
+      return;
+    }
+    setTranslating(direction);
+    try {
+      const res = await fetch("/api/ai/translate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: src, from, to }),
+      });
+      const j = await res.json();
+      if (!j.ok) { alert("번역 실패: " + (j.error || "unknown")); return; }
+      if (j.mock) alert("⚠ 개발 mock 모드입니다. 실제 번역이 아닌 원문이 반환되었습니다.\n(ANTHROPIC_API_KEY 필요)");
+      setForm((p) => direction === "ko-ja" ? { ...p, name_ja: j.translated } : { ...p, name_ko: j.translated });
+    } catch (e) {
+      alert("번역 API 호출 실패");
+    } finally {
+      setTranslating(null);
+    }
+  };
+
   useEffect(() => {
     fetchAll();
   }, []);
@@ -291,7 +320,18 @@ export default function CategoriesPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-gray-600 mb-1">한국어 이름 *</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs text-gray-600">한국어 이름 *</label>
+                    <button
+                      type="button"
+                      onClick={() => translate("ko-ja")}
+                      disabled={!!translating}
+                      className="text-[10px] text-blue-600 hover:text-blue-800 disabled:opacity-40"
+                      title="한국어 → 일본어 자동 번역 (AI)"
+                    >
+                      🌐 → 일본어 {translating === "ko-ja" ? "번역 중..." : ""}
+                    </button>
+                  </div>
                   <input
                     type="text"
                     value={form.name_ko}
@@ -301,7 +341,18 @@ export default function CategoriesPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-600 mb-1">일본어 이름 *</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs text-gray-600">일본어 이름 *</label>
+                    <button
+                      type="button"
+                      onClick={() => translate("ja-ko")}
+                      disabled={!!translating}
+                      className="text-[10px] text-blue-600 hover:text-blue-800 disabled:opacity-40"
+                      title="일본어 → 한국어 자동 번역 (AI)"
+                    >
+                      🌐 → 한국어 {translating === "ja-ko" ? "번역 중..." : ""}
+                    </button>
+                  </div>
                   <input
                     type="text"
                     value={form.name_ja}
