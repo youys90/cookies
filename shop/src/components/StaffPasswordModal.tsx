@@ -3,7 +3,7 @@
 // 프리미엄 접근 모달
 // - 비밀번호는 서버 API(/api/staff/verify)에서만 검증
 // - 성공 시 서버가 HMAC 서명된 httpOnly 쿠키 발급 (클라 조작 불가)
-// - 실패 5회/10분 초과 시 10분 잠금 (429)
+// - rate limit 제거됨 (사장님 지시)
 
 import { useState, useEffect } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -47,16 +47,7 @@ export default function StaffPasswordModal({ isOpen, onClose, onSuccess }: Staff
         body: JSON.stringify({ password }),
       });
 
-      if (res.status === 429) {
-        const data = await res.json().catch(() => ({}));
-        const sec = data.retryAfterSec || 600;
-        const min = Math.ceil(sec / 60);
-        setError(
-          language === "ja"
-            ? `試行回数を超えました。${min}分後にもう一度お試しください。`
-            : `시도 횟수를 초과했습니다. ${min}분 후 다시 시도해주세요.`
-        );
-      } else if (!res.ok) {
+      if (!res.ok) {
         setError(t("staff.error"));
       } else {
         setPassword("");

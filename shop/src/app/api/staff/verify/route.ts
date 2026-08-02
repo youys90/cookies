@@ -1,7 +1,7 @@
 // 스태프 비밀번호 검증 API
 // - 서버 env에 저장된 STAFF_PASSWORD와 대조 (클라이언트에 비번 절대 노출 X)
-// - IP 기반 rate limit (실패 5회/10분 → 10분 잠금)
 // - 성공 시 HMAC 서명된 세션 쿠키 발급 (조작 불가, 4시간)
+// - rate limit 제거됨 (사장님 지시)
 
 import { NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
@@ -9,10 +9,6 @@ import {
   COOKIE_NAME,
   SESSION_TTL_SEC,
   issueSessionValue,
-  isLocked,
-  noteFailure,
-  clearFailure,
-  getClientIp,
 } from "@/lib/staff-session";
 
 export const runtime = "nodejs";
@@ -25,19 +21,7 @@ function eqConstantTime(a: string, b: string): boolean {
 }
 
 export async function POST(req: Request) {
-  const ip = getClientIp(req);
-  const locked = isLocked(ip);
-  if (locked.locked) {
-    return NextResponse.json(
-      { ok: false, reason: "locked", retryAfterSec: locked.retryAfterSec },
-      { status: 429, headers: { "Retry-After": String(locked.retryAfterSec) } },
-    );
-  }
-
   const expected = process.env.STAFF_PASSWORD;
-  // STAFF_SESSION_SECRET이 없으면 issueSessionValue는 성공하지만
-  // verifySessionValue가 항상 false를 반환해 '조용한 인증 실패' 루프가 발생하므로
-  // 비밀번호와 세션 서명 키를 함께 검사한다.
   if (!expected || !process.env.STAFF_SESSION_SECRET) {
     return NextResponse.json({ ok: false, reason: "server_misconfig" }, { status: 500 });
   }
@@ -51,12 +35,10 @@ export async function POST(req: Request) {
 
   const submitted = String(body.password || "");
   if (!submitted || !eqConstantTime(submitted, expected)) {
-    noteFailure(ip);
     return NextResponse.json({ ok: false, reason: "invalid" }, { status: 401 });
   }
 
   // 성공
-  clearFailure(ip);
   const value = issueSessionValue();
   const res = NextResponse.json({ ok: true });
   res.cookies.set({

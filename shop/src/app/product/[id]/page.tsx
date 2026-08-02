@@ -63,14 +63,25 @@ export default function ProductDetail() {
     (async () => {
       const { data } = await supabase.from("products").select("*").eq("id", productId).single();
       if (data) {
-        // 프리미엄 카테고리는 서버 세션(HMAC 서명 쿠키) 검증 통과해야 접근 (Phase 1)
-        if ((data as Product).category === "➡ Premium High-Quality ✨") {
+        // 프리미엄 카테고리 검증 강화:
+        // - 관대한 매칭 (공백/전각·반각/이모지 유무에 관계없이 "premium" 포함이면 프리미엄으로 간주)
+        // - 세션 확인 실패·네트워크 오류 시 반드시 홈으로 (통과 X)
+        const cat = String((data as Product).category || "");
+        const isPremium = cat.includes("Premium") || cat.includes("プレミアム") || cat.includes("프리미엄");
+        if (isPremium) {
+          let sessionOk = false;
           try {
-            const r = await fetch("/api/staff/session", { cache: "no-store" });
-            const j = await r.json();
-            if (!j.ok) { router.push("/"); return; }
+            const r = await fetch("/api/staff/session", { cache: "no-store", credentials: "same-origin" });
+            if (r.ok) {
+              const j = await r.json().catch(() => ({ ok: false }));
+              sessionOk = !!j.ok;
+            }
           } catch {
-            router.push("/");
+            sessionOk = false;
+          }
+          if (!sessionOk) {
+            // 홈으로 되돌리고 스태프 모달 열림 파라미터 부여
+            router.replace("/?staff=1");
             return;
           }
         }

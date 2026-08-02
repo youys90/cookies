@@ -298,11 +298,9 @@ export default function Home() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 lg:gap-4 h-[420px] md:h-[560px] lg:h-[640px]">
             {/* 좌 큰 비주얼 + 카피 오버레이 */}
             <Link href="/?cat=all" className="relative md:col-span-2 row-span-2 bg-[var(--color-bg-cream)] overflow-hidden group">
-              {heroItems[0]?.image ? (
-                <Image src={heroItems[0].image} alt="hero" fill className="object-cover group-hover:scale-[1.02] transition-transform duration-700" sizes="(max-width: 768px) 100vw, 66vw" priority />
-              ) : (
-                <div className="w-full h-full bg-gradient-to-br from-[#F5EFE6] to-[#E8DECF]" />
-              )}
+              {/* 히어로 배경: 사장님 지정 고정 이미지 (public/hero-bg.png) */}
+              <Image src="/hero-bg.png" alt="hero" fill className="object-cover group-hover:scale-[1.02] transition-transform duration-700" sizes="(max-width: 768px) 100vw, 66vw" priority />
+
               {/* 히어로 안 오버레이: 크림 톤 정책 안내 (크림디자인팀 시안 A) */}
               <div className="absolute inset-0 bg-gradient-to-b from-white/10 via-white/5 to-white/20" />
               <div className="absolute inset-0 flex items-center justify-center px-4 md:px-8 lg:px-12">
