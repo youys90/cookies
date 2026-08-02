@@ -28,6 +28,16 @@ interface Product {
   created_at?: string;
 }
 
+interface ProductOption {
+  id: number;
+  product_id: number;
+  option_name: string;
+  additional_price: number;
+  stock?: number;
+  sort_order?: number;
+  is_active?: boolean;
+}
+
 type AccordionKey = "info" | "size" | "ship" | "notice";
 
 export default function ProductDetail() {
@@ -40,7 +50,8 @@ export default function ProductDetail() {
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
-  const [option, setOption] = useState<string>("");
+  const [options, setOptions] = useState<ProductOption[]>([]);
+  const [selectedOption, setSelectedOption] = useState<ProductOption | null>(null);
   const [imgIdx, setImgIdx] = useState(0);
   const [openAcc, setOpenAcc] = useState<AccordionKey | null>("info");
 
@@ -52,13 +63,34 @@ export default function ProductDetail() {
     (async () => {
       const { data } = await supabase.from("products").select("*").eq("id", productId).single();
       if (data) setProduct(data as Product);
+      // 실제 product_options 연동 - 옵션 배열 조회
+      const { data: opts } = await supabase
+        .from("product_options")
+        .select("*")
+        .eq("product_id", productId)
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true });
+      setOptions((opts as ProductOption[]) || []);
       setLoading(false);
     })();
   }, [productId]);
 
   const handleAddToCart = () => {
     if (!product) return;
-    addToCart({ id: product.id, name: product.name, price: product.price, image: product.image, category: product.category }, quantity);
+    if (options.length > 0 && !selectedOption) {
+      alert(language === "ja" ? "オプションを選択してください。" : "옵션을 선택해주세요.");
+      return;
+    }
+    addToCart({
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      image: product.image,
+      category: product.category,
+      optionId: selectedOption?.id,
+      optionName: selectedOption?.option_name,
+      additionalPrice: selectedOption?.additional_price || 0,
+    }, quantity);
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
   };
@@ -66,7 +98,20 @@ export default function ProductDetail() {
   // BUY NOW: 카트에 담고 즉시 주문 화면(/cart)으로 이동해 구매 흐름 시작
   const handleBuyNow = () => {
     if (!product) return;
-    addToCart({ id: product.id, name: product.name, price: product.price, image: product.image, category: product.category }, quantity);
+    if (options.length > 0 && !selectedOption) {
+      alert(language === "ja" ? "オプションを選択してください。" : "옵션을 선택해주세요.");
+      return;
+    }
+    addToCart({
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      image: product.image,
+      category: product.category,
+      optionId: selectedOption?.id,
+      optionName: selectedOption?.option_name,
+      additionalPrice: selectedOption?.additional_price || 0,
+    }, quantity);
     router.push("/cart");
   };
 
@@ -109,8 +154,9 @@ export default function ProductDetail() {
   })();
   const subTitle = language === "ja" ? product.name_ko : product.name_ja;
 
-  // 옵션은 mock (실제 product_options 미연동 - 추후 boundery로 추가)
-  const optionList = ["IVORY / FREE", "BEIGE / FREE", "BLACK / FREE"];
+  // 옵션이 있으면 옵션 추가금 반영, 없으면 상품 기본가
+  const finalUnitPrice = product.price + (selectedOption?.additional_price || 0);
+  const finalTotal = finalUnitPrice * quantity;
 
   const acc = {
     info:   language === "ja" ? "PRODUCT INFO"   : "PRODUCT INFO",
@@ -228,16 +274,35 @@ export default function ProductDetail() {
               </p>
               <div className="relative">
                 <select
-                  value={option}
-                  onChange={(e) => setOption(e.target.value)}
-                  className="w-full h-11 px-3 pr-9 bg-white border border-[var(--color-line)] text-[12px] text-[var(--color-text)] focus:outline-none focus:border-[var(--color-text)] appearance-none cursor-pointer"
+                  value={selectedOption?.id ?? ""}
+                  onChange={(e) => {
+                    const id = Number(e.target.value);
+                    setSelectedOption(options.find((o) => o.id === id) || null);
+                  }}
+                  disabled={options.length === 0}
+                  className="w-full h-11 px-3 pr-9 bg-white border border-[var(--color-line)] text-[12px] text-[var(--color-text)] focus:outline-none focus:border-[var(--color-text)] appearance-none cursor-pointer disabled:bg-[var(--color-bg-soft)] disabled:text-[var(--color-text-mute)] disabled:cursor-not-allowed"
                 >
-                  <option value="">
-                    {language === "ja" ? "- [必須] オプションを選択 -" : "- [필수] 옵션을 선택해 주세요 -"}
-                  </option>
-                  {optionList.map((opt) => (
-                    <option key={opt} value={opt}>{opt}</option>
-                  ))}
+                  {options.length === 0 ? (
+                    <option value="">
+                      {language === "ja" ? "オプションなし (単一商品)" : "옵션 없음 (단일 상품)"}
+                    </option>
+                  ) : (
+                    <>
+                      <option value="">
+                        {language === "ja" ? "- [必須] オプションを選択 -" : "- [필수] 옵션을 선택해 주세요 -"}
+                      </option>
+                      {options.map((opt) => {
+                        const soldOut = typeof opt.stock === "number" && opt.stock <= 0;
+                        return (
+                          <option key={opt.id} value={opt.id} disabled={soldOut}>
+                            {opt.option_name}
+                            {opt.additional_price > 0 ? ` (+${formatPrice(opt.additional_price)})` : ""}
+                            {soldOut ? (language === "ja" ? " · 品切れ" : " · 품절") : ""}
+                          </option>
+                        );
+                      })}
+                    </>
+                  )}
                 </select>
                 <svg className="w-3.5 h-3.5 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--color-text-soft)]" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
                   <path d="M3 5l3 3 3-3" />
@@ -245,12 +310,14 @@ export default function ProductDetail() {
               </div>
             </div>
 
-            {/* 수량 (옵션 선택 시 노출) */}
-            {option && (
+            {/* 수량 (옵션 선택 시 or 옵션 없는 상품이면 항상 노출) */}
+            {(selectedOption || options.length === 0) && (
               <div className="mt-5 px-3 py-3 bg-[var(--color-bg-soft)] border border-[var(--color-line-soft)]">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-[11px] text-[var(--color-text-soft)]">{option}</p>
+                    <p className="text-[11px] text-[var(--color-text-soft)]">
+                      {selectedOption?.option_name || (language === "ja" ? "選択" : "선택")}
+                    </p>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="inline-flex items-center border border-[var(--color-line)] bg-white">
@@ -258,7 +325,7 @@ export default function ProductDetail() {
                       <span className="w-10 text-center text-[12px]">{quantity}</span>
                       <button onClick={() => setQuantity(quantity + 1)} className="w-8 h-8 hover:bg-[var(--color-bg-soft)]" aria-label="+">+</button>
                     </div>
-                    <span className="text-[13px] font-medium">{formatPrice(product.price * quantity)}</span>
+                    <span className="text-[13px] font-medium">{formatPrice(finalTotal)}</span>
                   </div>
                 </div>
               </div>
@@ -268,7 +335,7 @@ export default function ProductDetail() {
             <div className="flex items-center justify-between mt-7 pt-5 border-t border-[var(--color-line)]">
               <span className="text-[12px] tracking-[0.25em] text-[var(--color-text)]">TOTAL PRICE</span>
               <span className="text-[22px] font-medium text-[var(--color-text)]">
-                {formatPrice(product.price * quantity)}
+                {formatPrice(finalTotal)}
                 <span className="ml-1 text-[12px] font-normal text-[var(--color-text-mute)]">
                   ({language === "ja" ? `${quantity}個` : `${quantity}개`})
                 </span>
