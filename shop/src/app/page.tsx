@@ -236,6 +236,26 @@ export default function Home() {
 
   // 상위 카테고리의 실제 sub_category distinct 조회
   const fetchSubCategories = async (dbCategory: string) => {
+    // 1순위 · adm에서 관리하는 categories 테이블의 하위 (parent_id 기반)
+    // 매칭: 상위 name_ja == dbCategory 인 카테고리의 자식들
+    const { data: parentRow } = await supabase
+      .from("categories")
+      .select("id")
+      .eq("name_ja", dbCategory)
+      .maybeSingle();
+    if (parentRow?.id) {
+      const { data: children } = await supabase
+        .from("categories")
+        .select("name_ja, name_ko, name_en, sort_order")
+        .eq("parent_id", parentRow.id)
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true });
+      if (children && children.length > 0) {
+        setSubCategories(children.map((c) => c.name_ja));
+        return;
+      }
+    }
+    // 2순위 · 하위 카테고리가 없으면 products.sub_category distinct fallback
     const { data } = await supabase
       .from("products")
       .select("sub_category")
