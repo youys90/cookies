@@ -164,7 +164,7 @@ export default function CategoriesPage() {
           name_en: form.name_en || null,
           parent_id: form.parent_id,
           sort_order: form.sort_order,
-          icon_url: form.icon_url || null,
+          icon_url: form.parent_id ? null : (form.icon_url || null), // 하위 카테고리는 아이콘 항상 null
           is_active: form.is_active,
         })
         .eq("id", editing.id);
@@ -181,8 +181,13 @@ export default function CategoriesPage() {
       });
       if (error) return alert("등록 실패: " + error.message);
     }
+    // 저장 후 부모 노드 자동 확장 - 방금 등록된 하위가 즉시 눈에 보이게
+    const parentId = form.parent_id;
     closeForm();
-    fetchAll();
+    await fetchAll();
+    if (parentId != null) {
+      setExpanded((prev) => new Set(prev).add(parentId));
+    }
   };
 
   const handleDelete = async (row: Category) => {
@@ -388,36 +393,59 @@ export default function CategoriesPage() {
                 <p className="text-[10px] text-gray-400 mt-1">비워두면 언어별 이름(한국어/일본어)이 그대로 노출됨.</p>
               </div>
 
-              {/* 아이콘 (팝업으로 선택) */}
-              <div>
-                <label className="block text-xs text-gray-600 mb-2">아이콘 (노출 크기 64×64 고정)</label>
-                <div className="flex items-center gap-3">
-                  <div className="w-16 h-16 rounded-full bg-gray-100 border border-gray-200 overflow-hidden flex items-center justify-center flex-shrink-0">
-                    {(() => {
-                      const isBuiltin = form.icon_url.startsWith(BUILTIN_ICON_PREFIX);
-                      if (isBuiltin) {
-                        return <BuiltinCategoryIcon name={form.icon_url.slice(BUILTIN_ICON_PREFIX.length)} className="w-8 h-8 text-gray-700" />;
-                      }
-                      if (form.icon_url) {
-                        return <Image src={form.icon_url} alt="icon" width={64} height={64} className="object-cover w-full h-full" unoptimized />;
-                      }
-                      return <span className="text-[10px] text-gray-400">no icon</span>;
-                    })()}
+              {/* 아이콘 (최상위 카테고리만) - 하위는 아이콘 불필요, 비활성 표시 */}
+              {(() => {
+                const isSubCategory = form.parent_id !== null;
+                return (
+                  <div className={isSubCategory ? "opacity-50 select-none" : ""}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <label className="block text-xs text-gray-600">
+                        아이콘 <span className="text-gray-400">(노출 크기 64×64 고정)</span>
+                      </label>
+                      {isSubCategory && (
+                        <span className="text-[10px] text-red-500 bg-red-50 px-1.5 py-0.5 rounded">
+                          하위 카테고리는 아이콘 미사용 · 비활성
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className={`w-16 h-16 rounded-full border overflow-hidden flex items-center justify-center flex-shrink-0 ${isSubCategory ? "bg-gray-50 border-gray-200 border-dashed" : "bg-gray-100 border-gray-200"}`}>
+                        {isSubCategory ? (
+                          <span className="text-[9px] text-gray-400 tracking-widest">N/A</span>
+                        ) : (() => {
+                          const isBuiltin = form.icon_url.startsWith(BUILTIN_ICON_PREFIX);
+                          if (isBuiltin) {
+                            return <BuiltinCategoryIcon name={form.icon_url.slice(BUILTIN_ICON_PREFIX.length)} className="w-8 h-8 text-gray-700" />;
+                          }
+                          if (form.icon_url) {
+                            return <Image src={form.icon_url} alt="icon" width={64} height={64} className="object-cover w-full h-full" unoptimized />;
+                          }
+                          return <span className="text-[10px] text-gray-400">no icon</span>;
+                        })()}
+                      </div>
+                      <div className="flex-1">
+                        <button
+                          type="button"
+                          onClick={() => !isSubCategory && setShowIconPicker(true)}
+                          disabled={isSubCategory}
+                          className={`px-4 py-2 border rounded-lg text-sm ${
+                            isSubCategory
+                              ? "border-gray-200 text-gray-400 cursor-not-allowed bg-gray-50"
+                              : "border-gray-300 hover:bg-gray-50"
+                          }`}
+                        >
+                          {isSubCategory ? "🚫 하위 카테고리 비활성" : (form.icon_url ? "🎨 아이콘 변경" : "🎨 아이콘 선택")}
+                        </button>
+                        <p className="text-[10px] text-gray-400 mt-1.5">
+                          {isSubCategory
+                            ? "하위 카테고리는 상위 아이콘을 상속하므로 별도 아이콘이 필요 없습니다."
+                            : "기본 25종에서 선택 · 이미지 직접 업로드도 가능"}
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <button
-                      type="button"
-                      onClick={() => setShowIconPicker(true)}
-                      className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50"
-                    >
-                      {form.icon_url ? "🎨 아이콘 변경" : "🎨 아이콘 선택"}
-                    </button>
-                    <p className="text-[10px] text-gray-400 mt-1.5">
-                      기본 25종에서 선택 · 이미지 직접 업로드도 가능
-                    </p>
-                  </div>
-                </div>
-              </div>
+                );
+              })()}
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
