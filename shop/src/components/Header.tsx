@@ -26,11 +26,9 @@ export default function Header() {
   const sort = sp?.get("sort") || "";
   const onMain = pathname === "/";
   const mainNav = [
-    { label: "NEW",    href: "/?sort=new",   active: onMain && sort === "new" },
-    { label: "SHOP",   href: "/",            active: onMain && !cat && !sort },
-    { label: "REVIEW", href: "/reviews",     active: pathname === "/reviews" },
-    { label: "BRAND",  href: "/about",       active: pathname === "/about" },
-    { label: "SALE",   href: "/?cat=sale",   active: onMain && cat === "sale" },
+    { label: "SHOP",   href: "/",         active: onMain },
+    { label: "REVIEW", href: "/reviews",  active: pathname === "/reviews" },
+    { label: "BRAND",  href: "/about",    active: pathname === "/about" },
   ];
 
   return (
