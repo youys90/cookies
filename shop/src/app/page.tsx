@@ -8,6 +8,7 @@ import Image from "next/image";
 import ProductCard from "@/components/ProductCard";
 import StaffPasswordModal from "@/components/StaffPasswordModal";
 import { supabase } from "@/lib/supabase";
+import { BuiltinCategoryIcon, isBuiltinIcon } from "@/lib/category-icons";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 interface Product {
@@ -100,6 +101,8 @@ export default function Home() {
   const [selectedMignonCat, setSelectedMignonCat] = useState<string>(searchParams.get("cat") || "all");
   const [subCategories, setSubCategories] = useState<string[]>([]);
   const [selectedSubCat, setSelectedSubCat] = useState<string>(searchParams.get("sub") || "");
+  // adm에서 관리하는 categories 테이블 (최상위) — 하드코딩 MIGNON_CATEGORIES 대체
+  const [dbCategories, setDbCategories] = useState<Array<{ id: number; name_ko: string; name_ja: string; icon_url: string | null; sort_order: number }>>([]);
   const [loading, setLoading] = useState(true);
   const [showStaffModal, setShowStaffModal] = useState(false);
   const [hasStaffAccess, setHasStaffAccess] = useState(false);
@@ -122,7 +125,19 @@ export default function Home() {
       }
     })();
     fetchHero();
+    fetchDbCategories();
   }, []);
+
+  // adm에서 편집한 카테고리 실시간 반영 (categories 테이블 조회)
+  const fetchDbCategories = async () => {
+    const { data } = await supabase
+      .from("categories")
+      .select("id, name_ko, name_ja, icon_url, sort_order")
+      .is("parent_id", null)
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true });
+    setDbCategories((data as typeof dbCategories) || []);
+  };
 
   useEffect(() => {
     const page = Number(searchParams.get("page")) || 1;
@@ -171,7 +186,14 @@ export default function Home() {
     let query = supabase.from("products").select("*", { count: "exact" }).eq("is_active", true).neq("category", "➡ Premium High-Quality ✨");
 
     const cat = MIGNON_CATEGORIES.find((c) => c.key === selectedMignonCat);
-    if (cat) {
+    // DB 카테고리(adm 관리)에서 온 경우: selectedMignonCat이 name_ja 값
+    const dbCat = dbCategories.find((c) => c.name_ja === selectedMignonCat);
+    if (dbCat) {
+      query = query.eq("category", dbCat.name_ja);
+      if (selectedSubCat) {
+        query = query.eq("sub_category", selectedSubCat);
+      }
+    } else if (cat) {
       if (cat.saleOnly) {
         query = query.not("original_price", "is", null);
       } else {
@@ -242,6 +264,11 @@ export default function Home() {
 
   const totalPages = Math.ceil(totalCount / pageSize);
   const currentCat = MIGNON_CATEGORIES.find((c) => c.key === selectedMignonCat);
+  const currentDbCat = dbCategories.find((c) => c.name_ja === selectedMignonCat);
+  const currentTitleEn = currentCat?.labelEn || (currentDbCat ? currentDbCat.name_ja.toUpperCase() : "ALL");
+  const currentTitleLocal = language === "ja"
+    ? (currentCat?.labelJp || currentDbCat?.name_ja || "全アイテム")
+    : (currentDbCat?.name_ko || "전체");
 
   return (
     <div className="bg-white text-[var(--color-text)]">
@@ -362,20 +389,58 @@ export default function Home() {
       {/* ─── 카테고리 8개 (슬림) ─── */}
       <section className="border-b border-[var(--color-line-soft)] bg-white">
         <div className="max-w-[1400px] mx-auto px-4 lg:px-8 py-7 lg:py-9">
-          <div className="grid grid-cols-4 md:grid-cols-8 gap-y-5 gap-x-2">
-            {MIGNON_CATEGORIES.map((cat) => {
-              const active = selectedMignonCat === cat.key;
-              return (
-                <button key={cat.key} onClick={() => handleMignonCategoryClick(cat)} className="flex flex-col items-center group cursor-pointer">
-                  <div className={`w-14 h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center transition border ${active ? "border-[var(--color-text)] bg-[var(--color-bg-cream)]" : "border-[var(--color-line)] bg-[var(--color-bg-soft)] group-hover:border-[var(--color-text-soft)]"}`}>
-                    <CategoryIcon name={cat.icon} />
-                  </div>
-                  <span className={`mt-2.5 text-[10px] md:text-[11px] tracking-[0.18em] ${active ? "text-[var(--color-text)]" : "text-[var(--color-text-soft)] group-hover:text-[var(--color-text)]"}`}>
-                    {cat.labelEn}
-                  </span>
-                </button>
-              );
-            })}
+          {/* dbCategories(adm 카테고리 관리)가 있으면 그것 우선 렌더, 없으면 하드코딩 fallback */}
+          <div className={`grid gap-y-5 gap-x-2 ${dbCategories.length > 0 ? (dbCategories.length <= 4 ? "grid-cols-4" : dbCategories.length <= 8 ? "grid-cols-4 md:grid-cols-8" : "grid-cols-4 md:grid-cols-8 lg:grid-cols-10") : "grid-cols-4 md:grid-cols-8"}`}>
+            {dbCategories.length > 0 ? (
+              dbCategories.map((cat) => {
+                const active = selectedMignonCat === cat.name_ja;
+                const label = language === "ja" ? cat.name_ja : cat.name_ko;
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => {
+                      setSelectedMignonCat(cat.name_ja);
+                      setSelectedSubCat("");
+                      setCurrentPage(1);
+                      setSearchKeyword("");
+                      setSearchInput("");
+                      fetchSubCategories(cat.name_ja);
+                    }}
+                    className="flex flex-col items-center group cursor-pointer"
+                  >
+                    <div className={`w-14 h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center transition border overflow-hidden ${active ? "border-[var(--color-text)] bg-[var(--color-bg-cream)]" : "border-[var(--color-line)] bg-[var(--color-bg-soft)] group-hover:border-[var(--color-text-soft)]"}`}>
+                      {(() => {
+                        const builtin = isBuiltinIcon(cat.icon_url);
+                        if (builtin) {
+                          return <BuiltinCategoryIcon name={builtin} className="w-7 h-7 md:w-8 md:h-8 stroke-[var(--color-text)]" />;
+                        }
+                        if (cat.icon_url) {
+                          return <Image src={cat.icon_url} alt={label} width={64} height={64} className="object-cover w-full h-full" unoptimized />;
+                        }
+                        return <span className="text-[10px] tracking-widest text-[var(--color-text-soft)]">{label.slice(0, 3)}</span>;
+                      })()}
+                    </div>
+                    <span className={`mt-2.5 text-[10px] md:text-[11px] tracking-[0.18em] ${active ? "text-[var(--color-text)]" : "text-[var(--color-text-soft)] group-hover:text-[var(--color-text)]"}`}>
+                      {label}
+                    </span>
+                  </button>
+                );
+              })
+            ) : (
+              MIGNON_CATEGORIES.map((cat) => {
+                const active = selectedMignonCat === cat.key;
+                return (
+                  <button key={cat.key} onClick={() => handleMignonCategoryClick(cat)} className="flex flex-col items-center group cursor-pointer">
+                    <div className={`w-14 h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center transition border ${active ? "border-[var(--color-text)] bg-[var(--color-bg-cream)]" : "border-[var(--color-line)] bg-[var(--color-bg-soft)] group-hover:border-[var(--color-text-soft)]"}`}>
+                      <CategoryIcon name={cat.icon} />
+                    </div>
+                    <span className={`mt-2.5 text-[10px] md:text-[11px] tracking-[0.18em] ${active ? "text-[var(--color-text)]" : "text-[var(--color-text-soft)] group-hover:text-[var(--color-text)]"}`}>
+                      {cat.labelEn}
+                    </span>
+                  </button>
+                );
+              })
+            )}
           </div>
 
           {/* 2뎁스 - 하위 카테고리 텍스트 탭 (상위 선택 시 자동 노출) */}
@@ -417,15 +482,15 @@ export default function Home() {
           <h2 className="text-[11px] tracking-[0.25em] text-[var(--color-text)]">
             {searchParams.get("sort") === "new"
               ? "NEW IN"
-              : currentCat && currentCat.key !== "all"
-                ? currentCat.labelEn
+              : selectedMignonCat !== "all"
+                ? currentTitleEn
                 : "ALL PRODUCTS"}
           </h2>
           <p className="text-[10px] text-[var(--color-text-mute)] mt-1.5">
             {searchParams.get("sort") === "new"
               ? (language === "ja" ? "新着アイテム" : "신상품")
-              : currentCat && currentCat.key !== "all"
-                ? (language === "ja" ? currentCat.labelJp : currentCat.labelEn)
+              : selectedMignonCat !== "all"
+                ? currentTitleLocal
                 : (language === "ja" ? "全アイテム" : "전체")}
             {totalCount > 0 && <span className="ml-1">· {totalCount}</span>}
           </p>

@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import { translateKoJa } from "@/lib/translate";
+import { BuiltinCategoryIcon, BUILTIN_ICON_KEYS, BUILTIN_ICON_PREFIX } from "@/lib/category-icons";
 
 type Category = {
   id: number;
@@ -366,32 +367,67 @@ export default function CategoriesPage() {
                 </div>
               </div>
 
-              {/* 아이콘 업로드 */}
+              {/* 아이콘 선택 · 기본 세트 or 이미지 업로드 */}
               <div>
-                <label className="block text-xs text-gray-600 mb-1">아이콘 (원본 크기 무관 · 노출 크기 64×64 고정)</label>
-                <div className="flex items-center gap-3">
+                <label className="block text-xs text-gray-600 mb-2">아이콘 (노출 크기 64×64 고정)</label>
+                <div className="flex items-start gap-3">
                   <div className="w-16 h-16 rounded-full bg-gray-100 border border-gray-200 overflow-hidden flex items-center justify-center flex-shrink-0">
-                    {form.icon_url ? (
-                      <Image src={form.icon_url} alt="icon" width={64} height={64} className="object-cover w-full h-full" unoptimized />
-                    ) : (
-                      <span className="text-[10px] text-gray-400">preview</span>
-                    )}
+                    {(() => {
+                      const isBuiltin = form.icon_url.startsWith(BUILTIN_ICON_PREFIX);
+                      if (isBuiltin) {
+                        return <BuiltinCategoryIcon name={form.icon_url.slice(BUILTIN_ICON_PREFIX.length)} className="w-8 h-8 text-gray-700" />;
+                      }
+                      if (form.icon_url) {
+                        return <Image src={form.icon_url} alt="icon" width={64} height={64} className="object-cover w-full h-full" unoptimized />;
+                      }
+                      return <span className="text-[10px] text-gray-400">preview</span>;
+                    })()}
                   </div>
-                  <div className="flex-1">
-                    <input
-                      ref={iconInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={handleIconUpload}
-                      className="text-xs"
-                    />
-                    {uploadingIcon && <p className="text-xs text-blue-500 mt-1">업로드 중…</p>}
-                    {iconError && <p className="text-xs text-red-500 mt-1">{iconError}</p>}
+                  <div className="flex-1 space-y-2">
+                    {/* 기본 아이콘 그리드 */}
+                    <div>
+                      <p className="text-[10px] text-gray-500 mb-1.5">기본 아이콘에서 선택</p>
+                      <div className="grid grid-cols-8 gap-1.5">
+                        {BUILTIN_ICON_KEYS.map((key) => {
+                          const selected = form.icon_url === `${BUILTIN_ICON_PREFIX}${key}`;
+                          return (
+                            <button
+                              type="button"
+                              key={key}
+                              onClick={() => setForm((p) => ({ ...p, icon_url: `${BUILTIN_ICON_PREFIX}${key}` }))}
+                              className={`aspect-square rounded border flex items-center justify-center transition ${
+                                selected
+                                  ? "border-gray-900 bg-gray-100 text-gray-900"
+                                  : "border-gray-200 text-gray-500 hover:border-gray-400"
+                              }`}
+                              title={key}
+                            >
+                              <BuiltinCategoryIcon name={key} className="w-4 h-4" />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* 직접 업로드 */}
+                    <div className="pt-2 border-t border-gray-100">
+                      <p className="text-[10px] text-gray-500 mb-1">또는 이미지 업로드</p>
+                      <input
+                        ref={iconInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleIconUpload}
+                        className="text-xs"
+                      />
+                      {uploadingIcon && <p className="text-xs text-blue-500 mt-1">업로드 중…</p>}
+                      {iconError && <p className="text-xs text-red-500 mt-1">{iconError}</p>}
+                    </div>
+
                     {form.icon_url && (
                       <button
                         type="button"
                         onClick={() => setForm((p) => ({ ...p, icon_url: "" }))}
-                        className="text-xs text-red-500 hover:text-red-700 mt-1"
+                        className="text-xs text-red-500 hover:text-red-700"
                       >
                         아이콘 제거
                       </button>
