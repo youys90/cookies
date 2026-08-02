@@ -31,20 +31,53 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    const savedCart = localStorage.getItem("cart");
-    if (savedCart) {
-      setItems(JSON.parse(savedCart));
+    // localStorage 파싱 실패(손상된 JSON) 시 앱 크래시 방지
+    try {
+      const savedCart = localStorage.getItem("cart");
+      if (savedCart) {
+        const parsed = JSON.parse(savedCart);
+        if (Array.isArray(parsed)) {
+          // 각 아이템 필수 필드 검증 (id/price/quantity 숫자, 그 외 무시)
+          const safe = parsed.filter(
+            (x): x is CartItem =>
+              x &&
+              typeof x.id === "number" &&
+              typeof x.price === "number" &&
+              !Number.isNaN(x.price) &&
+              typeof x.quantity === "number" &&
+              x.quantity > 0,
+          );
+          setItems(safe);
+        }
+      }
+    } catch (err) {
+      console.warn("CartContext: localStorage 손상, 초기화합니다.", err);
+      try {
+        localStorage.removeItem("cart");
+      } catch { /* ignore */ }
     }
     setIsLoaded(true);
   }, []);
 
   useEffect(() => {
     if (isLoaded) {
-      localStorage.setItem("cart", JSON.stringify(items));
+      try {
+        localStorage.setItem("cart", JSON.stringify(items));
+      } catch (err) {
+        // localStorage 용량 초과 등
+        console.warn("CartContext: localStorage 저장 실패.", err);
+      }
     }
   }, [items, isLoaded]);
 
   const addToCart = (product: Omit<CartItem, "quantity">, quantity = 1) => {
+    // 수량 검증: 정수 · 양수 (1~999 범위)
+    const q = Math.floor(Number(quantity));
+    if (!Number.isFinite(q) || q < 1) return;
+    const safeQty = Math.min(q, 999);
+    // 가격 검증: NaN/음수 방어
+    if (!Number.isFinite(product.price) || product.price < 0) return;
+
     setItems((prev) => {
       const existing = prev.find(
         (item) => item.id === product.id && item.optionId === product.optionId
@@ -52,11 +85,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (existing) {
         return prev.map((item) =>
           item.id === product.id && item.optionId === product.optionId
-            ? { ...item, quantity: item.quantity + quantity }
+            ? { ...item, quantity: Math.min(item.quantity + safeQty, 999) }
             : item
         );
       }
-      return [...prev, { ...product, quantity }];
+      return [...prev, { ...product, quantity: safeQty }];
     });
   };
 
@@ -67,13 +100,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
   };
 
   const updateQuantity = (id: number, quantity: number, optionId?: number) => {
-    if (quantity < 1) {
-      return; // 최소 1개 유지, 삭제는 removeFromCart로만
-    }
+    // 수량 검증: 정수 1~999
+    const q = Math.floor(Number(quantity));
+    if (!Number.isFinite(q) || q < 1) return;
+    const safeQty = Math.min(q, 999);
     setItems((prev) =>
       prev.map((item) =>
         item.id === id && item.optionId === optionId
-          ? { ...item, quantity }
+          ? { ...item, quantity: safeQty }
           : item
       )
     );
@@ -84,10 +118,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
   };
 
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
-  const totalPrice = items.reduce(
-    (sum, item) => sum + (item.price + (item.additionalPrice || 0)) * item.quantity,
-    0
-  );
+  // NaN 방어: item.price/additionalPrice가 손상되어도 총액 붕괴 X
+  const totalPrice = items.reduce((sum, item) => {
+    const p = Number.isFinite(item.price) ? item.price : 0;
+    const ap = Number.isFinite(item.additionalPrice) ? Number(item.additionalPrice) : 0;
+    const q = Number.isFinite(item.quantity) ? item.quantity : 0;
+    return sum + (p + ap) * q;
+  }, 0);
 
   return (
     <CartContext.Provider

@@ -62,7 +62,20 @@ export default function ProductDetail() {
   useEffect(() => {
     (async () => {
       const { data } = await supabase.from("products").select("*").eq("id", productId).single();
-      if (data) setProduct(data as Product);
+      if (data) {
+        // 프리미엄 카테고리는 서버 세션(HMAC 서명 쿠키) 검증 통과해야 접근 (Phase 1)
+        if ((data as Product).category === "➡ Premium High-Quality ✨") {
+          try {
+            const r = await fetch("/api/staff/session", { cache: "no-store" });
+            const j = await r.json();
+            if (!j.ok) { router.push("/"); return; }
+          } catch {
+            router.push("/");
+            return;
+          }
+        }
+        setProduct(data as Product);
+      }
       // 실제 product_options 연동 - 옵션 배열 조회
       const { data: opts } = await supabase
         .from("product_options")
@@ -73,7 +86,7 @@ export default function ProductDetail() {
       setOptions((opts as ProductOption[]) || []);
       setLoading(false);
     })();
-  }, [productId]);
+  }, [productId, router]);
 
   const handleAddToCart = () => {
     if (!product) return;
