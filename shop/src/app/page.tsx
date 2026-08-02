@@ -103,7 +103,6 @@ export default function Home() {
   const [selectedSubCat, setSelectedSubCat] = useState<string>(searchParams.get("sub") || "");
   // adm에서 관리하는 categories 테이블 (최상위) — 하드코딩 MIGNON_CATEGORIES 대체
   const [dbCategories, setDbCategories] = useState<Array<{ id: number; name_ko: string; name_ja: string; name_en?: string | null; icon_url: string | null; sort_order: number }>>([]);
-  const [policyOpen, setPolicyOpen] = useState(false); // 히어로 아래 정책 안내 아코디언
   const [loading, setLoading] = useState(true);
   const [showStaffModal, setShowStaffModal] = useState(false);
   const [hasStaffAccess, setHasStaffAccess] = useState(false);
@@ -284,8 +283,33 @@ export default function Home() {
               ) : (
                 <div className="w-full h-full bg-gradient-to-br from-[#F5EFE6] to-[#E8DECF]" />
               )}
-              {/* 히어로 이미지는 브랜드 그대로 살림 (오버레이 최소화) */}
-              <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/25 to-transparent" />
+              {/* 히어로 안 오버레이: 온라인 가격 정책 안내 (60% 크기) */}
+              <div className="absolute inset-0 bg-black/40" />
+              <div className="absolute inset-0 flex items-center justify-center px-4 md:px-8 lg:px-12">
+                <div className="text-white text-center max-w-[560px] md:max-w-[620px] w-full bg-black/55 backdrop-blur-sm border border-white/15 rounded-sm px-5 md:px-8 lg:px-10 py-6 md:py-8 lg:py-10">
+                  <h2 className="font-serif font-medium text-[18px] md:text-[28px] lg:text-[36px] leading-[1.2] tracking-[0.04em] mb-4 md:mb-5">
+                    {language === "ja" ? "オンライン価格ポリシー変更のお知らせ" : "온라인 가격 정책 변경 안내"}
+                  </h2>
+                  <p className="text-[10px] md:text-[13px] lg:text-[15px] leading-[1.75] font-light">
+                    {language === "ja" ? (
+                      <>
+                        ご利用の便宜のため、<b className="font-semibold">送料と通関保証費用をすべて無料</b>でご提供いたします。<br />
+                        これに伴い、一部のオンライン商品の販売価格が若干調整されます。<br />
+                        <span className="opacity-85">店舗に直接お越しのお客様には、従来通り店舗価格にて販売しております。</span>
+                      </>
+                    ) : (
+                      <>
+                        이용 편의를 위해 <b className="font-semibold">배송비와 통관보장 비용을 모두 무료</b>로 제공합니다.<br />
+                        이에 따라 일부 온라인 상품의 판매 가격이 소폭 조정됩니다.<br />
+                        <span className="opacity-85">매장에 직접 방문하시는 고객님께는 기존 매장 가격 그대로 판매됩니다.</span>
+                      </>
+                    )}
+                  </p>
+                  <p className="mt-4 md:mt-6 text-[9px] md:text-[10px] lg:text-[12px] tracking-[0.25em] opacity-85">
+                    {language === "ja" ? "いつもご愛顧いただきありがとうございます." : "항상 감사합니다."}
+                  </p>
+                </div>
+              </div>
             </Link>
 
             {/* 우 상단 */}
@@ -319,77 +343,38 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ─── 히어로 하단 슬림 정책 배너 (크림디자인팀 시안 C · 클릭 시 상세 아코디언) ─── */}
+      {/* ─── 무료 혜택 강조 (슬림) ─── */}
       <section className="bg-[var(--color-bg-cream)] border-y border-[var(--color-line-soft)]">
-        <div className="max-w-[1400px] mx-auto px-4 lg:px-8">
-          {/* 슬림 라인 - 항상 노출 */}
-          <button
-            type="button"
-            onClick={() => setPolicyOpen((v) => !v)}
-            className="w-full py-3.5 md:py-4 flex items-center justify-center gap-4 md:gap-8 hover:bg-black/[0.02] transition"
-            aria-expanded={policyOpen}
-          >
-            <div className="flex items-center gap-2">
-              <svg className="w-4 h-4 md:w-5 md:h-5 text-[var(--color-text)]" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <div className="max-w-[1400px] mx-auto px-4 lg:px-8 py-5 md:py-7">
+          <div className="flex items-center justify-center gap-6 md:gap-16">
+            <div className="flex items-center gap-2 md:gap-3">
+              <svg className="w-6 h-6 md:w-8 md:h-8 text-[var(--color-text)]" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <path d="M3 8h14v14H3z" />
                 <path d="M17 12h6l4 5v5h-10V12z" />
                 <circle cx="8" cy="24" r="2.5" fill="currentColor" />
                 <circle cx="22" cy="24" r="2.5" fill="currentColor" />
               </svg>
-              <span className="font-serif text-[12px] md:text-[14px] tracking-wide text-[var(--color-text)]">
-                {language === "ja" ? "送料無料" : "배송비 무료"}
-              </span>
+              <div className="text-left">
+                <p className="font-serif text-[13px] md:text-[16px] leading-tight text-[var(--color-text)] tracking-wide">
+                  {language === "ja" ? "送料無料" : "배송비 무료"}
+                </p>
+                <p className="text-[9px] md:text-[10px] text-[var(--color-text-mute)] tracking-widest mt-0.5">FREE SHIPPING</p>
+              </div>
             </div>
-            <span className="text-[var(--color-line)]">·</span>
-            <div className="flex items-center gap-2">
-              <svg className="w-4 h-4 md:w-5 md:h-5 text-[var(--color-text)]" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <div className="w-px h-10 md:h-12 bg-[var(--color-line)]" />
+            <div className="flex items-center gap-2 md:gap-3">
+              <svg className="w-6 h-6 md:w-8 md:h-8 text-[var(--color-text)]" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <path d="M16 3l11 4v9c0 7-5 12-11 13-6-1-11-6-11-13V7l11-4z" />
                 <path d="M11 16l4 4 6-7" />
               </svg>
-              <span className="font-serif text-[12px] md:text-[14px] tracking-wide text-[var(--color-text)]">
-                {language === "ja" ? "通関保証無料" : "통관보장 무료"}
-              </span>
-            </div>
-            <span className="hidden md:inline text-[var(--color-line)]">·</span>
-            <span className="hidden md:inline text-[11px] text-[var(--color-text-soft)] tracking-[0.2em]">
-              {language === "ja" ? "価格ポリシー変更" : "가격 정책 변경"}
-            </span>
-            <svg
-              className={`w-3 h-3 text-[var(--color-text-mute)] transition-transform ${policyOpen ? "rotate-180" : ""}`}
-              viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5"
-            >
-              <path d="M3 5l3 3 3-3" />
-            </svg>
-          </button>
-
-          {/* 아코디언 상세 - 클릭 시 펼침 */}
-          {policyOpen && (
-            <div className="pb-6 md:pb-8 max-w-[820px] mx-auto text-center">
-              <div className="border-t border-[var(--color-line-soft)] pt-5 md:pt-6">
-                <p className="font-serif text-[13px] md:text-[15px] tracking-[0.2em] text-[var(--color-text)] mb-3">
-                  {language === "ja" ? "オンライン価格ポリシー変更のお知らせ" : "온라인 가격 정책 변경 안내"}
+              <div className="text-left">
+                <p className="font-serif text-[13px] md:text-[16px] leading-tight text-[var(--color-text)] tracking-wide">
+                  {language === "ja" ? "通関保証無料" : "통관보장 무료"}
                 </p>
-                <p className="text-[12px] md:text-[13px] leading-[1.9] text-[var(--color-text-soft)]">
-                  {language === "ja" ? (
-                    <>
-                      ご利用の便宜のため、<b className="text-[var(--color-text)] font-medium">送料と通関保証費用をすべて無料</b>でご提供いたします。<br />
-                      これに伴い、一部のオンライン商品の販売価格が若干調整されます。<br />
-                      <span className="text-[var(--color-text-mute)]">店舗に直接お越しのお客様には、従来通り店舗価格にて販売しております。</span>
-                    </>
-                  ) : (
-                    <>
-                      이용 편의를 위해 <b className="text-[var(--color-text)] font-medium">배송비와 통관보장 비용을 모두 무료</b>로 제공합니다.<br />
-                      이에 따라 일부 온라인 상품의 판매 가격이 소폭 조정됩니다.<br />
-                      <span className="text-[var(--color-text-mute)]">매장에 직접 방문하시는 고객님께는 기존 매장 가격 그대로 판매됩니다.</span>
-                    </>
-                  )}
-                </p>
-                <p className="mt-4 text-[10px] tracking-[0.3em] text-[var(--color-text-mute)]">
-                  {language === "ja" ? "いつもご愛顧いただきありがとうございます." : "항상 감사합니다."}
-                </p>
+                <p className="text-[9px] md:text-[10px] text-[var(--color-text-mute)] tracking-widest mt-0.5">CUSTOMS COVERED</p>
               </div>
             </div>
-          )}
+          </div>
         </div>
       </section>
 
