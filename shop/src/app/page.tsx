@@ -28,6 +28,34 @@ interface Product {
 
 const PAGE_SIZE_OPTIONS = [25, 50, 100]; // 5의 배수 (5컬럼 그리드)
 
+// ── 서브 카테고리 다국어 매핑 (DB는 일본어로만 저장되어 있어 한국어 UI에서 변환 필요) ──
+const SUB_CATEGORY_KO: Record<string, string> = {
+  // アクセサリー
+  "ピアス": "피어싱",
+  "ネックレス": "목걸이",
+  "リング": "반지",
+  "ブレスレット": "팔찌",
+  // ファッション雑貨
+  "キャップ": "캡모자",
+  "靴下": "양말",
+  "ミニバッグ": "미니백",
+  "財布": "지갑",
+  "ポーチ": "파우치",
+  // ヘアアクセサリー
+  "ヘアピン": "헤어핀",
+  "ヘアバンド": "헤어밴드",
+  "ヘアゴム": "헤어끈",
+  // キーリング
+  "バッグキーリング": "백키링",
+  // 冬物アイテム
+  "手袋": "장갑",
+  // 공통
+  "その他": "기타",
+  "アクセサリー": "악세사리",
+};
+const subCategoryLabel = (sub: string, lang: string) =>
+  lang === "ko" ? (SUB_CATEGORY_KO[sub] || sub) : sub;
+
 // ── CREAM 카테고리 8개 ──
 type MignonCat = {
   key: string;
@@ -374,7 +402,7 @@ export default function Home() {
                         : "text-[var(--color-text-soft)] hover:text-[var(--color-text)]"
                     }`}
                   >
-                    {sub}
+                    {subCategoryLabel(sub, language)}
                   </button>
                 ))}
               </div>

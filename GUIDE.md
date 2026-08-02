@@ -206,6 +206,38 @@ C:\Claude\10.etc\backup\cookies\
 
 ---
 
+## ⚠ 다국어 처리 규칙 (매우 중요 — 위반 금지)
+
+**shop은 JP/KO 이중 언어 UI. 어떤 문구도 언어별 대응이 누락돼선 안 된다.**
+
+### 규칙
+
+1. **DB에 언어별 컬럼이 이미 있으면 무조건 사용**
+   - `products`: `name_ja`, `name_ko`, `description_ja`, `description_ko`, `category_ja`, `category_ko`
+   - 렌더 시 `language === "ja" ? product.name_ja : product.name_ko` 패턴 준수
+   - 절대 `product.name`만 쓰지 말 것 (원본 필드는 fallback용)
+
+2. **DB에 단일 언어(주로 일본어)만 저장된 필드는 프론트 매핑 사전 사용**
+   - 대표 예: `products.sub_category` (일본어만 저장 → [shop/src/app/page.tsx](web-dev/cookies/shop/src/app/page.tsx) 의 `SUB_CATEGORY_KO` 사전)
+   - 새 값이 나올 때마다 사전에 한국어 대응 추가
+
+3. **하드코딩 문구는 모두 `useLanguage().t()` 또는 삼항 분기**
+   - 인라인 삼항: `{language === "ja" ? "送料無料" : "배송비 무료"}`
+   - 재사용은 [LanguageContext.tsx](web-dev/cookies/shop/src/contexts/LanguageContext.tsx) 딕셔너리에 추가
+
+4. **CREAM 등 브랜드/영문 표기는 언어 무관 그대로 유지**
+   - CREAM, ACC, BAG, JEWELRY, SALE 등 영문 라벨은 두 언어 공용
+
+5. **검수 방법**
+   - 헤더 언어 스위처로 JP ↔ KO 토글하며 화면 정독
+   - 특히 카테고리·서브카테고리·주문 폼·리뷰·푸터 순 확인
+
+### 위반 시 결과
+- 한국어 사용자에게 일본어 그대로 노출 → 신뢰도 하락
+- YYS가 여러 번 강조 (2026-08-02 카테고리 서브 라벨 사고 발생)
+
+---
+
 ## 참고
 
 - 프로젝트 컨텍스트: `C:\Claude\1.projects\web-dev.md`
