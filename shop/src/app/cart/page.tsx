@@ -343,15 +343,28 @@ export default function CartPage() {
                       }}
                       onBlur={() => {
                         // 커서가 벗어날 때만 자동 포맷 (사용자 입력 흐름 방해 X)
-                        // 국내 010 번호만 3-4-4 포맷 자동 적용, 국제번호(+)나 기타 형식은 원본 유지
+                        // 010 제한 없이 자릿수 기반으로 국내 관례 하이픈 적용
+                        // 사용자가 이미 하이픈 넣었거나 국제번호(+)면 원본 존중
                         const raw = customerPhone.trim();
                         if (!raw || raw.includes('-') || raw.startsWith('+')) return;
-                        const digits = raw.replace(/[^0-9]/g, '');
-                        // 국내 휴대폰(010, 11자리)만 자동 포맷
-                        if (digits.length === 11 && digits.startsWith('010')) {
-                          setCustomerPhone(`${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7, 11)}`);
+                        const d = raw.replace(/[^0-9]/g, '');
+                        let f = d;
+                        if (d.startsWith('02')) {
+                          // 서울 유선 · 02-XXX-XXXX (9자리) · 02-XXXX-XXXX (10자리)
+                          if (d.length === 9)      f = `${d.slice(0,2)}-${d.slice(2,5)}-${d.slice(5)}`;
+                          else if (d.length === 10) f = `${d.slice(0,2)}-${d.slice(2,6)}-${d.slice(6)}`;
+                        } else if (d.length === 11) {
+                          // 휴대폰(010/011/016/017/018/019/090/080/070 등) · 3-4-4
+                          f = `${d.slice(0,3)}-${d.slice(3,7)}-${d.slice(7)}`;
+                        } else if (d.length === 10) {
+                          // 시외 유선(031, 032 …) or 구형 이동전화 · 3-3-4
+                          f = `${d.slice(0,3)}-${d.slice(3,6)}-${d.slice(6)}`;
+                        } else if (d.length === 8) {
+                          // 국번 없는 4-4
+                          f = `${d.slice(0,4)}-${d.slice(4)}`;
                         }
-                        // 그 외(국제번호, 짧은 번호, 유선 등)는 원본 유지
+                        // 그 외(7자 이하 등)는 그대로
+                        setCustomerPhone(f);
                       }}
                       placeholder={t("order.phonePlaceholder")}
                       className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
