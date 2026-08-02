@@ -286,11 +286,11 @@ export default function Home() {
               {/* 히어로 안 오버레이: 크림 톤 정책 안내 (크림디자인팀 시안 A) */}
               <div className="absolute inset-0 bg-gradient-to-b from-white/10 via-white/5 to-white/20" />
               <div className="absolute inset-0 flex items-center justify-center px-4 md:px-8 lg:px-12">
-                <div className="text-center max-w-[880px] w-full bg-[var(--color-bg-cream)]/95 backdrop-blur-md border border-[var(--color-text)]/8 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.15)] rounded-sm px-6 md:px-10 lg:px-14 py-8 md:py-12 lg:py-14">
-                  <h2 className="font-serif font-medium text-[24px] md:text-[40px] lg:text-[54px] leading-[1.25] tracking-[0.04em] mb-6 md:mb-8 text-[var(--color-text)] break-keep">
+                <div className="text-center w-[calc(100%-2rem)] md:w-[calc(100%-4rem)] max-w-[720px] bg-[var(--color-bg-cream)]/95 backdrop-blur-md border border-[var(--color-text)]/8 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.15)] rounded-sm px-5 md:px-8 lg:px-12 py-7 md:py-10 lg:py-12 overflow-hidden">
+                  <h2 className="font-serif font-medium text-[18px] md:text-[26px] lg:text-[34px] leading-[1.35] tracking-[0.03em] mb-5 md:mb-6 text-[var(--color-text)]">
                     {language === "ja" ? "オンライン価格ポリシー変更のお知らせ" : "온라인 가격 정책 변경 안내"}
                   </h2>
-                  <div className="text-[13px] md:text-[17px] lg:text-[19px] leading-[1.85] font-light text-[var(--color-text-soft)] break-keep space-y-2 md:space-y-3">
+                  <div className="text-[12px] md:text-[14px] lg:text-[16px] leading-[1.85] font-light text-[var(--color-text-soft)] space-y-2">
                     {language === "ja" ? (
                       <>
                         <p>
@@ -309,7 +309,7 @@ export default function Home() {
                       </>
                     )}
                   </div>
-                  <p className="mt-6 md:mt-8 text-[12px] md:text-[14px] lg:text-[16px] tracking-[0.28em] text-[var(--color-text-mute)]">
+                  <p className="mt-5 md:mt-7 text-[10px] md:text-[12px] lg:text-[13px] tracking-[0.28em] text-[var(--color-text-mute)]">
                     {language === "ja" ? "いつもご愛顧いただきありがとうございます." : "항상 감사합니다."}
                   </p>
                 </div>
