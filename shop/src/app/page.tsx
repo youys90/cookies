@@ -332,7 +332,7 @@ export default function Home() {
                     {language === "ja" ? (
                       <>
                         <p>
-                          ご利用の便宜のため、<b className="font-bold text-[var(--color-point)]">送料と通関保証費用をすべて無料</b>でご提供いたします。
+                          ご利用の便宜のため、<b className="font-bold text-[var(--color-point)]">3万円以上のご購入で送料と通関保証費用を無料</b>でご提供いたします。
                         </p>
                         <p>これに伴い、一部のオンライン商品の販売価格が若干調整されます。</p>
                         <p>店舗に直接お越しのお客様には、従来通り店舗価格にて販売しております。</p>
@@ -340,7 +340,7 @@ export default function Home() {
                     ) : (
                       <>
                         <p>
-                          이용 편의를 위해 <b className="font-bold text-[var(--color-point)]">배송비와 통관보장 비용을 모두 무료</b>로 제공합니다.
+                          이용 편의를 위해 <b className="font-bold text-[var(--color-point)]">3만엔 이상 구매 시 배송비와 통관보장 비용을 무료</b>로 제공합니다.
                         </p>
                         <p>이에 따라 일부 온라인 상품의 판매 가격이 소폭 조정됩니다.</p>
                         <p>매장에 직접 방문하시는 고객님께는 기존 매장 가격 그대로 판매됩니다.</p>
