@@ -267,7 +267,7 @@ export default function CategoriesPage() {
           className="px-4 py-2 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-800"
           title="트리 최상단에 새 카테고리를 등록합니다"
         >
-          + 최상위 카테고리 등록
+          + 카테고리 등록
         </button>
       </div>
 
