@@ -1,7 +1,7 @@
 "use client";
 // mignon 상품 상세 - 셀렉트샵 정밀 패턴 (자체 작성)
 // 구조: breadcrumb → 좌측 이미지+좌우화살표+썸네일 / 우측 브랜드+상품명+가격+옵션+수량+TOTAL+액션3+이벤트 → 아코디언4
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { useState, useEffect } from "react";
@@ -33,6 +33,7 @@ type AccordionKey = "info" | "size" | "ship" | "notice";
 export default function ProductDetail() {
   const params = useParams();
   const { addToCart } = useCart();
+  const router = useRouter();
   const { language, t, formatPrice } = useLanguage();
   const productId = Number(params.id);
   const [product, setProduct] = useState<Product | null>(null);
@@ -61,6 +62,13 @@ export default function ProductDetail() {
     addToCart({ id: product.id, name: product.name, price: product.price, image: product.image, category: product.category }, quantity);
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
+  };
+
+  // BUY NOW: 카트에 담고 즉시 주문 화면(/cart)으로 이동해 구매 흐름 시작
+  const handleBuyNow = () => {
+    if (!product) return;
+    addToCart({ id: product.id, name: product.name, price: product.price, image: product.image, category: product.category }, quantity);
+    router.push("/cart");
   };
 
   const toggleAcc = (k: AccordionKey) => setOpenAcc(openAcc === k ? null : k);
@@ -285,7 +293,7 @@ export default function ProductDetail() {
                 </svg>
               </button>
               <button
-                onClick={handleAddToCart}
+                onClick={handleBuyNow}
                 className="h-12 bg-[var(--color-text)] text-white text-[11px] tracking-[0.25em] hover:bg-black transition"
               >
                 BUY NOW
