@@ -317,7 +317,7 @@ export default function Home() {
         ) : products.length === 0 ? (
           <div className="text-center text-[var(--color-text-soft)] py-20 text-[12px] tracking-widest">NO PRODUCTS</div>
         ) : (
-          <div className="grid grid-cols-5 gap-x-1.5 gap-y-5 md:gap-x-3 md:gap-y-8 lg:gap-x-4 lg:gap-y-10">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-x-2 gap-y-6 md:gap-x-4 md:gap-y-10 lg:gap-x-5 lg:gap-y-12">
             {products.map((product) => (
               <ProductCard key={product.id} product={product} returnQuery={"page=" + currentPage + "&size=" + pageSize + "&cat=" + selectedMignonCat + (searchKeyword ? "&search=" + searchKeyword : "")} />
             ))}
