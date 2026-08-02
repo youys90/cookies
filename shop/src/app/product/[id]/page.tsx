@@ -63,29 +63,35 @@ export default function ProductDetail() {
     (async () => {
       const { data } = await supabase.from("products").select("*").eq("id", productId).single();
       if (data) {
-        // 프리미엄 카테고리 검증 강화:
-        // - 관대한 매칭 (공백/전각·반각/이모지 유무에 관계없이 "premium" 포함이면 프리미엄으로 간주)
-        // - 세션 확인 실패·네트워크 오류 시 반드시 홈으로 (통과 X)
-        const cat = String((data as Product).category || "");
-        const isPremium = cat.includes("Premium") || cat.includes("プレミアム") || cat.includes("프리미엄");
-        if (isPremium) {
-          let sessionOk = false;
-          try {
-            const r = await fetch("/api/staff/session", { cache: "no-store", credentials: "same-origin" });
-            if (r.ok) {
-              const j = await r.json().catch(() => ({ ok: false }));
-              sessionOk = !!j.ok;
+        // 특수 카테고리 상품 URL 직접 진입 차단
+        // - products.category_id 로 categories 조회 → is_special 이면 세션 unlock 확인
+        // - unlock 안 됐으면 홈으로 리다이렉트 (카테고리 클릭 시점에 암호창 뜨는 게 정상 흐름)
+        const p = data as Product & { category_id?: number };
+        if (p.category_id) {
+          const { data: cat } = await supabase
+            .from("categories")
+            .select("id, is_special")
+            .eq("id", p.category_id)
+            .maybeSingle();
+          if (cat?.is_special) {
+            let unlocked = false;
+            try {
+              const r = await fetch(`/api/staff/session?categoryId=${cat.id}`, { cache: "no-store", credentials: "same-origin" });
+              if (r.ok) {
+                const j = await r.json().catch(() => ({ ok: false }));
+                unlocked = !!j.ok;
+              }
+            } catch {
+              unlocked = false;
             }
-          } catch {
-            sessionOk = false;
-          }
-          if (!sessionOk) {
-            // 홈으로 되돌리고 스태프 모달 열림 파라미터 부여
-            router.replace("/?staff=1");
-            return;
+            if (!unlocked) {
+              // 홈으로 되돌림 → 사장님이 원래 정책대로 카테고리 클릭 시 암호창 뜸
+              router.replace(`/?cat=${encodeURIComponent(p.category || "")}`);
+              return;
+            }
           }
         }
-        setProduct(data as Product);
+        setProduct(p);
       }
       // 실제 product_options 연동 - 옵션 배열 조회
       const { data: opts } = await supabase

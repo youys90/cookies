@@ -12,9 +12,11 @@ interface StaffPasswordModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  categoryId: number | null;
+  categoryLabel?: string;
 }
 
-export default function StaffPasswordModal({ isOpen, onClose, onSuccess }: StaffPasswordModalProps) {
+export default function StaffPasswordModal({ isOpen, onClose, onSuccess, categoryId, categoryLabel }: StaffPasswordModalProps) {
   const { t, language } = useLanguage();
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -41,10 +43,15 @@ export default function StaffPasswordModal({ isOpen, onClose, onSuccess }: Staff
     setSubmitting(true);
 
     try {
+      if (!categoryId) {
+        setError(t("staff.error"));
+        setSubmitting(false);
+        return;
+      }
       const res = await fetch("/api/staff/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ categoryId, password }),
       });
 
       if (!res.ok) {
@@ -84,7 +91,9 @@ export default function StaffPasswordModal({ isOpen, onClose, onSuccess }: Staff
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
           </div>
-          <h3 id="staff-modal-title" className="text-lg font-medium text-gray-900">{t("staff.title")}</h3>
+          <h3 id="staff-modal-title" className="text-lg font-medium text-gray-900">
+            {categoryLabel ? `🔒 ${categoryLabel}` : t("staff.title")}
+          </h3>
           <p className="text-sm text-gray-500 mt-1">{t("staff.description")}</p>
         </div>
 
