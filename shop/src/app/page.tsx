@@ -324,11 +324,11 @@ export default function Home() {
               {/* 히어로 안 오버레이: 크림 톤 정책 안내 (크림디자인팀 시안 A) */}
               <div className="absolute inset-0 bg-gradient-to-b from-white/10 via-white/5 to-white/20" />
               <div className="absolute inset-0 flex items-center justify-center px-4 md:px-8 lg:px-12">
-                <div className="relative text-center w-[calc(100%-1rem)] md:w-[calc(100%-3rem)] max-w-[860px] bg-[var(--color-bg-cream)]/70 backdrop-blur-lg border border-white/40 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.25)] rounded-sm px-3 md:px-9 lg:px-14 py-5 md:py-11 lg:py-14 overflow-hidden before:absolute before:inset-0 before:bg-gradient-to-b before:from-white/25 before:via-transparent before:to-[var(--color-bg-cream)]/30 before:pointer-events-none [&>*]:relative">
-                  <h2 className="font-serif font-medium text-[15px] md:text-[30px] lg:text-[46px] leading-[1.35] md:leading-[1.25] tracking-[0.02em] mb-3 md:mb-7 text-[var(--color-text)] [word-break:normal] [overflow-wrap:break-word]">
+                <div className="relative text-center w-[calc(100%-1rem)] md:w-[calc(100%-3rem)] max-w-[720px] md:max-w-[820px] lg:max-w-[920px] bg-[var(--color-bg-cream)]/70 backdrop-blur-lg border border-white/40 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.25)] rounded-sm px-3 md:px-9 lg:px-14 py-5 md:py-11 lg:py-14 overflow-hidden before:absolute before:inset-0 before:bg-gradient-to-b before:from-white/25 before:via-transparent before:to-[var(--color-bg-cream)]/30 before:pointer-events-none [&>*]:relative">
+                  <h2 className="font-serif font-medium text-[15px] md:text-[30px] lg:text-[46px] leading-[1.35] md:leading-[1.25] tracking-[0.02em] mb-3 md:mb-7 text-[var(--color-text)] [word-break:keep-all] [overflow-wrap:break-word]">
                     {language === "ja" ? "オンライン価格ポリシー変更のお知らせ" : "온라인 가격 정책 변경 안내"}
                   </h2>
-                  <div className="text-[10.5px] md:text-[15px] lg:text-[17px] leading-[1.75] md:leading-[1.85] font-medium text-[var(--color-text)] space-y-2 md:space-y-3 [word-break:normal] [overflow-wrap:break-word]">
+                  <div className="text-[10.5px] md:text-[15px] lg:text-[17px] leading-[1.75] md:leading-[1.85] font-medium text-[var(--color-text)] space-y-2 md:space-y-3 [word-break:keep-all] [overflow-wrap:break-word]">
                     {language === "ja" ? (
                       <>
                         <p>
@@ -347,7 +347,7 @@ export default function Home() {
                       </>
                     )}
                   </div>
-                  <p className="mt-4 md:mt-8 text-[10px] md:text-[13px] lg:text-[15px] tracking-[0.18em] md:tracking-[0.28em] font-semibold text-[var(--color-text)] [word-break:normal] [overflow-wrap:break-word]">
+                  <p className="mt-4 md:mt-8 text-[10px] md:text-[13px] lg:text-[15px] tracking-[0.18em] md:tracking-[0.28em] font-semibold text-[var(--color-text)] [word-break:keep-all] [overflow-wrap:break-word]">
                     {language === "ja" ? "いつもご愛顧いただきありがとうございます." : "항상 감사합니다."}
                   </p>
                 </div>
