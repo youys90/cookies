@@ -100,7 +100,8 @@ export default function ProductDetail() {
   const isNew = product.created_at && Date.now() - new Date(product.created_at).getTime() < 14 * 24 * 60 * 60 * 1000;
   const onSale = !!product.original_price;
 
-  const brandLabel = (product.category || "").toUpperCase();
+  // 상단 카테고리 경로: 언어 스위처에 맞춰 category_ko / category_ja 우선 사용
+  const brandLabel = (getCategory(product) || "").toUpperCase();
   const displayName = (() => {
     const base = getName(product) || "";
     // 영문 우선 노출 (시안의 상품명 패턴 차용 - 자체 카피)
