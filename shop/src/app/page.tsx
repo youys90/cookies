@@ -286,26 +286,30 @@ export default function Home() {
               {/* 히어로 안 오버레이: 크림 톤 정책 안내 (크림디자인팀 시안 A) */}
               <div className="absolute inset-0 bg-gradient-to-b from-white/10 via-white/5 to-white/20" />
               <div className="absolute inset-0 flex items-center justify-center px-4 md:px-8 lg:px-12">
-                <div className="text-center max-w-[980px] w-full bg-[var(--color-bg-cream)]/95 backdrop-blur-md border border-[var(--color-text)]/8 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.15)] rounded-sm px-6 md:px-12 lg:px-16 py-8 md:py-12 lg:py-16">
-                  <h2 className="font-serif font-medium text-[30px] md:text-[52px] lg:text-[68px] leading-[1.15] tracking-[0.04em] mb-7 md:mb-9 text-[var(--color-text)]">
+                <div className="text-center max-w-[880px] w-full bg-[var(--color-bg-cream)]/95 backdrop-blur-md border border-[var(--color-text)]/8 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.15)] rounded-sm px-6 md:px-10 lg:px-14 py-8 md:py-12 lg:py-14">
+                  <h2 className="font-serif font-medium text-[24px] md:text-[40px] lg:text-[54px] leading-[1.25] tracking-[0.04em] mb-6 md:mb-8 text-[var(--color-text)] break-keep">
                     {language === "ja" ? "オンライン価格ポリシー変更のお知らせ" : "온라인 가격 정책 변경 안내"}
                   </h2>
-                  <p className="text-[15px] md:text-[20px] lg:text-[24px] leading-[1.8] font-light text-[var(--color-text-soft)]">
+                  <div className="text-[13px] md:text-[17px] lg:text-[19px] leading-[1.85] font-light text-[var(--color-text-soft)] break-keep space-y-2 md:space-y-3">
                     {language === "ja" ? (
                       <>
-                        ご利用の便宜のため、<b className="font-semibold text-[var(--color-point)]">送料と通関保証費用をすべて無料</b>でご提供いたします。<br />
-                        これに伴い、一部のオンライン商品の販売価格が若干調整されます。<br />
-                        <span className="text-[var(--color-text-mute)]">店舗に直接お越しのお客様には、従来通り店舗価格にて販売しております。</span>
+                        <p>
+                          ご利用の便宜のため、<b className="font-semibold text-[var(--color-point)]">送料と通関保証費用をすべて無料</b>でご提供いたします。
+                        </p>
+                        <p>これに伴い、一部のオンライン商品の販売価格が若干調整されます。</p>
+                        <p className="text-[var(--color-text-mute)]">店舗に直接お越しのお客様には、従来通り店舗価格にて販売しております。</p>
                       </>
                     ) : (
                       <>
-                        이용 편의를 위해 <b className="font-semibold text-[var(--color-point)]">배송비와 통관보장 비용을 모두 무료</b>로 제공합니다.<br />
-                        이에 따라 일부 온라인 상품의 판매 가격이 소폭 조정됩니다.<br />
-                        <span className="text-[var(--color-text-mute)]">매장에 직접 방문하시는 고객님께는 기존 매장 가격 그대로 판매됩니다.</span>
+                        <p>
+                          이용 편의를 위해 <b className="font-semibold text-[var(--color-point)]">배송비와 통관보장 비용을 모두 무료</b>로 제공합니다.
+                        </p>
+                        <p>이에 따라 일부 온라인 상품의 판매 가격이 소폭 조정됩니다.</p>
+                        <p className="text-[var(--color-text-mute)]">매장에 직접 방문하시는 고객님께는 기존 매장 가격 그대로 판매됩니다.</p>
                       </>
                     )}
-                  </p>
-                  <p className="mt-7 md:mt-10 text-[13px] md:text-[16px] lg:text-[18px] tracking-[0.25em] text-[var(--color-text-mute)]">
+                  </div>
+                  <p className="mt-6 md:mt-8 text-[12px] md:text-[14px] lg:text-[16px] tracking-[0.28em] text-[var(--color-text-mute)]">
                     {language === "ja" ? "いつもご愛顧いただきありがとうございます." : "항상 감사합니다."}
                   </p>
                 </div>
