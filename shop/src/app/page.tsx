@@ -284,31 +284,31 @@ export default function Home() {
                 <div className="w-full h-full bg-gradient-to-br from-[#F5EFE6] to-[#E8DECF]" />
               )}
               {/* 히어로 안 오버레이: 온라인 가격 정책 안내 (판석이형 요청) */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-black/25" />
-              <div className="absolute inset-0 flex items-center justify-center px-6 lg:px-12">
-                <div className="text-white text-center max-w-[820px]">
-                  <p className="font-serif text-[13px] md:text-[15px] tracking-[0.35em] opacity-90 mb-4">
+              <div className="absolute inset-0 bg-black/45" />
+              <div className="absolute inset-0 flex items-center justify-center px-4 md:px-8 lg:px-12">
+                <div className="text-white text-center max-w-[980px] w-full bg-black/60 backdrop-blur-sm border border-white/20 rounded-sm px-6 md:px-12 lg:px-16 py-8 md:py-12 lg:py-16">
+                  <p className="font-serif text-[14px] md:text-[18px] lg:text-[22px] tracking-[0.35em] opacity-90 mb-5 md:mb-7">
                     {language === "ja" ? "IMPORTANT NOTICE" : "안내 말씀"}
                   </p>
-                  <h2 className="font-serif text-[26px] md:text-[38px] lg:text-[46px] leading-tight tracking-[0.05em] mb-6">
+                  <h2 className="font-serif font-medium text-[30px] md:text-[52px] lg:text-[68px] leading-[1.15] tracking-[0.04em] mb-7 md:mb-9">
                     {language === "ja" ? "オンライン価格ポリシー変更のお知らせ" : "온라인 가격 정책 변경 안내"}
                   </h2>
-                  <p className="text-[13px] md:text-[15px] lg:text-[16px] leading-[1.9] font-light">
+                  <p className="text-[15px] md:text-[20px] lg:text-[24px] leading-[1.8] font-light">
                     {language === "ja" ? (
                       <>
-                        ご利用の便宜のため、<b className="font-medium">送料と通関保証費用をすべて無料</b>でご提供いたします。<br />
+                        ご利用の便宜のため、<b className="font-semibold">送料と通関保証費用をすべて無料</b>でご提供いたします。<br />
                         これに伴い、一部のオンライン商品の販売価格が若干調整されます。<br />
-                        <span className="opacity-80">店舗に直接お越しのお客様には、従来通り店舗価格にて販売しております。</span>
+                        <span className="opacity-85">店舗に直接お越しのお客様には、従来通り店舗価格にて販売しております。</span>
                       </>
                     ) : (
                       <>
-                        이용 편의를 위해 <b className="font-medium">배송비와 통관보장 비용을 모두 무료</b>로 제공합니다.<br />
+                        이용 편의를 위해 <b className="font-semibold">배송비와 통관보장 비용을 모두 무료</b>로 제공합니다.<br />
                         이에 따라 일부 온라인 상품의 판매 가격이 소폭 조정됩니다.<br />
-                        <span className="opacity-80">매장에 직접 방문하시는 고객님께는 기존 매장 가격 그대로 판매됩니다.</span>
+                        <span className="opacity-85">매장에 직접 방문하시는 고객님께는 기존 매장 가격 그대로 판매됩니다.</span>
                       </>
                     )}
                   </p>
-                  <p className="mt-6 text-[11px] md:text-[12px] tracking-[0.25em] opacity-80">
+                  <p className="mt-7 md:mt-10 text-[13px] md:text-[16px] lg:text-[18px] tracking-[0.25em] opacity-85">
                     {language === "ja" ? "いつもご愛顧いただきありがとうございます." : "항상 감사합니다."}
                   </p>
                 </div>
