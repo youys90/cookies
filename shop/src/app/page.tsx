@@ -70,6 +70,8 @@ export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
   const [heroItems, setHeroItems] = useState<Product[]>([]); // 히어로 모자이크 3장용
   const [selectedMignonCat, setSelectedMignonCat] = useState<string>(searchParams.get("cat") || "all");
+  const [subCategories, setSubCategories] = useState<string[]>([]);
+  const [selectedSubCat, setSelectedSubCat] = useState<string>(searchParams.get("sub") || "");
   const [loading, setLoading] = useState(true);
   const [showStaffModal, setShowStaffModal] = useState(false);
   const [hasStaffAccess, setHasStaffAccess] = useState(false);
@@ -111,6 +113,7 @@ export default function Home() {
     if (currentPage !== 1) params.set("page", String(currentPage));
     if (pageSize !== 25) params.set("size", String(pageSize));
     if (selectedMignonCat !== "all") params.set("cat", selectedMignonCat);
+    if (selectedSubCat) params.set("sub", selectedSubCat);
     if (searchKeyword) params.set("search", searchKeyword);
     const newUrl = params.toString() ? "/?" + params.toString() : "/";
     if (window.location.pathname + window.location.search !== newUrl) {
@@ -120,7 +123,7 @@ export default function Home() {
 
   useEffect(() => {
     fetchProducts();
-  }, [selectedMignonCat, currentPage, pageSize, searchKeyword]);
+  }, [selectedMignonCat, selectedSubCat, currentPage, pageSize, searchKeyword]);
 
   const fetchHero = async () => {
     // 히어로 모자이크 3장용 — 최신 상품 중 이미지 있는 것
@@ -145,7 +148,10 @@ export default function Home() {
         query = query.not("original_price", "is", null);
       } else {
         query = query.eq("category", cat.dbCategory);
-        if (cat.subFilter.length > 0) {
+        // 사장님 선택한 세부 카테고리(2뎁스, 텍스트)만 필터
+        if (selectedSubCat) {
+          query = query.eq("sub_category", selectedSubCat);
+        } else if (cat.subFilter.length > 0) {
           query = query.in("sub_category", cat.subFilter);
         }
       }
@@ -166,11 +172,38 @@ export default function Home() {
 
   const handleMignonCategoryClick = (cat: MignonCat) => {
     setSelectedMignonCat(cat.key);
+    setSelectedSubCat(""); // 상위 바뀌면 하위 초기화
     setCurrentPage(1);
     setSearchKeyword("");
     setSearchInput("");
-    // 스크롤 안 함 - 같은 자리에서 콘텐츠만 갱신
+    // 하위 카테고리 자동 조회
+    if (cat.key !== "all" && !cat.saleOnly && cat.dbCategory) {
+      fetchSubCategories(cat.dbCategory);
+    } else {
+      setSubCategories([]);
+    }
   };
+
+  // 상위 카테고리의 실제 sub_category distinct 조회
+  const fetchSubCategories = async (dbCategory: string) => {
+    const { data } = await supabase
+      .from("products")
+      .select("sub_category")
+      .eq("is_active", true)
+      .eq("category", dbCategory)
+      .not("sub_category", "is", null);
+    const uniq = Array.from(new Set((data || []).map((r) => r.sub_category as string).filter(Boolean))).sort();
+    setSubCategories(uniq);
+  };
+
+  // 처음 진입 시에도 URL의 cat이 있으면 서브 카테고리 조회
+  useEffect(() => {
+    const cat = MIGNON_CATEGORIES.find((c) => c.key === selectedMignonCat);
+    if (cat && cat.key !== "all" && !cat.saleOnly && cat.dbCategory) {
+      fetchSubCategories(cat.dbCategory);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handlePageSizeChange = (newSize: number) => { setPageSize(newSize); setCurrentPage(1); };
 
@@ -256,6 +289,37 @@ export default function Home() {
               );
             })}
           </div>
+
+          {/* 2뎁스 - 하위 카테고리 텍스트 탭 (상위 선택 시 자동 노출) */}
+          {subCategories.length > 0 && selectedMignonCat !== "all" && (
+            <div className="mt-6 pt-5 border-t border-[var(--color-line-soft)]">
+              <div className="flex flex-wrap justify-center gap-x-1 gap-y-2">
+                <button
+                  onClick={() => setSelectedSubCat("")}
+                  className={`px-3 py-1.5 text-[11px] tracking-[0.15em] transition ${
+                    !selectedSubCat
+                      ? "text-[var(--color-text)] border-b border-[var(--color-text)]"
+                      : "text-[var(--color-text-soft)] hover:text-[var(--color-text)]"
+                  }`}
+                >
+                  {language === "ja" ? "全部" : "전체"}
+                </button>
+                {subCategories.map((sub) => (
+                  <button
+                    key={sub}
+                    onClick={() => setSelectedSubCat(sub)}
+                    className={`px-3 py-1.5 text-[11px] tracking-[0.15em] transition ${
+                      selectedSubCat === sub
+                        ? "text-[var(--color-text)] border-b border-[var(--color-text)]"
+                        : "text-[var(--color-text-soft)] hover:text-[var(--color-text)]"
+                    }`}
+                  >
+                    {sub}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </section>
 
