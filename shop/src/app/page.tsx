@@ -8,7 +8,7 @@ import Image from "next/image";
 import ProductCard from "@/components/ProductCard";
 import StaffPasswordModal from "@/components/StaffPasswordModal";
 import { supabase } from "@/lib/supabase";
-import { BuiltinCategoryIcon, isBuiltinIcon } from "@/lib/category-icons";
+import { BuiltinCategoryIcon, isBuiltinIcon, guessIconKey } from "@/lib/category-icons";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 interface Product {
@@ -283,15 +283,35 @@ export default function Home() {
               ) : (
                 <div className="w-full h-full bg-gradient-to-br from-[#F5EFE6] to-[#E8DECF]" />
               )}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" />
-              <div className="absolute left-6 lg:left-12 bottom-8 lg:bottom-12 text-white">
-                <p className="font-serif text-[12px] lg:text-[14px] tracking-[0.3em] mb-2 opacity-90">2026 S/S</p>
-                <p className="font-serif text-[40px] lg:text-[64px] leading-none tracking-tight">CREAM</p>
-                <p className="font-serif italic text-[14px] lg:text-[16px] opacity-90 mt-2">little happiness</p>
-                <p className="text-[11px] lg:text-[12px] opacity-80 mt-5 leading-relaxed max-w-[280px]">
-                  {language === "ja" ? "東京から、ときめくアイテムをあなたへ。" : "도쿄에서, 두근거리는 아이템을 당신에게."}
-                </p>
-                <span className="inline-block mt-6 text-[11px] tracking-[0.3em] border-b border-white/80 pb-1">SHOP NOW +</span>
+              {/* 히어로 안 오버레이: 온라인 가격 정책 안내 (판석이형 요청) */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-black/25" />
+              <div className="absolute inset-0 flex items-center justify-center px-6 lg:px-12">
+                <div className="text-white text-center max-w-[820px]">
+                  <p className="font-serif text-[13px] md:text-[15px] tracking-[0.35em] opacity-90 mb-4">
+                    {language === "ja" ? "IMPORTANT NOTICE" : "안내 말씀"}
+                  </p>
+                  <h2 className="font-serif text-[26px] md:text-[38px] lg:text-[46px] leading-tight tracking-[0.05em] mb-6">
+                    {language === "ja" ? "オンライン価格ポリシー変更のお知らせ" : "온라인 가격 정책 변경 안내"}
+                  </h2>
+                  <p className="text-[13px] md:text-[15px] lg:text-[16px] leading-[1.9] font-light">
+                    {language === "ja" ? (
+                      <>
+                        ご利用の便宜のため、<b className="font-medium">送料と通関保証費用をすべて無料</b>でご提供いたします。<br />
+                        これに伴い、一部のオンライン商品の販売価格が若干調整されます。<br />
+                        <span className="opacity-80">店舗に直接お越しのお客様には、従来通り店舗価格にて販売しております。</span>
+                      </>
+                    ) : (
+                      <>
+                        이용 편의를 위해 <b className="font-medium">배송비와 통관보장 비용을 모두 무료</b>로 제공합니다.<br />
+                        이에 따라 일부 온라인 상품의 판매 가격이 소폭 조정됩니다.<br />
+                        <span className="opacity-80">매장에 직접 방문하시는 고객님께는 기존 매장 가격 그대로 판매됩니다.</span>
+                      </>
+                    )}
+                  </p>
+                  <p className="mt-6 text-[11px] md:text-[12px] tracking-[0.25em] opacity-80">
+                    {language === "ja" ? "いつもご愛顧いただきありがとうございます." : "항상 감사합니다."}
+                  </p>
+                </div>
               </div>
             </Link>
 
@@ -417,7 +437,9 @@ export default function Home() {
                         if (cat.icon_url) {
                           return <Image src={cat.icon_url} alt={label} width={64} height={64} className="object-cover w-full h-full" unoptimized />;
                         }
-                        return <span className="text-[10px] tracking-widest text-[var(--color-text-soft)]">{label.slice(0, 3)}</span>;
+                        // icon_url 없으면 이름 기반 자동 매칭 (사장님이 adm에서 지정 전에도 예쁘게)
+                        const guessed = guessIconKey(cat.name_ja || cat.name_ko);
+                        return <BuiltinCategoryIcon name={guessed} className="w-7 h-7 md:w-8 md:h-8 stroke-[var(--color-text)]" />;
                       })()}
                     </div>
                     <span className={`mt-2.5 text-[10px] md:text-[11px] tracking-[0.18em] ${active ? "text-[var(--color-text)]" : "text-[var(--color-text-soft)] group-hover:text-[var(--color-text)]"}`}>

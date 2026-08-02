@@ -11,6 +11,37 @@ export function isBuiltinIcon(url: string | null | undefined): string | null {
   return url.startsWith(BUILTIN_ICON_PREFIX) ? url.slice(BUILTIN_ICON_PREFIX.length) : null;
 }
 
+// 카테고리 이름으로 기본 아이콘 자동 추측 (icon_url이 비었을 때 fallback)
+// 사장님이 adm에서 아이콘을 지정 안 해도 이름만 보고 어울리는 아이콘 표시
+export function guessIconKey(name: string): string {
+  const n = name.toLowerCase();
+  // 액세서리
+  if (n.includes("premium")) return "diamond";
+  if (n.includes("プレミアム") || n.includes("프리미엄")) return "diamond";
+  if (n.includes("アクセサ") || n.includes("악세") || n.includes("액세") || n.includes("주얼") || n.includes("jewel")) return "ring";
+  if (n.includes("ネックレス") || n.includes("목걸이") || n.includes("necklace")) return "necklace";
+  if (n.includes("リング") && !n.includes("キーリング")) return "ring";
+  // 헤어
+  if (n.includes("ヘア") || n.includes("헤어") || n.includes("hair") || n.includes("ribbon")) return "ribbon";
+  // 겨울
+  if (n.includes("冬") || n.includes("겨울") || n.includes("手袋") || n.includes("장갑") || n.includes("winter") || n.includes("glove")) return "glove";
+  // 키링
+  if (n.includes("キーリング") || n.includes("키링") || n.includes("keyring") || n.includes("key")) return "key";
+  // 안경
+  if (n.includes("眼鏡") || n.includes("サングラス") || n.includes("안경") || n.includes("선글라스") || n.includes("glass") || n.includes("eye")) return "glass";
+  // 패션잡화
+  if (n.includes("ファッション") || n.includes("패션잡화") || n.includes("fashion") || n.includes("bag")) return "bag";
+  // 라이프
+  if (n.includes("ライフ") || n.includes("라이프") || n.includes("life")) return "cup";
+  if (n.includes("インテリア") || n.includes("인테리어") || n.includes("interior") || n.includes("lamp")) return "lamp";
+  if (n.includes("ステーショナリー") || n.includes("문구") || n.includes("stationery") || n.includes("note")) return "note";
+  // 세일/기타
+  if (n.includes("sale") || n.includes("세일")) return "heart";
+  if (n.includes("その他") || n.includes("기타") || n.includes("etc") || n.includes("misc")) return "box";
+  // 최종 fallback
+  return "sparkle";
+}
+
 export function BuiltinCategoryIcon({ name, className, size = 28 }: { name: string; className?: string; size?: number }): React.ReactElement | null {
   const c = className || "";
   const common = { className: c, width: size, height: size, viewBox: "0 0 48 48", fill: "none" as const, stroke: "currentColor", strokeWidth: "1.3" };
