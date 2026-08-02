@@ -378,11 +378,12 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Staff Password Modal */}
+      {/* Staff Password Modal - backup 파일이라 사용 안 됨. 시그니처만 맞춤 (TS 컴파일 통과용) */}
       <StaffPasswordModal
         isOpen={showStaffModal}
         onClose={() => setShowStaffModal(false)}
         onSuccess={handleStaffAccessSuccess}
+        categoryId={null}
       />
     </div>
   );
