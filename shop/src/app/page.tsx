@@ -260,7 +260,7 @@ export default function Home() {
       </section>
 
       {/* ─── 상품 그리드 (전체 or 선택 카테고리 or NEW IN) ─── */}
-      <section id="products" className="max-w-[1400px] mx-auto px-4 lg:px-8 py-10 lg:py-14">
+      <section id="products" className="max-w-[1600px] mx-auto px-4 md:px-6 lg:px-8 py-8 md:py-12 lg:py-14">
         <div className="text-center mb-7 lg:mb-9">
           <h2 className="text-[11px] tracking-[0.25em] text-[var(--color-text)]">
             {searchParams.get("sort") === "new"
@@ -317,7 +317,7 @@ export default function Home() {
         ) : products.length === 0 ? (
           <div className="text-center text-[var(--color-text-soft)] py-20 text-[12px] tracking-widest">NO PRODUCTS</div>
         ) : (
-          <div className="grid grid-cols-4 gap-x-1.5 gap-y-5 md:gap-x-3 md:gap-y-8 lg:gap-x-4 lg:gap-y-10">
+          <div className="grid grid-cols-4 gap-0 md:gap-3 lg:gap-5 -mx-4 md:mx-0">
             {products.map((product) => (
               <ProductCard key={product.id} product={product} returnQuery={"page=" + currentPage + "&size=" + pageSize + "&cat=" + selectedMignonCat + (searchKeyword ? "&search=" + searchKeyword : "")} />
             ))}
