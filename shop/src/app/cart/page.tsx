@@ -300,14 +300,14 @@ export default function CartPage() {
                       autoComplete="tel"
                       value={customerPhone}
                       onChange={(e) => {
-                        // 숫자·하이픈·+만 허용
-                        const raw = e.target.value.replace(/[^0-9-+]/g, '');
-                        // 사용자가 하이픈을 하나라도 넣었으면 자릿수/포맷 존중 (그대로 저장)
-                        if (raw.includes('-')) {
-                          setCustomerPhone(raw);
-                          return;
-                        }
-                        // 하이픈 없는 숫자만 입력 → 3-4-4 자동 포맷
+                        // 입력 중엔 실시간 포맷 없음 — 숫자·하이픈·+만 필터
+                        setCustomerPhone(e.target.value.replace(/[^0-9-+]/g, ''));
+                      }}
+                      onBlur={() => {
+                        // 커서가 벗어날 때만 자동 포맷 (사용자 입력 흐름 방해 X)
+                        // 이미 하이픈을 넣었으면 그대로 존중, 없으면 3-4-4로 자동 삽입
+                        const raw = customerPhone.trim();
+                        if (!raw || raw.includes('-')) return;
                         const prefix = raw.startsWith('+') ? '+' : '';
                         const digits = raw.replace(/[^0-9]/g, '');
                         let formatted = digits;
