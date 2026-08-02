@@ -180,7 +180,7 @@ export default function Home() {
       .order("created_at", { ascending: false })
       .limit(3);
     setHeroItems((data as Product[]) || []);
-  }; //
+  };
 
   const fetchProducts = async () => {
     setLoading(true);
