@@ -107,8 +107,12 @@ export default function Home() {
   const [dbCategories, setDbCategories] = useState<Array<{ id: number; name_ko: string; name_ja: string; name_en?: string | null; icon_url: string | null; sort_order: number; is_special?: boolean }>>([]);
   // 특수 카테고리 unlock 목록 (세션에서 로드)
   const [unlockedCatIds, setUnlockedCatIds] = useState<Set<number>>(new Set());
+  // 세션 로드 완료 여부 (초기 false → API 응답 후 true)
+  const [sessionLoaded, setSessionLoaded] = useState(false);
   // 현재 암호창에 표시 중인 카테고리 (unlock 성공 시 selectedMignonCat으로 자동 진입)
   const [pendingSpecialCat, setPendingSpecialCat] = useState<{ id: number; label: string; name_ja: string } | null>(null);
+  // 특수 카테고리 잠금 상태 (목록 자체를 감춤 · 비정상 접근 안내 노출)
+  const [lockedView, setLockedView] = useState<{ id: number; label: string; name_ja: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [showStaffModal, setShowStaffModal] = useState(false);
   const [hasStaffAccess, setHasStaffAccess] = useState(false);
@@ -127,6 +131,8 @@ export default function Home() {
         setUnlockedCatIds(new Set<number>((j.unlockedIds || []) as number[]));
       } catch {
         setUnlockedCatIds(new Set());
+      } finally {
+        setSessionLoaded(true);
       }
     })();
     fetchHero();
@@ -173,7 +179,7 @@ export default function Home() {
   useEffect(() => {
     fetchProducts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedMignonCat, selectedSubCat, currentPage, pageSize, searchKeyword, dbCategories]);
+  }, [selectedMignonCat, selectedSubCat, currentPage, pageSize, searchKeyword, dbCategories, unlockedCatIds, sessionLoaded, lockedView]);
 
   const fetchHero = async () => {
     // 히어로 모자이크 3장용 — 최신 상품 중 이미지 있는 것
@@ -190,6 +196,13 @@ export default function Home() {
   };
 
   const fetchProducts = async () => {
+    // 특수 카테고리 잠금 상태 · 세션 로드 전 → 상품 쿼리 자체 실행 안 함
+    if (lockedView) { setProducts([]); setTotalCount(0); setLoading(false); return; }
+    if (!sessionLoaded && selectedMignonCat !== "all") {
+      // 세션 응답 오기 전엔 특수 카테고리 판단 못하므로 대기
+      setProducts([]); setTotalCount(0); setLoading(true);
+      return;
+    }
     setLoading(true);
     let query = supabase.from("products").select("*", { count: "exact" }).eq("is_active", true).neq("category", "Premium High-Quality");
 
@@ -197,6 +210,14 @@ export default function Home() {
     // DB 카테고리(adm 관리)에서 온 경우: selectedMignonCat이 name_ja 값
     const dbCat = dbCategories.find((c) => c.name_ja === selectedMignonCat);
     if (dbCat) {
+      // 특수 카테고리 && unlock 안 됨 → 상품 쿼리 자체 skip (2중 방어)
+      // useEffect의 URL 감지가 우회되더라도 여기서 최종 차단
+      if (dbCat.is_special && !unlockedCatIds.has(dbCat.id)) {
+        setProducts([]);
+        setTotalCount(0);
+        setLoading(false);
+        return;
+      }
       // FK 기반 필터 (2026-08-03 리팩터)
       // DB 트리거가 categories.parent_id 변경 시 products.category_id를 자동 갱신하므로
       // shop은 category_id 단일 필터로도 항상 정확한 상품 매칭
@@ -305,29 +326,45 @@ export default function Home() {
   };
 
   // 처음 진입 시 URL의 cat 파라미터에 따라 서브 카테고리 자동 조회
-  // dbCategories(adm 관리 카테고리) 로드 완료 후 실행 → 하드코딩·DB 카테고리 둘 다 대응
+  // 특수 카테고리 URL 직접 접속(예: ?cat=➡+Premium...) → 세션 unlock 없으면:
+  //   - lockedView 세팅 → 상품 목록 자체를 화면에서 감춤
+  //   - "🔒 잠긴 카테고리" 안내 + 즉시 암호창
+  // 세션 로드 완료 전엔 판단 보류(sessionLoaded 대기) → race condition으로 잠깐이라도 노출되는 사고 방지
   useEffect(() => {
-    if (selectedMignonCat === "all") return;
+    if (selectedMignonCat === "all") { setLockedView(null); return; }
+    if (!sessionLoaded) return; // 세션 응답 기다림
     // 1) MIGNON_CATEGORIES (하드코딩)
     const cat = MIGNON_CATEGORIES.find((c) => c.key === selectedMignonCat);
     if (cat && !cat.saleOnly && cat.dbCategory) {
+      setLockedView(null);
       fetchSubCategories(cat.dbCategory);
       return;
     }
     // 2) dbCategories (adm 관리) - selectedMignonCat이 name_ja
-    if (dbCategories.length > 0 && dbCategories.some((c) => c.name_ja === selectedMignonCat)) {
-      fetchSubCategories(selectedMignonCat);
+    if (dbCategories.length > 0) {
+      const dbCat = dbCategories.find((c) => c.name_ja === selectedMignonCat);
+      if (dbCat) {
+        if (dbCat.is_special && !unlockedCatIds.has(dbCat.id)) {
+          const label = dbCat.name_en || (language === "ja" ? dbCat.name_ja : dbCat.name_ko);
+          setLockedView({ id: dbCat.id, label, name_ja: dbCat.name_ja });
+          setPendingSpecialCat({ id: dbCat.id, label, name_ja: dbCat.name_ja });
+          setShowStaffModal(true);
+          return;
+        }
+        setLockedView(null);
+        fetchSubCategories(selectedMignonCat);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dbCategories, selectedMignonCat]);
+  }, [dbCategories, selectedMignonCat, unlockedCatIds, sessionLoaded]);
 
   const handlePageSizeChange = (newSize: number) => { setPageSize(newSize); setCurrentPage(1); };
 
   const handleStaffAccessSuccess = () => {
     setHasStaffAccess(true);
     setShowStaffModal(false);
+    setLockedView(null); // 잠금 해제
     if (pendingSpecialCat) {
-      // unlock 목록에 방금 통과한 카테고리 추가하고 해당 카테고리로 진입
       setUnlockedCatIds((prev) => new Set(prev).add(pendingSpecialCat.id));
       setSelectedMignonCat(pendingSpecialCat.name_ja);
       setSelectedSubCat("");
@@ -608,8 +645,26 @@ export default function Home() {
           ))}
         </div>
 
-        {/* 상품 그리드 */}
-        {loading ? (
+        {/* 상품 그리드 · 특수 카테고리 잠금 시 우선 노출 */}
+        {lockedView ? (
+          <div className="py-20 flex flex-col items-center gap-5">
+            <div className="w-16 h-16 rounded-full bg-purple-100 border border-purple-300 flex items-center justify-center text-2xl">🔒</div>
+            <div className="text-center">
+              <p className="text-lg font-semibold text-[var(--color-text)] mb-1">
+                {language === "ja" ? `${lockedView.label} は保護されたカテゴリです` : `${lockedView.label}은(는) 보호된 카테고리입니다`}
+              </p>
+              <p className="text-sm text-[var(--color-text-soft)]">
+                {language === "ja" ? "アクセスするにはパスワードが必要です。" : "접근하려면 비밀번호가 필요합니다."}
+              </p>
+            </div>
+            <button
+              onClick={() => setShowStaffModal(true)}
+              className="mt-2 px-6 py-2.5 bg-purple-700 text-white text-sm rounded-lg hover:bg-purple-800 transition"
+            >
+              🔑 {language === "ja" ? "パスワードを入力" : "비밀번호 입력"}
+            </button>
+          </div>
+        ) : loading ? (
           <div className="text-center text-[var(--color-text-soft)] py-20 text-[12px] tracking-widest">LOADING...</div>
         ) : products.length === 0 ? (
           <div className="text-center text-[var(--color-text-soft)] py-20 text-[12px] tracking-widest">NO PRODUCTS</div>
