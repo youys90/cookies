@@ -5,7 +5,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import { translateKoJa } from "@/lib/translate";
-import { BuiltinCategoryIcon, BUILTIN_ICON_KEYS, BUILTIN_ICON_PREFIX } from "@/lib/category-icons";
+import { BuiltinCategoryIcon, BUILTIN_ICON_PREFIX } from "@/lib/category-icons";
+import IconPicker from "@/components/IconPicker";
 
 type Category = {
   id: number;
@@ -43,6 +44,9 @@ export default function CategoriesPage() {
 
   // AI 번역
   const [translating, setTranslating] = useState<"ko-ja" | "ja-ko" | null>(null);
+
+  // 아이콘 선택 모달
+  const [showIconPicker, setShowIconPicker] = useState(false);
 
   const translate = async (direction: "ko-ja" | "ja-ko") => {
     const from = direction === "ko-ja" ? "ko" : "ja";
@@ -296,6 +300,14 @@ export default function CategoriesPage() {
         )}
       </div>
 
+      {/* 아이콘 선택 팝업 */}
+      <IconPicker
+        open={showIconPicker}
+        currentValue={form.icon_url}
+        onClose={() => setShowIconPicker(false)}
+        onSelect={(v) => setForm((p) => ({ ...p, icon_url: v }))}
+      />
+
       {/* 등록/수정 모달 */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
@@ -367,10 +379,10 @@ export default function CategoriesPage() {
                 </div>
               </div>
 
-              {/* 아이콘 선택 · 기본 세트 or 이미지 업로드 */}
+              {/* 아이콘 (팝업으로 선택) */}
               <div>
                 <label className="block text-xs text-gray-600 mb-2">아이콘 (노출 크기 64×64 고정)</label>
-                <div className="flex items-start gap-3">
+                <div className="flex items-center gap-3">
                   <div className="w-16 h-16 rounded-full bg-gray-100 border border-gray-200 overflow-hidden flex items-center justify-center flex-shrink-0">
                     {(() => {
                       const isBuiltin = form.icon_url.startsWith(BUILTIN_ICON_PREFIX);
@@ -380,58 +392,20 @@ export default function CategoriesPage() {
                       if (form.icon_url) {
                         return <Image src={form.icon_url} alt="icon" width={64} height={64} className="object-cover w-full h-full" unoptimized />;
                       }
-                      return <span className="text-[10px] text-gray-400">preview</span>;
+                      return <span className="text-[10px] text-gray-400">no icon</span>;
                     })()}
                   </div>
-                  <div className="flex-1 space-y-2">
-                    {/* 기본 아이콘 그리드 */}
-                    <div>
-                      <p className="text-[10px] text-gray-500 mb-1.5">기본 아이콘에서 선택</p>
-                      <div className="grid grid-cols-8 gap-1.5">
-                        {BUILTIN_ICON_KEYS.map((key) => {
-                          const selected = form.icon_url === `${BUILTIN_ICON_PREFIX}${key}`;
-                          return (
-                            <button
-                              type="button"
-                              key={key}
-                              onClick={() => setForm((p) => ({ ...p, icon_url: `${BUILTIN_ICON_PREFIX}${key}` }))}
-                              className={`aspect-square rounded border flex items-center justify-center transition ${
-                                selected
-                                  ? "border-gray-900 bg-gray-100 text-gray-900"
-                                  : "border-gray-200 text-gray-500 hover:border-gray-400"
-                              }`}
-                              title={key}
-                            >
-                              <BuiltinCategoryIcon name={key} className="w-4 h-4" />
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* 직접 업로드 */}
-                    <div className="pt-2 border-t border-gray-100">
-                      <p className="text-[10px] text-gray-500 mb-1">또는 이미지 업로드</p>
-                      <input
-                        ref={iconInputRef}
-                        type="file"
-                        accept="image/*"
-                        onChange={handleIconUpload}
-                        className="text-xs"
-                      />
-                      {uploadingIcon && <p className="text-xs text-blue-500 mt-1">업로드 중…</p>}
-                      {iconError && <p className="text-xs text-red-500 mt-1">{iconError}</p>}
-                    </div>
-
-                    {form.icon_url && (
-                      <button
-                        type="button"
-                        onClick={() => setForm((p) => ({ ...p, icon_url: "" }))}
-                        className="text-xs text-red-500 hover:text-red-700"
-                      >
-                        아이콘 제거
-                      </button>
-                    )}
+                  <div className="flex-1">
+                    <button
+                      type="button"
+                      onClick={() => setShowIconPicker(true)}
+                      className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50"
+                    >
+                      {form.icon_url ? "🎨 아이콘 변경" : "🎨 아이콘 선택"}
+                    </button>
+                    <p className="text-[10px] text-gray-400 mt-1.5">
+                      기본 25종에서 선택 · 이미지 직접 업로드도 가능
+                    </p>
                   </div>
                 </div>
               </div>
