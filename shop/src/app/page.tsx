@@ -290,26 +290,26 @@ export default function Home() {
                   <h2 className="font-serif font-medium text-[19px] md:text-[36px] lg:text-[50px] leading-[1.3] md:leading-[1.25] tracking-[0.03em] mb-4 md:mb-8 text-[var(--color-text)] [word-break:keep-all]">
                     {language === "ja" ? "オンライン価格ポリシー変更のお知らせ" : "온라인 가격 정책 변경 안내"}
                   </h2>
-                  <div className="text-[11.5px] md:text-[16px] lg:text-[18px] leading-[1.8] md:leading-[1.85] font-normal text-[var(--color-text)] space-y-2 md:space-y-3 [word-break:keep-all]">
+                  <div className="text-[12.5px] md:text-[17px] lg:text-[19px] leading-[1.85] font-medium text-[var(--color-text)] space-y-2.5 md:space-y-3 [word-break:keep-all]">
                     {language === "ja" ? (
                       <>
                         <p>
-                          ご利用の便宜のため、<b className="font-semibold text-[var(--color-point)]">送料と通関保証費用をすべて無料</b>でご提供いたします。
+                          ご利用の便宜のため、<b className="font-bold text-[var(--color-point)]">送料と通関保証費用をすべて無料</b>でご提供いたします。
                         </p>
                         <p>これに伴い、一部のオンライン商品の販売価格が若干調整されます。</p>
-                        <p className="text-[var(--color-text-soft)]">店舗に直接お越しのお客様には、従来通り店舗価格にて販売しております。</p>
+                        <p>店舗に直接お越しのお客様には、従来通り店舗価格にて販売しております。</p>
                       </>
                     ) : (
                       <>
                         <p>
-                          이용 편의를 위해 <b className="font-semibold text-[var(--color-point)]">배송비와 통관보장 비용을 모두 무료</b>로 제공합니다.
+                          이용 편의를 위해 <b className="font-bold text-[var(--color-point)]">배송비와 통관보장 비용을 모두 무료</b>로 제공합니다.
                         </p>
                         <p>이에 따라 일부 온라인 상품의 판매 가격이 소폭 조정됩니다.</p>
-                        <p className="text-[var(--color-text-soft)]">매장에 직접 방문하시는 고객님께는 기존 매장 가격 그대로 판매됩니다.</p>
+                        <p>매장에 직접 방문하시는 고객님께는 기존 매장 가격 그대로 판매됩니다.</p>
                       </>
                     )}
                   </div>
-                  <p className="mt-5 md:mt-8 text-[10.5px] md:text-[13px] lg:text-[15px] tracking-[0.22em] md:tracking-[0.28em] font-medium text-[var(--color-text-soft)] [word-break:keep-all]">
+                  <p className="mt-6 md:mt-9 text-[11.5px] md:text-[14px] lg:text-[16px] tracking-[0.22em] md:tracking-[0.28em] font-semibold text-[var(--color-text)] [word-break:keep-all]">
                     {language === "ja" ? "いつもご愛顧いただきありがとうございます." : "항상 감사합니다."}
                   </p>
                 </div>
