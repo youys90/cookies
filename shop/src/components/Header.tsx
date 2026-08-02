@@ -15,9 +15,10 @@ export default function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   // 슬림바 메시지 (반복용 - 한 셋트를 2벌 렌더해서 무한 루프)
+  // ⚠ 정책: 조건 없이 전 상품 배송비 + 통관보장 무료 (2026-08 개정)
   const promoMsgs = language === "ja"
-    ? ["2026 S/S NEW RELEASE", "8,000円以上のご注文で送料無料", "全国送料無料・関税込み", "新規会員10%OFFクーポン"]
-    : ["2026 S/S NEW RELEASE", "8만원 이상 구매 시 무료배송", "전국 무료배송・관세포함", "신규 회원 10% OFF 쿠폰"];
+    ? ["2026 S/S NEW RELEASE", "全国送料無料", "通関保証無料", "新規会員10%OFFクーポン"]
+    : ["2026 S/S NEW RELEASE", "전국 무료 배송", "통관보장 무료", "신규 회원 10% OFF 쿠폰"];
 
   // 메뉴 정의 + active 매처 (현재 URL/쿼리 기준) - 4개로 단순화
   // 리뷰는 푸터 CUSTOMER 영역에서 노출 (/reviews 라우트 자체는 유지)
