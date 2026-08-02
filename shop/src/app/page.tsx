@@ -174,7 +174,8 @@ export default function Home() {
       .from("products")
       .select("*")
       .eq("is_active", true)
-      .neq("category", "➡ Premium High-Quality ✨")
+      //.neq("category", "➡ Premium High-Quality ✨")
+      .neq("category", "Premium High-Quality")
       .not("image", "is", null)
       .order("created_at", { ascending: false })
       .limit(3);
@@ -183,7 +184,7 @@ export default function Home() {
 
   const fetchProducts = async () => {
     setLoading(true);
-    let query = supabase.from("products").select("*", { count: "exact" }).eq("is_active", true).neq("category", "➡ Premium High-Quality ✨");
+    let query = supabase.from("products").select("*", { count: "exact" }).eq("is_active", true).neq("category", "Premium High-Quality"); //.neq("category", "➡ Premium High-Quality ✨");
 
     const cat = MIGNON_CATEGORIES.find((c) => c.key === selectedMignonCat);
     // DB 카테고리(adm 관리)에서 온 경우: selectedMignonCat이 name_ja 값
