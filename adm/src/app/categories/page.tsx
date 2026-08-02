@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
+import { translateKoJa } from "@/lib/translate";
 
 type Category = {
   id: number;
@@ -52,17 +53,15 @@ export default function CategoriesPage() {
     }
     setTranslating(direction);
     try {
-      const res = await fetch("/api/ai/translate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: src, from, to }),
-      });
-      const j = await res.json();
-      if (!j.ok) { alert("번역 실패: " + (j.error || "unknown")); return; }
-      if (j.mock) alert("⚠ 개발 mock 모드입니다. 실제 번역이 아닌 원문이 반환되었습니다.\n(ANTHROPIC_API_KEY 필요)");
-      setForm((p) => direction === "ko-ja" ? { ...p, name_ja: j.translated } : { ...p, name_ko: j.translated });
+      // 무료 번역 (MyMemory → Google fallback). 상품 등록 페이지와 동일 방식.
+      const translated = await translateKoJa(src, from, to);
+      if (!translated || translated === src) {
+        alert("번역 결과가 원문과 동일합니다. 수동 입력 부탁드립니다.");
+        return;
+      }
+      setForm((p) => direction === "ko-ja" ? { ...p, name_ja: translated } : { ...p, name_ko: translated });
     } catch (e) {
-      alert("번역 API 호출 실패");
+      alert("번역 실패: 잠시 후 다시 시도해주세요.");
     } finally {
       setTranslating(null);
     }
@@ -274,8 +273,12 @@ export default function CategoriesPage() {
           <h1 className="text-2xl font-medium text-gray-900">카테고리 관리</h1>
           <p className="text-sm text-gray-500 mt-1">하위 뎁스 · 아이콘 · 순서 · 활성 상태 관리</p>
         </div>
-        <button onClick={() => openCreate(null)} className="px-4 py-2 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-800">
-          + 카테고리 등록
+        <button
+          onClick={() => openCreate(null)}
+          className="px-4 py-2 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-800"
+          title="트리 최상단에 새 카테고리를 등록합니다"
+        >
+          + 최상위 카테고리 등록
         </button>
       </div>
 
