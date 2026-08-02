@@ -290,14 +290,14 @@ export default function Home() {
                   <h2 className="font-serif font-medium text-[24px] md:text-[40px] lg:text-[54px] leading-[1.25] tracking-[0.04em] mb-6 md:mb-8 text-[var(--color-text)]">
                     {language === "ja" ? "オンライン価格ポリシー変更のお知らせ" : "온라인 가격 정책 변경 안내"}
                   </h2>
-                  <div className="text-[13px] md:text-[17px] lg:text-[19px] leading-[1.85] font-light text-[var(--color-text-soft)] space-y-2 md:space-y-3">
+                  <div className="text-[13px] md:text-[17px] lg:text-[19px] leading-[1.85] font-normal text-[var(--color-text)] space-y-2 md:space-y-3">
                     {language === "ja" ? (
                       <>
                         <p>
                           ご利用の便宜のため、<b className="font-semibold text-[var(--color-point)]">送料と通関保証費用をすべて無料</b>でご提供いたします。
                         </p>
                         <p>これに伴い、一部のオンライン商品の販売価格が若干調整されます。</p>
-                        <p className="text-[var(--color-text-mute)]">店舗に直接お越しのお客様には、従来通り店舗価格にて販売しております。</p>
+                        <p className="text-[var(--color-text-soft)]">店舗に直接お越しのお客様には、従来通り店舗価格にて販売しております。</p>
                       </>
                     ) : (
                       <>
@@ -305,11 +305,11 @@ export default function Home() {
                           이용 편의를 위해 <b className="font-semibold text-[var(--color-point)]">배송비와 통관보장 비용을 모두 무료</b>로 제공합니다.
                         </p>
                         <p>이에 따라 일부 온라인 상품의 판매 가격이 소폭 조정됩니다.</p>
-                        <p className="text-[var(--color-text-mute)]">매장에 직접 방문하시는 고객님께는 기존 매장 가격 그대로 판매됩니다.</p>
+                        <p className="text-[var(--color-text-soft)]">매장에 직접 방문하시는 고객님께는 기존 매장 가격 그대로 판매됩니다.</p>
                       </>
                     )}
                   </div>
-                  <p className="mt-6 md:mt-8 text-[12px] md:text-[14px] lg:text-[16px] tracking-[0.28em] text-[var(--color-text-mute)]">
+                  <p className="mt-6 md:mt-8 text-[12px] md:text-[14px] lg:text-[16px] tracking-[0.28em] font-medium text-[var(--color-text-soft)]">
                     {language === "ja" ? "いつもご愛顧いただきありがとうございます." : "항상 감사합니다."}
                   </p>
                 </div>
