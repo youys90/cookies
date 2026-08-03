@@ -89,6 +89,38 @@ export default function ProductsPage() {
   const [showDelete, setShowDelete] = useState(false);
   const [showCsvImport, setShowCsvImport] = useState(false);
   const [pendingDeleteTargets, setPendingDeleteTargets] = useState<number[]>([]);
+  // 이미지 라이트박스 (썸네일 클릭 → 상품의 모든 이미지 슬라이더 형태로 보기)
+  const [lightbox, setLightbox] = useState<{ urls: string[]; alt: string; index: number } | null>(null);
+
+  // 라이트박스 열기 헬퍼: images(배열)와 image(단일) 조합해서 유니크한 URL 목록 만듦
+  const openLightbox = (product: Product) => {
+    const arr = Array.isArray(product.images) ? (product.images as string[]).filter((u) => typeof u === "string" && u) : [];
+    const combined = arr.length > 0 ? arr : (product.image ? [product.image] : []);
+    if (combined.length === 0) return;
+    setLightbox({ urls: combined, alt: product.name, index: 0 });
+  };
+
+  const lightboxPrev = () => setLightbox((cur) => cur ? { ...cur, index: (cur.index - 1 + cur.urls.length) % cur.urls.length } : cur);
+  const lightboxNext = () => setLightbox((cur) => cur ? { ...cur, index: (cur.index + 1) % cur.urls.length } : cur);
+
+  // 키보드: ESC 닫기 · ← → 넘기기
+  useEffect(() => {
+    if (!lightbox) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setLightbox(null);
+      else if (e.key === "ArrowLeft") lightboxPrev();
+      else if (e.key === "ArrowRight" || e.key === " " || e.key === "Spacebar") {
+        e.preventDefault(); // 스페이스바 페이지 스크롤 방지
+        lightboxNext();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = "";
+    };
+  }, [lightbox]);
 
   useEffect(() => {
     const page = Number(searchParams.get("page")) || 1;
@@ -604,7 +636,13 @@ export default function ProductsPage() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center">
-                        <div className="relative w-12 h-12 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); openLightbox(product); }}
+                          className="relative w-12 h-12 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0 group cursor-zoom-in hover:ring-2 hover:ring-gray-400 transition"
+                          title="클릭하면 크게 보기"
+                          aria-label={`${product.name} 이미지 크게 보기`}
+                        >
                           <Image
                             src={product.image}
                             alt={product.name}
@@ -612,7 +650,9 @@ export default function ProductsPage() {
                             unoptimized
                             className="object-cover"
                           />
-                        </div>
+                          {/* hover 시 돋보기 아이콘 힌트 */}
+                          <span className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition text-white text-lg">🔍</span>
+                        </button>
                         <div className="ml-4">
                           <p className="text-sm font-medium text-gray-900">{product.name}</p>
                           <p className="text-xs text-gray-500">{product.name_ko || ""}</p>
@@ -795,6 +835,89 @@ export default function ProductsPage() {
         templateSample={CSV_SAMPLE}
         title="상품 CSV 일괄 등록"
       />
+
+      {/* ── 이미지 라이트박스 (썸네일 확대 · 다중 이미지 슬라이더) ───────────────────────── */}
+      {lightbox && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/85 flex flex-col items-center justify-center p-4 cursor-zoom-out"
+          onClick={() => setLightbox(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label={lightbox.alt}
+        >
+          {/* 상단 정보 바: 상품명 + 카운터 + 닫기 */}
+          <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-6 py-4 bg-gradient-to-b from-black/70 to-transparent z-[101]" onClick={(e) => e.stopPropagation()}>
+            <div className="text-white">
+              <p className="text-sm font-medium truncate max-w-[60vw]">{lightbox.alt}</p>
+              <p className="text-[11px] text-white/60 mt-0.5">{lightbox.index + 1} / {lightbox.urls.length} · ESC · ← → · Space</p>
+            </div>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setLightbox(null); }}
+              className="w-10 h-10 bg-white/10 hover:bg-white/25 text-white rounded-full flex items-center justify-center text-xl backdrop-blur transition"
+              aria-label="닫기"
+            >
+              ✕
+            </button>
+          </div>
+
+          {/* 좌측 화살표 · 이미지 하나면 숨김 */}
+          {lightbox.urls.length > 1 && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); lightboxPrev(); }}
+              className="absolute left-2 md:left-6 top-1/2 -translate-y-1/2 w-12 h-12 md:w-14 md:h-14 bg-white/10 hover:bg-white/30 text-white rounded-full flex items-center justify-center text-2xl backdrop-blur transition z-[101]"
+              aria-label="이전 이미지"
+            >
+              ‹
+            </button>
+          )}
+
+          {/* 우측 화살표 */}
+          {lightbox.urls.length > 1 && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); lightboxNext(); }}
+              className="absolute right-2 md:right-6 top-1/2 -translate-y-1/2 w-12 h-12 md:w-14 md:h-14 bg-white/10 hover:bg-white/30 text-white rounded-full flex items-center justify-center text-2xl backdrop-blur transition z-[101]"
+              aria-label="다음 이미지"
+            >
+              ›
+            </button>
+          )}
+
+          {/* 메인 이미지 */}
+          <div
+            className="flex items-center justify-center cursor-default"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              key={lightbox.urls[lightbox.index]}
+              src={lightbox.urls[lightbox.index]}
+              alt={`${lightbox.alt} ${lightbox.index + 1}`}
+              className="max-w-[85vw] max-h-[75vh] object-contain rounded shadow-2xl transition-opacity duration-150"
+            />
+          </div>
+
+          {/* 하단 썸네일 스트립 · 이미지 2장 이상일 때만 */}
+          {lightbox.urls.length > 1 && (
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 max-w-[90vw] overflow-x-auto py-2 px-4 bg-black/40 rounded-lg backdrop-blur" onClick={(e) => e.stopPropagation()}>
+              {lightbox.urls.map((u, i) => (
+                <button
+                  key={u}
+                  type="button"
+                  onClick={() => setLightbox((cur) => cur ? { ...cur, index: i } : cur)}
+                  className={`relative w-14 h-14 flex-shrink-0 rounded overflow-hidden transition ${i === lightbox.index ? "ring-2 ring-white" : "opacity-60 hover:opacity-100"}`}
+                  aria-label={`${i + 1}번째 이미지로 이동`}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={u} alt="" className="w-full h-full object-cover" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
