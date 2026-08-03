@@ -127,18 +127,19 @@ export default function NewProductPage() {
     });
   };
 
-  const uploadImage = async (file: File): Promise<string | null> => {
-    const fileExt = file.name.split('.').pop();
+  const uploadImage = async (file: File): Promise<string> => {
+    // 2026-08-03 fix: 실패 조용히 넘기지 않고 throw (수정 페이지와 일관)
+    const fileExt = (file.name.split('.').pop() || 'bin').toLowerCase();
     const fileName = `${Date.now()}_${Math.random().toString(36).slice(2, 11)}.${fileExt}`;
     const filePath = `products/${fileName}`;
 
     const { error: uploadError } = await supabase.storage
       .from('product-images')
-      .upload(filePath, file);
+      .upload(filePath, file, { contentType: file.type || undefined });
 
     if (uploadError) {
       console.error('이미지 업로드 실패:', uploadError);
-      return null;
+      throw new Error(`이미지 업로드 실패 (${file.name}): ${uploadError.message}`);
     }
 
     const { data } = supabase.storage
@@ -153,10 +154,8 @@ export default function NewProductPage() {
 
     for (const img of images) {
       if (img.file) {
-        const url = await uploadImage(img.file);
-        if (url) {
-          uploadedUrls.push(url);
-        }
+        const url = await uploadImage(img.file); // 실패 시 throw
+        uploadedUrls.push(url);
       } else if (img.url) {
         uploadedUrls.push(img.url);
       }
@@ -308,7 +307,14 @@ export default function NewProductPage() {
       };
     }
 
-    const uploadedUrls = await uploadAllImages();
+    let uploadedUrls: string[];
+    try {
+      uploadedUrls = await uploadAllImages();
+    } catch (err) {
+      alert((err as Error).message);
+      setUploading(false);
+      return;
+    }
     if (uploadedUrls.length === 0) {
       alert('이미지 업로드에 실패했습니다.');
       setUploading(false);
@@ -417,6 +423,7 @@ export default function NewProductPage() {
                         src={img.preview}
                         alt={`이미지 ${index + 1}`}
                         fill
+                        unoptimized
                         className="object-cover"
                       />
                       {index === 0 && (

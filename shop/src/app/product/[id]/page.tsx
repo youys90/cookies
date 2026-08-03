@@ -197,7 +197,7 @@ export default function ProductDetail() {
   const accBody = {
     info:   getDescription(product) || (language === "ja" ? "詳細は近日中に更新されます。" : "상세 정보는 추후 업데이트됩니다."),
     size:   language === "ja" ? "サイズは商品により異なります。詳細は別途お問い合わせください。" : "사이즈는 상품에 따라 다릅니다. 자세한 문의는 별도로 부탁드립니다.",
-    ship:   language === "ja" ? "8,000円以上のご注文で送料無料 / EMS国際配送対応 / 関税込み" : "8만원 이상 구매 시 무료배송 / EMS 국제배송 대응 / 관세 포함",
+    ship:   language === "ja" ? "2万円以上ご購入で送料無料 / 通関保証無料 / EMS国際配送対応" : "2만엔 이상 구매 시 배송비 무료 / 통관보장 무료 / EMS 국제배송 대응",
     notice: language === "ja" ? "ご注文後のキャンセル・交換はLINEでご連絡ください。" : "주문 후 취소·교환은 LINE으로 문의주세요.",
   } as Record<AccordionKey, string>;
 

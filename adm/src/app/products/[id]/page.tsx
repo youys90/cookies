@@ -165,21 +165,29 @@ export default function EditProductPage() {
   };
 
   // ── 다중 이미지 편집 ──────────────────────────────
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (!files) return;
-    const newImages: ImageItem[] = [];
-    Array.from(files).forEach((file) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        newImages.push({ file, preview: reader.result as string });
-        if (newImages.length === files.length) {
-          setImages((prev) => [...prev, ...newImages]);
-        }
-      };
-      reader.readAsDataURL(file);
-    });
-    if (fileInputRef.current) fileInputRef.current.value = "";
+    if (!files || files.length === 0) return;
+    // 2026-08-03 fix: FileList 무효화 후 files.length 참조 문제로 미리보기 안 뜨는 버그 해결
+    // - Promise.all로 병렬 로딩 (순서 안정)
+    // - fileInputRef.current.value=""는 setImages 완료 후 실행
+    const fileArray = Array.from(files);
+    try {
+      const loaded = await Promise.all(fileArray.map((file) =>
+        new Promise<ImageItem>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve({ file, preview: reader.result as string });
+          reader.onerror = () => reject(new Error("파일 읽기 실패: " + file.name));
+          reader.readAsDataURL(file);
+        })
+      ));
+      setImages((prev) => [...prev, ...loaded]);
+    } catch (err) {
+      console.error("이미지 미리보기 생성 실패:", err);
+      alert("이미지 미리보기 생성에 실패했습니다.");
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
   };
 
   const removeImage = (index: number) => setImages((prev) => prev.filter((_, i) => i !== index));
@@ -212,27 +220,29 @@ export default function EditProductPage() {
     });
   };
 
-  const uploadImage = async (file: File): Promise<string | null> => {
-    const fileExt = file.name.split(".").pop();
+  const uploadImage = async (file: File): Promise<string> => {
+    // 2026-08-03 fix: null 반환 대신 throw로 상위에서 명시적 실패 처리
+    const fileExt = (file.name.split(".").pop() || "bin").toLowerCase();
     const fileName = `${Date.now()}_${Math.random().toString(36).slice(2, 11)}.${fileExt}`;
     const filePath = `products/${fileName}`;
     const { error: uploadError } = await supabase.storage
       .from("product-images")
-      .upload(filePath, file);
+      .upload(filePath, file, { contentType: file.type || undefined });
     if (uploadError) {
       console.error("이미지 업로드 실패:", uploadError);
-      return null;
+      throw new Error(`이미지 업로드 실패 (${file.name}): ${uploadError.message}`);
     }
     const { data } = supabase.storage.from("product-images").getPublicUrl(filePath);
     return data.publicUrl;
   };
 
   const uploadAllImages = async (): Promise<string[]> => {
+    // 2026-08-03 fix: 조용한 skip 제거 → 하나라도 실패하면 throw 로 상위 명시적 알림
     const urls: string[] = [];
     for (const img of images) {
       if (img.file) {
-        const u = await uploadImage(img.file);
-        if (u) urls.push(u);
+        const u = await uploadImage(img.file); // 실패 시 throw
+        urls.push(u);
       } else if (img.url) {
         urls.push(img.url);
       }
@@ -367,7 +377,14 @@ export default function EditProductPage() {
       return;
     }
 
-    const uploadedUrls = await uploadAllImages();
+    let uploadedUrls: string[];
+    try {
+      uploadedUrls = await uploadAllImages();
+    } catch (err) {
+      alert((err as Error).message);
+      setUploading(false);
+      return;
+    }
     if (uploadedUrls.length === 0) {
       alert("이미지 업로드에 실패했습니다.");
       setUploading(false);

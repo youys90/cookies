@@ -597,6 +597,7 @@ export default function OrdersPage() {
                             fill
                             sizes="64px"
                             loading="lazy"
+                            unoptimized
                             className="object-cover rounded"
                           />
                         </div>

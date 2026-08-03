@@ -609,6 +609,7 @@ export default function ProductsPage() {
                             src={product.image}
                             alt={product.name}
                             fill
+                            unoptimized
                             className="object-cover"
                           />
                         </div>
