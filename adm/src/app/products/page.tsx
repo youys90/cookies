@@ -463,20 +463,25 @@ export default function ProductsPage() {
           >
             📤 CSV 내보내기
           </button>
-          <button
-            onClick={() => setShowCsvImport(true)}
-            className="px-3 py-2 text-sm text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
-            title="CSV로 대량 등록"
-          >
-            📥 CSV 일괄등록
-          </button>
-          <Link
-            href="/products/bulk-new"
-            className="px-4 py-2 text-sm text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
-            title="여러 상품을 한 페이지에서 동시에 등록"
-          >
-            📦 일괄 등록
-          </Link>
+          {/* 일괄등록 버튼 2개는 운영(production)에서 숨김 · 테스트 미완 상태 · dev/preview에서만 노출 */}
+          {process.env.NEXT_PUBLIC_VERCEL_ENV !== "production" && (
+            <>
+              <button
+                onClick={() => setShowCsvImport(true)}
+                className="px-3 py-2 text-sm text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
+                title="CSV로 대량 등록 (dev 전용 · 테스트 중)"
+              >
+                📥 CSV 일괄등록
+              </button>
+              <Link
+                href="/products/bulk-new"
+                className="px-4 py-2 text-sm text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
+                title="여러 상품을 한 페이지에서 동시에 등록 (dev 전용 · 테스트 중)"
+              >
+                📦 일괄 등록
+              </Link>
+            </>
+          )}
           <Link
             href="/products/new"
             className="px-4 py-2 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-800 transition-colors"
