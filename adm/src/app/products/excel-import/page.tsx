@@ -17,6 +17,7 @@ import { translateKoJa } from "@/lib/translate";
 import { downloadProductTemplate, parseXlsxToObjects } from "@/lib/xlsxTemplate";
 import { parseCsvToObjects } from "@/lib/csv";
 import { CSV_HEADER_MAP } from "../page";
+import FormActionBar from "@/components/FormActionBar";
 
 interface PoolItem {
   url: string;
@@ -356,16 +357,7 @@ export default function ExcelImportPage() {
             상품 이미지와 작성한 엑셀 파일을 올려주세요. 내용을 확인한 뒤 상품을 한꺼번에 등록할 수 있습니다.
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          {phase && <span className="text-xs text-gray-600">{phase}</span>}
-          <button
-            onClick={handleSubmit}
-            disabled={!canSubmit || validCount === 0}
-            className="px-5 py-2.5 text-sm bg-[var(--color-brand)] hover:bg-[var(--color-brand-dk)] text-white rounded-lg font-semibold disabled:opacity-40 shadow-sm"
-          >
-            {busy ? "등록하고 있어요..." : `상품 ${validCount}개 등록하기`}
-          </button>
-        </div>
+        {phase && <div className="text-xs text-gray-600 self-center">{phase}</div>}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] gap-4 h-[calc(100vh-160px)]">
@@ -582,6 +574,18 @@ export default function ExcelImportPage() {
           </div>
         </div>
       </div>
+
+      {/* 표준 하단 sticky 액션 바 */}
+      <FormActionBar
+        cancelHref="/products"
+        cancelLabel="취소"
+        status={rows.length > 0 ? <span>총 <b className="text-gray-700">{rows.length}개</b> 중 등록 가능 <b className="text-gray-900">{validCount}개</b> (사진 · 상품명 · 가격 · 카테고리 필수)</span> : "엑셀 파일을 올려주세요"}
+        primary={{
+          label: busy ? "등록하고 있어요..." : `상품 ${validCount}개 등록하기`,
+          onClick: handleSubmit,
+          disabled: !canSubmit || validCount === 0,
+        }}
+      />
     </div>
   );
 }

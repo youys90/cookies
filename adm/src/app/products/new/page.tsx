@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import { translateKoJa } from "@/lib/translate";
+import FormActionBar from "@/components/FormActionBar";
 
 const categoriesJa = ["アクセサリー", "ヘアアクセサリー", "冬物アイテム", "キーリング", "メガネ／サングラス", "ファッション雑貨", "その他（ETC）", "➡ Premium High-Quality ✨"];
 const categoriesKo = ["악세사리", "헤어", "겨울상품", "키링", "안경/선글라스", "패션잡화", "기타", "➡ Premium High-Quality ✨"];
@@ -295,8 +296,8 @@ export default function NewProductPage() {
     setAiRunning(false);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault();
 
     if (images.length === 0) {
       alert('최소 1개의 이미지를 등록해주세요');
@@ -818,22 +819,6 @@ export default function NewProductPage() {
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-3 pt-4">
-            <button
-              type="submit"
-              disabled={uploading}
-              className="w-full sm:w-auto px-8 py-3 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-all shadow-md hover:shadow-lg disabled:bg-gray-400 disabled:cursor-not-allowed"
-            >
-              {uploading ? '등록 중...' : '🆕 등록하기'}
-            </button>
-            <button
-              type="button"
-              onClick={() => router.back()}
-              className="w-full sm:w-auto px-6 py-3 border border-gray-200 text-gray-600 text-sm rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              취소
-            </button>
-          </div>
         </div>
       </form>
 
@@ -949,6 +934,16 @@ export default function NewProductPage() {
         </div>
       </div>
       </div>
+
+      <FormActionBar
+        cancelHref="/products"
+        cancelLabel="취소"
+        primary={{
+          label: uploading ? "등록 중..." : "🆕 상품 등록",
+          onClick: () => handleSubmit(),
+          disabled: uploading,
+        }}
+      />
     </div>
   );
 }

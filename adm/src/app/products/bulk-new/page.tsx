@@ -10,6 +10,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { translateKoJa } from "@/lib/translate";
 import ImageLibraryPicker from "@/components/ImageLibraryPicker";
+import FormActionBar from "@/components/FormActionBar";
 import { SESSION_KEYS, loadSession, saveSession, clearSession, clearManySessions } from "@/lib/sessionPersistence";
 
 const categoriesJa = [
@@ -492,19 +493,6 @@ export default function BulkNewProductsPage() {
           >
             {translating ? "🌐 번역 중..." : "🌐 일괄 자동번역"}
           </button>
-          <Link
-            href="/products"
-            className="px-4 py-2 text-sm text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50"
-          >
-            취소
-          </Link>
-          <button
-            onClick={handleSubmit}
-            disabled={uploading}
-            className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50 shadow-sm transition"
-          >
-            {uploading ? "등록 중..." : `🆕 일괄 등록 (${validRows().length}건)`}
-          </button>
         </div>
       </div>
 
@@ -822,21 +810,23 @@ export default function BulkNewProductsPage() {
         + 행 추가
       </button>
 
-      {/* 하단 반복 등록 버튼 */}
-      <div className="mt-6 flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-        <p className="text-sm text-gray-600">
-          <span className="font-medium">{rows.length}행</span> 중 등록 가능
-          <span className="ml-1 font-medium text-gray-900">{validRows().length}건</span>
-          <span className="text-gray-400 ml-2 text-xs">(이미지 + 상품명 + 가격 필수)</span>
-        </p>
-        <button
-          onClick={handleSubmit}
-          disabled={uploading || validRows().length === 0}
-          className="px-6 py-2.5 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-800 disabled:opacity-50"
-        >
-          {uploading ? "등록 중..." : `일괄 등록 (${validRows().length}건)`}
-        </button>
-      </div>
+      {/* 표준 하단 sticky 액션 바 · 관리자 포털 전체 공통 */}
+      <FormActionBar
+        cancelHref="/products"
+        cancelLabel="취소"
+        status={
+          <span>
+            <span className="font-medium text-gray-700">{rows.length}행</span> 중 등록 가능{" "}
+            <span className="font-semibold text-gray-900">{validRows().length}건</span>
+            <span className="text-gray-400 ml-2">(이미지 + 상품명 + 가격 필수)</span>
+          </span>
+        }
+        primary={{
+          label: uploading ? "등록 중..." : `🆕 일괄 등록 (${validRows().length}건)`,
+          onClick: handleSubmit,
+          disabled: uploading || validRows().length === 0,
+        }}
+      />
 
       <ImageLibraryPicker
         open={pickerRowKey !== null}
