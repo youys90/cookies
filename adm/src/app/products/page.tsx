@@ -421,7 +421,7 @@ export default function ProductsPage() {
     }
     const { data, error } = await query.order("created_at", { ascending: false }).limit(5000);
     if (error) {
-      alert("엑셀 내려받기가 실패했어요.\n오류 내용: " + error.message);
+      alert("상품 목록 엑셀 다운로드가 실패했어요.\n오류 내용: " + error.message);
       return;
     }
     await exportXlsx((data as Product[]) || []);
@@ -486,7 +486,7 @@ export default function ProductsPage() {
               <rect x="2" y="4" width="20" height="16" rx="2" fill="#107C41" />
               <path d="M7 8l3.2 4L7 16h2.2l2-2.7L13.2 16h2.2L12.2 12l3.2-4h-2.2l-2 2.7L9.2 8H7z" fill="#FFFFFF" />
             </svg>
-            엑셀 내려받기
+            상품 목록 엑셀 다운로드
           </button>
           {/* 일괄등록 · 완성 후 전 환경 노출 (관리자 실무 편의) */}
           <Link

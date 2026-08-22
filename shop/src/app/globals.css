@@ -3,6 +3,29 @@
 /* 그리드 클래스 사전 컴파일 - 상품/카테고리 열 수를 자유롭게 바꾸기 위해 safelist */
 @source inline("grid-cols-{1,2,3,4,5,6,7,8,9,10,12} md:grid-cols-{1,2,3,4,5,6,7,8,9,10,12} lg:grid-cols-{1,2,3,4,5,6,7,8,9,10,12}");
 
+/* 매장 화면 커스터마이징 · 관리자에서 조정 · CSS 변수는 ShopUiContext가 root에 주입 */
+:root {
+  --shop-list-cols-d: 3;
+  --shop-list-cols-m: 2;
+  --shop-list-gap: 16px;
+  --shop-list-radius: 8px;
+  --shop-cat-cols-d: 5;
+  --shop-cat-cols-m: 4;
+}
+.shop-product-grid {
+  display: grid;
+  gap: var(--shop-list-gap);
+  grid-template-columns: repeat(var(--shop-list-cols-m), minmax(0, 1fr));
+}
+@media (min-width: 768px) {
+  .shop-product-grid {
+    grid-template-columns: repeat(var(--shop-list-cols-d), minmax(0, 1fr));
+  }
+}
+.shop-product-grid > * img {
+  border-radius: var(--shop-list-radius);
+}
+
 :root {
   /* 베이스: 화이트 + 다크 텍스트 (미니멀 셀렉트샵 톤) */
   --background: #FFFFFF;

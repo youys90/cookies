@@ -10,6 +10,7 @@ import StaffPasswordModal from "@/components/StaffPasswordModal";
 import { supabase } from "@/lib/supabase";
 import { BuiltinCategoryIcon, isBuiltinIcon, guessIconKey } from "@/lib/category-icons";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useShopUi } from "@/contexts/ShopUiContext";
 
 interface Product {
   id: number;
@@ -27,7 +28,7 @@ interface Product {
   created_at?: string;
 }
 
-const PAGE_SIZE_OPTIONS = [25, 50, 100]; // 5의 배수 (5컬럼 그리드)
+const DEFAULT_PAGE_SIZE_OPTIONS = [25, 50, 100]; // 관리자 커스터마이징이 없을 때 폴백
 
 // ── 서브 카테고리 다국어 매핑 (DB는 일본어로만 저장되어 있어 한국어 UI에서 변환 필요) ──
 const SUB_CATEGORY_KO: Record<string, string> = {
@@ -95,6 +96,9 @@ function CategoryIcon({ name }: { name: string }) {
 
 export default function Home() {
   const { language, t } = useLanguage();
+  const { config: shopUi } = useShopUi();
+  const pageSizeOptions = shopUi.pagination.options.length > 0 ? shopUi.pagination.options : DEFAULT_PAGE_SIZE_OPTIONS;
+  const defaultPageSize = shopUi.pagination.default || pageSizeOptions[0] || 25;
   const searchParams = useSearchParams();
   const [products, setProducts] = useState<Product[]>([]);
   const [heroItems, setHeroItems] = useState<Product[]>([]); // 히어로 모자이크 3장용
@@ -117,7 +121,7 @@ export default function Home() {
   const [showStaffModal, setShowStaffModal] = useState(false);
   const [hasStaffAccess, setHasStaffAccess] = useState(false);
   const [currentPage, setCurrentPage] = useState(Number(searchParams.get("page")) || 1);
-  const [pageSize, setPageSize] = useState(Number(searchParams.get("size")) || 25);
+  const [pageSize, setPageSize] = useState(Number(searchParams.get("size")) || defaultPageSize);
   const [totalCount, setTotalCount] = useState(0);
   const [searchKeyword, setSearchKeyword] = useState(searchParams.get("search") || "");
   const [searchInput, setSearchInput] = useState(searchParams.get("search") || "");
@@ -166,7 +170,7 @@ export default function Home() {
   useEffect(() => {
     const params = new URLSearchParams();
     if (currentPage !== 1) params.set("page", String(currentPage));
-    if (pageSize !== 25) params.set("size", String(pageSize));
+    if (pageSize !== defaultPageSize) params.set("size", String(pageSize));
     if (selectedMignonCat !== "all") params.set("cat", selectedMignonCat);
     if (selectedSubCat) params.set("sub", selectedSubCat);
     if (searchKeyword) params.set("search", searchKeyword);
@@ -632,7 +636,7 @@ export default function Home() {
         {/* 페이지 사이즈 */}
         <div className="flex justify-end items-center gap-1 mb-5 text-[11px] text-[var(--color-text-soft)]">
           <span className="mr-2">VIEW</span>
-          {PAGE_SIZE_OPTIONS.map((size, idx) => (
+          {pageSizeOptions.map((size, idx) => (
             <span key={size} className="flex items-center">
               <button
                 onClick={() => handlePageSizeChange(size)}
@@ -640,7 +644,7 @@ export default function Home() {
               >
                 {size}
               </button>
-              {idx < PAGE_SIZE_OPTIONS.length - 1 && <span className="text-[var(--color-text-mute)]">|</span>}
+              {idx < pageSizeOptions.length - 1 && <span className="text-[var(--color-text-mute)]">|</span>}
             </span>
           ))}
         </div>
@@ -674,7 +678,7 @@ export default function Home() {
         ) : products.length === 0 ? (
           <div className="text-center text-[var(--color-text-soft)] py-20 text-[12px] tracking-widest">NO PRODUCTS</div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
+          <div className="shop-product-grid">
             {products.map((product) => (
               <ProductCard key={product.id} product={product} returnQuery={"page=" + currentPage + "&size=" + pageSize + "&cat=" + selectedMignonCat + (searchKeyword ? "&search=" + searchKeyword : "")} />
             ))}

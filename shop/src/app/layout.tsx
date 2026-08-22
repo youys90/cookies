@@ -7,6 +7,7 @@ import DevBanner from "@/components/DevBanner";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { CartProvider } from "@/contexts/CartContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
+import { ShopUiProvider } from "@/contexts/ShopUiContext";
 
 const notoSansKr = Noto_Sans_KR({
   subsets: ["latin"],
@@ -41,14 +42,16 @@ export default function RootLayout({
     <html lang="ja">
       <body className={`${notoSansKr.variable} ${notoSansJp.variable} ${playfair.variable} font-sans antialiased`}>
         <DevBanner />
-        <LanguageProvider>
-          <CartProvider>
-            <Header />
-            <LanguageSwitcher />
-            <main className="min-h-screen">{children}</main>
-            <Footer />
-          </CartProvider>
-        </LanguageProvider>
+        <ShopUiProvider>
+          <LanguageProvider>
+            <CartProvider>
+              <Header />
+              <LanguageSwitcher />
+              <main className="min-h-screen">{children}</main>
+              <Footer />
+            </CartProvider>
+          </LanguageProvider>
+        </ShopUiProvider>
       </body>
     </html>
   );
