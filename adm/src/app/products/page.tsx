@@ -395,7 +395,25 @@ export default function ProductsPage() {
     downloadCsv(csv, `products_${stamp}.csv`);
   };
 
-  const handleExportAll = () => exportCsv(productList);
+  // 전체 CSV 내보내기 · 현재 필터/검색 조건 유지 · 페이지네이션 무시 · 전체 조회
+  const handleExportAll = async () => {
+    let query = supabase.from("products").select("*");
+    if (selectedCategory !== "전체") {
+      query = query.eq("category", selectedCategory);
+      if (selectedSubCategory) query = query.eq("sub_category", selectedSubCategory);
+    }
+    if (searchKeyword) {
+      query = query.or(
+        "name.ilike.%" + searchKeyword + "%,name_ko.ilike.%" + searchKeyword + "%"
+      );
+    }
+    const { data, error } = await query.order("created_at", { ascending: false }).limit(5000);
+    if (error) {
+      alert("CSV 내보내기 실패: " + error.message);
+      return;
+    }
+    exportCsv((data as Product[]) || []);
+  };
   const handleExportSelected = () =>
     exportCsv(productList.filter((p) => selectedIds.has(p.id)));
 
