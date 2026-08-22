@@ -155,11 +155,7 @@ export const SHOP_UI_SCHEMA: SectionMeta[] = [
     fields: [
       { key: "columnsDesktop", label: "한 줄에 몇 개?", type: "counter", min: 1, max: 20, suffix: "개", hint: "모바일은 자동 조정 · 원하는 숫자 직접 입력 가능" },
       { key: "columnsMobile", label: "모바일 열 수 · 자동", type: "counter", hidden: true, min: 1, max: 20, suffix: "개" },
-      { key: "maxRows", label: "최대 줄 수", type: "select", options: [
-        { label: "1줄 (넘치면 가로 스크롤)", value: 1 },
-        { label: "2줄까지", value: 2 },
-        { label: "3줄까지", value: 3 },
-      ]},
+      { key: "maxRows", label: "최대 줄 수", type: "counter", min: 1, max: 10, suffix: "줄" },
     ],
   },
   {
@@ -168,12 +164,8 @@ export const SHOP_UI_SCHEMA: SectionMeta[] = [
     icon: "🖼",
     hint: "고객이 상품 클릭 후 보게 되는 페이지",
     fields: [
-      { key: "thumbColumns", label: "썸네일 한 줄에 몇 개?", type: "select", options: [
-        { label: "3개", value: 3 }, { label: "4개", value: 4 }, { label: "5개", value: 5 }, { label: "6개", value: 6 }, { label: "8개", value: 8 },
-      ]},
-      { key: "thumbMaxRows", label: "썸네일 최대 몇 줄?", type: "select", options: [
-        { label: "1줄", value: 1 }, { label: "2줄", value: 2 }, { label: "3줄", value: 3 },
-      ]},
+      { key: "thumbColumns", label: "썸네일 한 줄에 몇 개?", type: "counter", min: 1, max: 20, suffix: "개" },
+      { key: "thumbMaxRows", label: "썸네일 최대 몇 줄?", type: "counter", min: 1, max: 10, suffix: "줄" },
       { key: "thumbSize", label: "썸네일 한 변 크기", type: "range", min: 40, max: 120, step: 4, suffix: "px" },
       { key: "thumbGap", label: "썸네일 사이 간격", type: "range", min: 2, max: 20, step: 2, suffix: "px" },
       { key: "showBrandCategory", label: "브랜드/카테고리 라벨 보이기", type: "boolean" },

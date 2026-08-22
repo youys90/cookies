@@ -159,8 +159,9 @@ function ListView({ config, isMobile }: { config: ShopUiConfig; isMobile: boolea
 // ── 상품 상세 미리보기 ─────────────────────────
 function DetailView({ config, isMobile }: { config: ShopUiConfig; isMobile: boolean }) {
   const detail = config.productDetail;
-  const totalThumbs = detail.thumbColumns * detail.thumbMaxRows;
-  const thumbs = Array.from({ length: Math.min(totalThumbs, 12) }, (_, i) => MOCK_PRODUCTS[i % MOCK_PRODUCTS.length]);
+  // 설정한 그대로 · N열 × N줄 만큼 노출 (샘플용으로 이미지 순환)
+  const totalThumbs = Math.max(1, detail.thumbColumns * detail.thumbMaxRows);
+  const thumbs = Array.from({ length: totalThumbs }, (_, i) => MOCK_PRODUCTS[i % MOCK_PRODUCTS.length]);
   const mainImg = MOCK_PRODUCTS[0].img;
 
   return (
