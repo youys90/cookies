@@ -20,9 +20,14 @@ interface Props {
   onClose: () => void;
   onSelect: (urls: string[]) => void;
   multi?: boolean; // 다중 선택 허용 (기본 true)
+  /** 세션 스코프 URL 목록 · 전달 시 스토리지 전체 조회하지 않고 이 URL들만 노출 */
+  sessionUrls?: string[];
+  /** 헤더 타이틀 · 세션용/스토리지용 구분 */
+  titleOverride?: string;
+  descriptionOverride?: string;
 }
 
-export default function ImageLibraryPicker({ open, onClose, onSelect, multi = true }: Props) {
+export default function ImageLibraryPicker({ open, onClose, onSelect, multi = true, sessionUrls, titleOverride, descriptionOverride }: Props) {
   const [files, setFiles] = useState<StorageFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
@@ -31,6 +36,17 @@ export default function ImageLibraryPicker({ open, onClose, onSelect, multi = tr
   useEffect(() => {
     if (!open) return;
     setPicked(new Set());
+    // 세션 URL 지정 시 · 스토리지 조회 스킵
+    if (sessionUrls) {
+      const collected: StorageFile[] = sessionUrls.map((url) => {
+        const parts = url.split("/");
+        const name = parts[parts.length - 1] || url;
+        return { name, path: url, publicUrl: url };
+      });
+      setFiles(collected);
+      setLoading(false);
+      return;
+    }
     (async () => {
       setLoading(true);
       const collected: StorageFile[] = [];
@@ -53,7 +69,7 @@ export default function ImageLibraryPicker({ open, onClose, onSelect, multi = tr
       setFiles(collected);
       setLoading(false);
     })();
-  }, [open]);
+  }, [open, sessionUrls]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -87,8 +103,8 @@ export default function ImageLibraryPicker({ open, onClose, onSelect, multi = tr
         {/* 헤더 */}
         <div className="p-4 border-b border-gray-100 flex items-center justify-between gap-3">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">🗂️ 이미지 라이브러리에서 선택</h3>
-            <p className="text-xs text-gray-500 mt-0.5">이미 업로드된 이미지를 재사용합니다 · {multi ? "여러 개 선택 가능" : "1개만 선택"}</p>
+            <h3 className="text-lg font-semibold text-gray-900">{titleOverride || "🗂️ 이미지 라이브러리에서 선택"}</h3>
+            <p className="text-xs text-gray-500 mt-0.5">{descriptionOverride || "이미 업로드된 이미지를 재사용합니다"} · {multi ? "여러 개 선택 가능" : "1개만 선택"}</p>
           </div>
           <button onClick={onClose} className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100 flex-shrink-0">✕</button>
         </div>

@@ -19,23 +19,32 @@ interface Column {
   hint?: string;
 }
 
+// 한국어만 입력 · 일본어는 등록 시 자동 번역/매핑
 const COLUMNS: Column[] = [
-  { label: "상품명 (일본어)", key: "name_ja", width: 26, sample: "ゴールドチェーンネックレス", required: true, hint: "필수 · 고객에게 노출됨" },
-  { label: "상품명 (한국어)", key: "name_ko", width: 26, sample: "골드 체인 목걸이", required: false, hint: "관리자 · 검색 · 관리용" },
+  { label: "상품명", key: "name_ko", width: 30, sample: "골드 체인 목걸이", required: true, hint: "필수 · 한국어로 입력 · 일본어는 자동 번역" },
   { label: "가격 (¥)", key: "price", width: 12, sample: 10000, required: true, hint: "숫자만 · 판매가" },
   { label: "정가 (¥)", key: "original_price", width: 12, sample: 12000, required: false, hint: "숫자 · 취소선 표시용" },
-  { label: "카테고리", key: "category", width: 18, sample: "アクセサリー", required: true, hint: "일본어 명칭 정확히 일치" },
-  { label: "하위 카테고리", key: "sub_category", width: 18, sample: "ネックレス", required: false, hint: "일본어 명칭 정확히" },
-  { label: "상품 설명 (일본어)", key: "description_ja", width: 40, sample: "シンプルで上品なゴールドチェーン", required: false },
-  { label: "상품 설명 (한국어)", key: "description_ko", width: 40, sample: "심플하고 고급스러운 골드 체인", required: false },
+  { label: "카테고리", key: "category_ko", width: 20, sample: "액세서리", required: true, hint: "드롭다운 · 한국어 · 일본어는 자동 매핑" },
+  { label: "하위 카테고리", key: "sub_category_ko", width: 20, sample: "목걸이", required: false, hint: "드롭다운 · 한국어 · 일본어는 자동 매핑" },
+  { label: "상품 설명", key: "description_ko", width: 44, sample: "심플하고 고급스러운 골드 체인", required: false, hint: "한국어로 입력 · 일본어는 자동 번역" },
   { label: "재고", key: "stock", width: 10, sample: 10, required: false, hint: "숫자 · 공란=미관리" },
-  { label: "판매상태", key: "is_active", width: 12, sample: "판매중", required: false, hint: "판매중 / 숨김" },
+  { label: "판매상태", key: "is_active", width: 12, sample: "판매중", required: false, hint: "드롭다운 · 판매중 / 숨김" },
 ];
 
-export async function downloadProductTemplate(): Promise<void> {
+export interface TemplateOptions {
+  /** 최상위 카테고리 일본어 명칭 · 「카테고리」 컬럼 드롭다운 */
+  topCategories?: string[];
+  /** 하위 카테고리 일본어 명칭 · 「하위 카테고리」 컬럼 드롭다운 */
+  subCategories?: string[];
+}
+
+export async function downloadProductTemplate(opts: TemplateOptions = {}): Promise<void> {
   const wb = new ExcelJS.Workbook();
   wb.creator = "CREAM Admin";
   wb.created = new Date();
+
+  const topCats = (opts.topCategories ?? []).filter((s) => s && s.trim().length > 0);
+  const subCats = (opts.subCategories ?? []).filter((s) => s && s.trim().length > 0);
 
   const ws = wb.addWorksheet("상품 일괄 등록", {
     views: [{ state: "frozen", ySplit: 5, xSplit: 0 }],
@@ -141,16 +150,59 @@ export async function downloadProductTemplate(): Promise<void> {
     });
   }
 
-  // ── 데이터 검증 · 판매상태 드롭다운 ────────────────────────
+  // ── 숨김 「선택지」 시트 · 드롭다운 소스 (255자 인라인 제약 회피) ──
+  const lookup = wb.addWorksheet("_lookup", { state: "hidden" });
+  lookup.getCell("A1").value = "카테고리";
+  lookup.getCell("B1").value = "하위카테고리";
+  lookup.getCell("C1").value = "판매상태";
+  topCats.forEach((v, i) => { lookup.getCell(i + 2, 1).value = v; });
+  subCats.forEach((v, i) => { lookup.getCell(i + 2, 2).value = v; });
+  ["판매중", "숨김"].forEach((v, i) => { lookup.getCell(i + 2, 3).value = v; });
+
+  const lookupRange = (col: string, count: number) =>
+    count > 0 ? `_lookup!$${col}$2:$${col}$${count + 1}` : null;
+
+  const topRange = lookupRange("A", topCats.length);
+  const subRange = lookupRange("B", subCats.length);
+
+  // ── 데이터 검증 · 카테고리 드롭다운 ────────────────────────
+  const categoryCol = COLUMNS.findIndex((c) => c.key === "category_ko") + 1;
+  const subCategoryCol = COLUMNS.findIndex((c) => c.key === "sub_category_ko") + 1;
   const isActiveCol = COLUMNS.findIndex((c) => c.key === "is_active") + 1;
+
   for (let r = 6; r < 6 + INPUT_ROWS; r++) {
+    // 카테고리 · DB에서 받은 목록 (없으면 스킵)
+    if (topRange) {
+      ws.getCell(r, categoryCol).dataValidation = {
+        type: "list",
+        allowBlank: true,
+        formulae: [`=${topRange}`],
+        showErrorMessage: true,
+        errorStyle: "stop",
+        errorTitle: "카테고리 선택",
+        error: "「카테고리 관리」에 등록된 일본어 명칭만 사용 가능합니다",
+      };
+    }
+    // 하위 카테고리
+    if (subRange) {
+      ws.getCell(r, subCategoryCol).dataValidation = {
+        type: "list",
+        allowBlank: true,
+        formulae: [`=${subRange}`],
+        showErrorMessage: true,
+        errorStyle: "stop",
+        errorTitle: "하위 카테고리 선택",
+        error: "「카테고리 관리」에 등록된 일본어 명칭만 사용 가능합니다",
+      };
+    }
+    // 판매상태
     ws.getCell(r, isActiveCol).dataValidation = {
       type: "list",
       allowBlank: true,
-      formulae: ['"판매중,숨김"'],
+      formulae: ['=_lookup!$C$2:$C$3'],
       showErrorMessage: true,
-      errorStyle: "warning",
-      errorTitle: "잘못된 값",
+      errorStyle: "stop",
+      errorTitle: "판매상태 선택",
       error: "「판매중」 또는 「숨김」 중 하나를 선택하세요",
     };
   }
@@ -198,13 +250,14 @@ export async function downloadProductTemplate(): Promise<void> {
 
   const helpRows: [string, string][] = [
     ["📝 입력 시작 위치", "「상품 일괄 등록」 시트의 6행부터 실제 데이터 입력. 4행 예시는 자동 제외됩니다."],
-    ["✅ 필수 항목", "상품명(일본어) · 가격 · 카테고리"],
-    ["🈶 카테고리", "관리자포털 「카테고리 관리」에 등록된 일본어 명칭과 정확히 일치해야 함 (예: アクセサリー)"],
+    ["✅ 필수 항목", "상품명 · 가격 · 카테고리"],
+    ["🌐 언어", "모든 항목을 한국어로만 입력하시면 됩니다. 일본어는 등록 시 자동 번역/매핑됩니다."],
+    ["🈶 카테고리", "드롭다운에서 한국어 명칭 선택 → 시스템이 자동으로 일본어 명칭에 매핑합니다."],
     ["🖼 이미지", "이 파일로는 등록되지 않습니다. 등록 후 상품 목록 → 상품 클릭 → 「이미지 라이브러리에서 선택」 또는 신규 업로드"],
     ["🔢 숫자 필드", "가격 · 정가 · 재고 → 0 이상의 정수만. 공란 허용."],
     ["🏷 판매상태", "「판매중」 또는 「숨김」 · 셀 클릭 시 드롭다운 표시"],
-    ["💾 저장", "엑셀에서 저장할 때 → CSV(UTF-8) 로 저장하시거나 · xlsx 그대로 업로드 가능"],
-    ["📤 업로드", "관리자포털 → 상품 관리 → 「CSV 일괄 등록」 → 파일 선택"],
+    ["💾 저장", "엑셀에서 저장할 때 → xlsx 그대로 업로드 가능 · CSV(UTF-8)도 가능"],
+    ["📤 업로드", "관리자포털 → 상품 관리 → 「Excel로 일괄업로드」 → 파일 선택"],
     ["⚠ 주의", "예시 행([예시] 접두 · 노란색)은 절대 등록되지 않으니 안심하고 남겨두세요"],
   ];
   helpRows.forEach(([topic, detail], idx) => {

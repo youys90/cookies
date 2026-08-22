@@ -8,8 +8,6 @@ import { supabase } from "@/lib/supabase";
 import BulkActionBar from "@/components/BulkActionBar";
 import DeleteConfirmModal from "@/components/DeleteConfirmModal";
 import InlineEditCell from "@/components/InlineEditCell";
-import CsvImportModal from "@/components/CsvImportModal";
-import type { CsvImportResult } from "@/components/CsvImportModal";
 import { generateCsv, downloadCsv } from "@/lib/csv";
 import { useAdmLanguage } from "@/contexts/LanguageContext";
 import CategoryFilter from "@/components/CategoryFilter";
@@ -39,46 +37,32 @@ interface Product {
 
 const PAGE_SIZE_OPTIONS = [10, 50, 100];
 
-// CSV 템플릿 · 관리자 친화 한글 헤더 (관리자포털 UI 명칭과 100% 일치)
-// 이미지 · CSV엔 포함 안 함 · 등록 후 개별 편집 or 일괄등록에서 첨부 (URL 몰라도 됨)
+// Excel 업로드 · 관리자 친화 한글 헤더만 · 일본어는 등록 시 자동 번역/매핑
+// 이미지 · 파일에 포함 안 함 · 등록 후 개별 편집 or 일괄수정에서 첨부
 const CSV_HEADER = [
-  "상품명(일본어)",
-  "상품명(한국어)",
+  "상품명",
   "가격",
   "정가",
   "카테고리",
-  "하위카테고리",
-  "상품설명(일본어)",
-  "상품설명(한국어)",
+  "하위 카테고리",
+  "상품 설명",
   "재고",
   "판매상태",
 ];
 
-// 한글 헤더 → DB 컬럼 매핑 (업로드 시 사용)
+// 한글 헤더 → 임시 필드 매핑 · 업로드 시 사용 (일본어 필드는 별도 처리)
+// 공백/괄호 표기 흔들림에도 매칭되게 정규화된 key 사용
 export const CSV_HEADER_MAP: Record<string, string> = {
-  "상품명(일본어)": "name_ja",
-  "상품명(한국어)": "name_ko",
+  "상품명": "name_ko",
   "가격": "price",
   "정가": "original_price",
-  "카테고리": "category",
-  "하위카테고리": "sub_category",
-  "상품설명(일본어)": "description_ja",
-  "상품설명(한국어)": "description_ko",
+  "카테고리": "category_ko",
+  "하위카테고리": "sub_category_ko",
+  "하위 카테고리": "sub_category_ko",
+  "상품설명": "description_ko",
+  "상품 설명": "description_ko",
   "재고": "stock",
   "판매상태": "is_active",
-};
-
-const CSV_SAMPLE: Record<string, string> = {
-  "상품명(일본어)": "ゴールドチェーンネックレス",
-  "상품명(한국어)": "골드 체인 목걸이",
-  "가격": "10000",
-  "정가": "12000",
-  "카테고리": "アクセサリー",
-  "하위카테고리": "ネックレス",
-  "상품설명(일본어)": "シンプルで上品なゴールドチェーン",
-  "상품설명(한국어)": "심플하고 고급스러운 골드 체인",
-  "재고": "10",
-  "판매상태": "판매중",
 };
 
 export default function ProductsPage() {
@@ -89,6 +73,14 @@ export default function ProductsPage() {
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get("cat") || "전체");
   const [selectedSubCategory, setSelectedSubCategory] = useState(searchParams.get("sub") || "");
   const [imageFilter, setImageFilter] = useState<"all" | "missing" | "attached">((searchParams.get("img") as "all" | "missing" | "attached") || "all");
+  // 보기 모드 · 간편(기존) vs 상세(등록방식/등록일 등 확장 컬럼) · LocalStorage 유지
+  const [viewMode, setViewMode] = useState<"simple" | "detail">(() => {
+    if (typeof window === "undefined") return "detail";
+    return (localStorage.getItem("adm.productViewMode") as "simple" | "detail") || "detail";
+  });
+  useEffect(() => {
+    if (typeof window !== "undefined") localStorage.setItem("adm.productViewMode", viewMode);
+  }, [viewMode]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   // 관리자 = 한국인 · 한국어 표시. 필터링은 name_ja 문자열 기준 (products.category와 일치)
@@ -106,7 +98,6 @@ export default function ProductsPage() {
 
   // 모달
   const [showDelete, setShowDelete] = useState(false);
-  const [showCsvImport, setShowCsvImport] = useState(false);
   const [pendingDeleteTargets, setPendingDeleteTargets] = useState<number[]>([]);
   // 이미지 라이트박스 (썸네일 클릭 → 상품의 모든 이미지 슬라이더 형태로 보기)
   const [lightbox, setLightbox] = useState<{ urls: string[]; alt: string; index: number } | null>(null);
@@ -254,6 +245,14 @@ export default function ProductsPage() {
       });
     }
     setLoading(false);
+  };
+
+  const formatDateTime = (raw?: string | null) => {
+    if (!raw) return "-";
+    const d = new Date(raw);
+    if (Number.isNaN(d.getTime())) return "-";
+    const p = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
   };
 
   const formatPrice = (price: number | string) => {
@@ -429,60 +428,6 @@ export default function ProductsPage() {
     exportCsv(productList.filter((p) => selectedIds.has(p.id)));
 
   // ── CSV 업로드 ───────────────────────────────────
-  const handleImport = async (
-    rows: Record<string, string>[]
-  ): Promise<CsvImportResult> => {
-    const ok: number[] = [];
-    const failed: { row: number; reason: string }[] = [];
-
-    const chunk = 25;
-    for (let i = 0; i < rows.length; i += chunk) {
-      const slice = rows.slice(i, i + chunk).map((r) => {
-        const rec: Record<string, unknown> = {};
-        // 한글 헤더 → DB 컬럼 매핑 (구 영문 헤더도 호환)
-        for (const [koLabel, dbCol] of Object.entries(CSV_HEADER_MAP)) {
-          const raw = r[koLabel] ?? r[dbCol]; // 한글 or 영문 둘 다 허용
-          if (raw === undefined || raw === "") continue;
-          if (dbCol === "price" || dbCol === "original_price" || dbCol === "stock") {
-            const n = Number(raw);
-            if (!Number.isNaN(n)) rec[dbCol] = n;
-          } else if (dbCol === "is_active") {
-            rec[dbCol] = /^(true|1|yes|y|판매중|공개|active|판매)$/i.test(raw);
-          } else {
-            rec[dbCol] = raw;
-          }
-        }
-        // name(원본) · name_ja 우선 fallback
-        if (!rec.name) rec.name = (rec.name_ja as string) || (rec.name_ko as string) || "";
-        // 이미지 · CSV엔 미포함 · placeholder 사용 (등록 후 편집으로 이미지 첨부)
-        rec.image = "https://placehold.co/600x600/e5e7eb/9ca3af?text=No+Image";
-        if (!rec.price) rec.price = 0;
-        if (rec.is_active === undefined) rec.is_active = true;
-        rec.source = "CSV";
-        return rec;
-      });
-
-      try {
-        const { data, error } = await supabase
-          .from("products")
-          .insert(slice)
-          .select("id");
-        if (error) {
-          slice.forEach((_, j) => failed.push({ row: i + j + 2, reason: error.message }));
-        } else {
-          (data || []).forEach((d) => ok.push(d.id));
-        }
-      } catch (e) {
-        slice.forEach((_, j) =>
-          failed.push({ row: i + j + 2, reason: String(e) })
-        );
-      }
-    }
-
-    if (ok.length > 0) fetchProducts();
-    return { ok: ok.length, failed, okIds: ok };
-  };
-
   // ── 검색·카테고리·페이지 핸들러 ─────────────────
   const handleSearch = () => {
     setSearchKeyword(searchInput);
@@ -538,19 +483,17 @@ export default function ProductsPage() {
             📤 CSV 내보내기
           </button>
           {/* 일괄등록 · 완성 후 전 환경 노출 (관리자 실무 편의) */}
-          <button
-            onClick={() => setShowCsvImport(true)}
-            className="px-3 py-2 text-sm text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
-            title="xlsx / csv 파일로 여러 상품 한 번에 등록"
-          >
-            📥 파일 일괄등록
-          </button>
           <Link
-            href="/products/image-mapping?scope=no-image"
-            className="px-3 py-2 text-sm text-white bg-[var(--color-brand)] hover:bg-[var(--color-brand-dk)] rounded-lg transition font-medium shadow-sm"
-            title="이미지가 없는 상품을 우선 노출하여 일괄 매핑"
+            href="/products/excel-import"
+            className="px-3 py-2 text-sm text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition flex items-center gap-1.5"
+            title="Excel(.xlsx) 또는 CSV로 여러 상품 한 번에 등록 · 이미지 매핑 통합"
           >
-            📸 이미지 매핑
+            {/* Excel 로고 · Microsoft Excel 스타일 (X 마크 · 녹색) */}
+            <svg viewBox="0 0 24 24" className="w-4 h-4" aria-hidden="true">
+              <rect x="2" y="4" width="20" height="16" rx="2" fill="#107C41" />
+              <path d="M7 8l3.2 4L7 16h2.2l2-2.7L13.2 16h2.2L12.2 12l3.2-4h-2.2l-2 2.7L9.2 8H7z" fill="#FFFFFF" />
+            </svg>
+            Excel로 일괄업로드
           </Link>
           <Link
             href="/products/bulk-new"
@@ -574,11 +517,11 @@ export default function ProductsPage() {
           {/* 카테고리 필터 · 드롭다운 + 검색 (100+ 대응 · 크림디자인팀 v3) */}
           <CategoryFilter
             language={language}
-            categories={[{ id: 0, name_ja: language === "ko" ? "전체" : "全体", name_ko: "전체", parent_id: null }, ...topCategories]}
+            categories={[{ id: 0, name_ja: "全体", name_ko: "전체", parent_id: null }, ...topCategories]}
             selected={selectedCategory}
             onChange={handleCategoryChange}
-            label={language === "ko" ? "카테고리" : "カテゴリー"}
-            allLabel={language === "ko" ? "전체" : "全体"}
+            label="카테고리"
+            allLabel="전체"
           />
 
           {/* 하위 카테고리 필터 · 최상위 선택 시 · 개수 적을 땐 pill · 많으면 드롭다운 자동 */}
@@ -588,19 +531,19 @@ export default function ProductsPage() {
               categories={subCategoriesOfSelected}
               selected={selectedSubCategory}
               onChange={handleSubCategoryChange}
-              label={language === "ko" ? "└ 하위" : "└ サブ"}
-              allLabel={language === "ko" ? "전체" : "全体"}
+              label="└ 하위"
+              allLabel="전체"
               indent
             />
           )}
 
           {/* 이미지 첨부 상태 필터 */}
           <div className="flex items-center gap-2 pt-1">
-            <span className="text-xs font-medium text-gray-500 whitespace-nowrap">{language === "ko" ? "이미지" : "画像"}</span>
+            <span className="text-xs font-medium text-gray-500 whitespace-nowrap">이미지</span>
             {[
-              { v: "all" as const, ko: "전체", ja: "全て" },
-              { v: "missing" as const, ko: "미첨부", ja: "未添付", color: "red" },
-              { v: "attached" as const, ko: "첨부됨", ja: "添付済", color: "emerald" },
+              { v: "all" as const, ko: "전체" },
+              { v: "missing" as const, ko: "미첨부", color: "red" },
+              { v: "attached" as const, ko: "첨부됨", color: "emerald" },
             ].map((opt) => (
               <button
                 key={opt.v}
@@ -615,15 +558,15 @@ export default function ProductsPage() {
                     : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
                 }`}
               >
-                {language === "ko" ? opt.ko : opt.ja}
+                {opt.ko}
               </button>
             ))}
             {imageFilter === "missing" && (
               <Link
-                href="/products/image-mapping?scope=no-image"
+                href="/products/excel-import"
                 className="ml-2 text-xs text-[var(--color-brand-dk)] hover:text-[var(--color-brand)] underline"
               >
-                → {language === "ko" ? "매핑 페이지에서 일괄 처리" : "マッピングページで一括処理"}
+                → Excel 일괄업로드에서 이미지 매핑
               </Link>
             )}
           </div>
@@ -635,7 +578,7 @@ export default function ProductsPage() {
                 <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                 <input
                   type="text"
-                  placeholder={language === "ko" ? "상품명 검색..." : "商品名検索..."}
+                  placeholder="상품명 검색..."
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSearch()}
@@ -646,7 +589,7 @@ export default function ProductsPage() {
                 onClick={handleSearch}
                 className="px-4 py-1.5 text-sm bg-[var(--color-brand)] text-white rounded-full hover:bg-[var(--color-brand-dk)] font-medium shadow-sm transition"
               >
-                {language === "ko" ? "검색" : "検索"}
+                검색
               </button>
               {searchKeyword && (
                 <button
@@ -658,9 +601,38 @@ export default function ProductsPage() {
               )}
             </div>
 
-            {/* 표시 개수 · 브랜드 활성 */}
+            {/* 보기 모드 · 간편 (기존 · 핵심 컬럼만) / 상세 (등록방식 · 등록일/수정일 포함) */}
             <div className="flex items-center gap-2 ml-auto">
-              <span className="text-xs font-medium text-gray-500 whitespace-nowrap">{language === "ko" ? "표시" : "表示"}</span>
+              <span className="text-xs font-medium text-gray-500 whitespace-nowrap">보기</span>
+              <div className="inline-flex items-center bg-white rounded-full p-0.5 border border-gray-200 shadow-sm" role="group" aria-label="보기 모드 전환">
+                <button
+                  onClick={() => setViewMode("simple")}
+                  className={`px-3 py-1 text-xs rounded-full transition-all font-medium ${
+                    viewMode === "simple"
+                      ? "bg-[var(--color-brand)] text-white shadow-sm"
+                      : "text-gray-500 hover:text-[var(--color-brand-dk)]"
+                  }`}
+                  title="간편 · 기본 컬럼만 표시"
+                >
+                  간편
+                </button>
+                <button
+                  onClick={() => setViewMode("detail")}
+                  className={`px-3 py-1 text-xs rounded-full transition-all font-medium flex items-center gap-1 ${
+                    viewMode === "detail"
+                      ? "bg-[var(--color-brand)] text-white shadow-sm"
+                      : "text-gray-500 hover:text-[var(--color-brand-dk)]"
+                  }`}
+                  title="상세 · 등록방식/등록일/수정일 등 확장 컬럼 포함"
+                >
+                  상세
+                </button>
+              </div>
+            </div>
+
+            {/* 표시 개수 · 브랜드 활성 */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-gray-500 whitespace-nowrap">표시</span>
               <div className="inline-flex items-center bg-white rounded-full p-0.5 border border-gray-200 shadow-sm">
               {PAGE_SIZE_OPTIONS.map((size) => (
                 <button
@@ -737,13 +709,17 @@ export default function ProductsPage() {
                 <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 tracking-wider">
                   상태
                 </th>
-                <th className="px-4 py-4 text-left text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap">
-                  등록방식
-                </th>
-                <th className="px-4 py-4 text-left text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap">
-                  등록일 / 수정일
-                </th>
-                <th className="px-6 py-4 text-right text-xs font-medium text-gray-500 tracking-wider">
+                {viewMode === "detail" && (
+                  <>
+                    <th className="px-4 py-4 text-left text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap">
+                      등록방식
+                    </th>
+                    <th className="px-4 py-4 text-left text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap">
+                      등록일 / 수정일
+                    </th>
+                  </>
+                )}
+                <th className="px-4 py-4 text-center text-xs font-medium text-gray-500 tracking-wider w-28 border-l border-gray-100">
                   관리
                 </th>
               </tr>
@@ -841,33 +817,38 @@ export default function ProductsPage() {
                         {product.is_active !== false ? "판매중" : "판매중지"}
                       </button>
                     </td>
-                    {/* 등록방식 · 색상 배지 · 관리자 즉시 인지 */}
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      {(() => {
-                        const src = product.source || "-";
-                        const badge = src === "일반" ? "bg-blue-50 text-blue-700 border-blue-200"
-                          : src === "일괄" ? "bg-purple-50 text-purple-700 border-purple-200"
-                          : src === "CSV" ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                          : "bg-gray-50 text-gray-500 border-gray-200";
-                        return (
-                          <span className={`inline-flex items-center text-[11px] font-semibold px-2 py-0.5 rounded-full border ${badge}`}>
-                            {src}
-                          </span>
-                        );
-                      })()}
-                    </td>
-                    {/* 등록일 / 수정일 */}
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <div className="text-[11px] text-gray-500 leading-tight">
-                        <div>등록 · {product.created_at ? product.created_at.slice(0, 10) : "-"}</div>
-                        <div className="text-gray-400 mt-0.5">수정 · {product.updated_at ? product.updated_at.slice(0, 10) : "-"}</div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end space-x-2">
+                    {viewMode === "detail" && (
+                      <>
+                        {/* 등록방식 · 색상 배지 · 관리자 즉시 인지 */}
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          {(() => {
+                            const src = product.source || "-";
+                            const badge = src === "일반" ? "bg-blue-50 text-blue-700 border-blue-200"
+                              : src === "일괄" ? "bg-purple-50 text-purple-700 border-purple-200"
+                              : src === "CSV" ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                              : "bg-gray-50 text-gray-500 border-gray-200";
+                            return (
+                              <span className={`inline-flex items-center text-[11px] font-semibold px-2 py-0.5 rounded-full border ${badge}`}>
+                                {src}
+                              </span>
+                            );
+                          })()}
+                        </td>
+                        {/* 등록일 / 수정일 · YYYY-MM-DD HH:mm:ss */}
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          <div className="text-[11px] text-gray-500 leading-tight font-mono">
+                            <div>등록 · {formatDateTime(product.created_at)}</div>
+                            <div className="text-gray-400 mt-0.5">수정 · {formatDateTime(product.updated_at)}</div>
+                          </div>
+                        </td>
+                      </>
+                    )}
+                    <td className="px-4 py-4 text-center border-l border-gray-50">
+                      <div className="flex items-center justify-center gap-1">
                         <Link
                           href={`/products/${product.id}?return=${encodeURIComponent(returnQuery)}`}
-                          className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
+                          className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                          title="편집"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path
@@ -880,7 +861,8 @@ export default function ProductsPage() {
                         </Link>
                         <button
                           onClick={() => handleDelete(product.id)}
-                          className="p-2 text-gray-400 hover:text-red-600 transition-colors"
+                          className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                          title="삭제"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path
@@ -983,16 +965,6 @@ export default function ProductsPage() {
           setPendingDeleteTargets([]);
         }}
         onConfirm={confirmDelete}
-      />
-
-      {/* ── CSV 업로드 모달 ───────────────────────── */}
-      <CsvImportModal
-        open={showCsvImport}
-        onClose={() => setShowCsvImport(false)}
-        onImport={handleImport}
-        templateHeader={CSV_HEADER}
-        templateSample={CSV_SAMPLE}
-        title="상품 일괄 등록 · xlsx / csv"
       />
 
       {/* ── 이미지 라이트박스 (썸네일 확대 · 다중 이미지 슬라이더) ───────────────────────── */}

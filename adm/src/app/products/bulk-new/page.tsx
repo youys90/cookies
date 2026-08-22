@@ -170,6 +170,26 @@ export default function BulkNewProductsPage() {
   // 라이브러리 피커 활성 행 · null이면 닫힘
   const [pickerRowKey, setPickerRowKey] = useState<number | null>(null);
 
+  // 세션 이미지 풀 · 이 세션에서 업로드된 URL만 (스토리지 전체 X)
+  const [sessionPool, setSessionPool] = useState<string[]>([]);
+  const [sessionUploading, setSessionUploading] = useState(false);
+  const sessionBulkInputRef = useRef<HTMLInputElement>(null);
+
+  const uploadToSessionPool = async (files: File[]) => {
+    setSessionUploading(true);
+    const newUrls: string[] = [];
+    for (const file of files) {
+      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+      const path = `products/${Date.now()}_${Math.random().toString(36).slice(2, 10)}.${ext}`;
+      const { error } = await supabase.storage.from("product-images").upload(path, file);
+      if (error) { console.error("세션 업로드 실패:", error); continue; }
+      const { data: pub } = supabase.storage.from("product-images").getPublicUrl(path);
+      newUrls.push(pub.publicUrl);
+    }
+    if (newUrls.length > 0) setSessionPool((prev) => [...newUrls, ...prev]);
+    setSessionUploading(false);
+  };
+
   // 행 내부 이미지 드래그 순서 변경 상태
   const [rowDrag, setRowDrag] = useState<{ rowKey: number | null; from: number | null; over: number | null }>({ rowKey: null, from: null, over: null });
   const moveRowImage = (key: number, from: number, to: number) => {
@@ -291,6 +311,31 @@ export default function BulkNewProductsPage() {
           {translateMsg && (
             <span className="text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-3 py-1 font-medium">{translateMsg}</span>
           )}
+          {/* 세션 이미지 풀 · 이번 세션에서 업로드한 사진만 · 각 행에서 재사용 */}
+          <div className="flex items-center gap-1.5 border border-[var(--color-brand)]/25 bg-[var(--color-brand)]/5 rounded-full pl-3 pr-1 py-0.5">
+            <span className="text-[11px] font-semibold text-[var(--color-brand-dk)]">📸 세션 풀</span>
+            <span className="text-[11px] text-gray-600">{sessionPool.length}장</span>
+            <button
+              type="button"
+              onClick={() => sessionBulkInputRef.current?.click()}
+              disabled={sessionUploading}
+              className="ml-1 px-2.5 py-1 text-[11px] bg-[var(--color-brand)] text-white rounded-full hover:bg-[var(--color-brand-dk)] font-medium disabled:opacity-50"
+              title="이번 세션 전용 이미지 풀에 여러 장 한 번에 업로드 · 각 행에서 재사용 가능"
+            >
+              {sessionUploading ? "업로드 중..." : "+ 일괄 업로드"}
+            </button>
+            <input
+              ref={sessionBulkInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files && e.target.files.length > 0) uploadToSessionPool(Array.from(e.target.files));
+                e.target.value = "";
+              }}
+            />
+          </div>
           <button
             onClick={bulkTranslate}
             disabled={translating || uploading}
@@ -424,11 +469,12 @@ export default function BulkNewProductsPage() {
                     <button
                       type="button"
                       onClick={() => setPickerRowKey(row.key)}
-                      className="aspect-square border-2 border-dashed border-[var(--color-brand)]/40 rounded flex flex-col items-center justify-center text-[var(--color-brand)] hover:bg-[var(--color-brand)]/5"
-                      title="이미지 라이브러리에서 선택"
+                      className="aspect-square border-2 border-dashed border-[var(--color-brand)]/40 rounded flex flex-col items-center justify-center text-[var(--color-brand)] hover:bg-[var(--color-brand)]/5 disabled:opacity-30"
+                      disabled={sessionPool.length === 0}
+                      title={sessionPool.length === 0 ? "먼저 상단 「+ 일괄 업로드」로 이미지 풀에 담아주세요" : "세션 이미지 풀에서 선택"}
                     >
-                      <span className="text-base leading-none">🗂️</span>
-                      <span className="text-[8px] mt-0.5">라이브러리</span>
+                      <span className="text-base leading-none">📸</span>
+                      <span className="text-[8px] mt-0.5">세션 풀</span>
                     </button>
                   </div>
                 )}
@@ -612,6 +658,9 @@ export default function BulkNewProductsPage() {
       <ImageLibraryPicker
         open={pickerRowKey !== null}
         onClose={() => setPickerRowKey(null)}
+        sessionUrls={sessionPool}
+        titleOverride="📸 세션 이미지 풀에서 선택"
+        descriptionOverride="이번 세션에서 업로드한 이미지들 · 스토리지 전체 X"
         onSelect={(urls) => {
           if (pickerRowKey === null) return;
           setRows((prev) => prev.map((r) => r.key === pickerRowKey
