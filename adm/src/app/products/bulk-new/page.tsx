@@ -10,6 +10,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { translateKoJa } from "@/lib/translate";
 import ImageLibraryPicker from "@/components/ImageLibraryPicker";
+import { SESSION_KEYS, loadSession, saveSession, clearSession, clearManySessions } from "@/lib/sessionPersistence";
 
 const categoriesJa = [
   "アクセサリー",
@@ -69,12 +70,90 @@ function makeRow(key: number): Row {
   };
 }
 
+// sessionStorage 저장용 · File 객체는 시리얼라이즈 불가하므로 URL/preview 값만 유지
+type SerializableRow = Omit<Row, "images"> & { images: { preview: string; url?: string }[] };
+function toSerializable(rows: Row[]): SerializableRow[] {
+  return rows.map((r) => ({
+    ...r,
+    images: r.images.map(({ preview, url }) => ({ preview, url })),
+  }));
+}
+function fromSerializable(rows: SerializableRow[]): Row[] {
+  return rows.map((r) => ({
+    ...r,
+    images: r.images.map((i) => ({ file: null, preview: i.preview, url: i.url })),
+  }));
+}
+
 export default function BulkNewProductsPage() {
   const router = useRouter();
+  // 항상 fresh 5행으로 시작 · 진입 후 사용자가 「불러오기」 선택 시 복원
   const [rows, setRows] = useState<Row[]>(() => Array.from({ length: INITIAL_ROWS }, (_, i) => makeRow(i)));
   const [uploading, setUploading] = useState(false);
   const nextKeyRef = useRef(INITIAL_ROWS);
   const [dragOverKey, setDragOverKey] = useState<number | null>(null);
+
+  // 임시저장 복원 팝업 · 메일 스타일
+  const [restorePrompt, setRestorePrompt] = useState<{ rowCount: number; poolCount: number } | null>(null);
+  const [autoSaveEnabled, setAutoSaveEnabled] = useState(false); // 팝업 결정 전엔 자동저장 OFF
+  useEffect(() => {
+    // 마운트 시 · 임시저장 데이터 확인
+    const savedRows = loadSession<SerializableRow[] | null>(SESSION_KEYS.BULK_NEW_ROWS, null);
+    const savedPool = loadSession<string[]>(SESSION_KEYS.IMAGE_POOL, []);
+    const hasRowContent = !!(savedRows && Array.isArray(savedRows) && savedRows.some((r) => r.nameJa || r.nameKo || r.images.length > 0 || r.price || r.descriptionJa || r.descriptionKo));
+    const hasPool = savedPool.length > 0;
+    if (hasRowContent || hasPool) {
+      const filledRows = savedRows ? savedRows.filter((r) => r.nameJa || r.nameKo || r.images.length > 0 || r.price).length : 0;
+      setRestorePrompt({ rowCount: filledRows, poolCount: savedPool.length });
+    } else {
+      setAutoSaveEnabled(true);
+    }
+  }, []);
+
+  const doRestore = () => {
+    const savedRows = loadSession<SerializableRow[] | null>(SESSION_KEYS.BULK_NEW_ROWS, null);
+    if (savedRows && Array.isArray(savedRows) && savedRows.length > 0) {
+      setRows(fromSerializable(savedRows));
+    }
+    setRestorePrompt(null);
+    setAutoSaveEnabled(true);
+  };
+  const doDiscard = () => {
+    clearManySessions([SESSION_KEYS.BULK_NEW_ROWS, SESSION_KEYS.IMAGE_POOL]);
+    setSessionPool([]);
+    setRestorePrompt(null);
+    setAutoSaveEnabled(true);
+  };
+
+  // 마지막 저장 시각 · 사장님에게 표시용
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const [savedTick, setSavedTick] = useState(0); // 「방금 저장됨」 애니메이션 트리거
+
+  // rows 자동 저장 (500ms debounce) · 업로드 중/팝업 대기 중엔 저장 스킵
+  useEffect(() => {
+    if (uploading || !autoSaveEnabled) return;
+    const t = setTimeout(() => {
+      saveSession(SESSION_KEYS.BULK_NEW_ROWS, toSerializable(rows));
+      setLastSavedAt(new Date());
+    }, 500);
+    return () => clearTimeout(t);
+  }, [rows, uploading, autoSaveEnabled]);
+
+  // 「임시저장」 버튼 · 즉시 저장 (수동)
+  const manualSave = () => {
+    saveSession(SESSION_KEYS.BULK_NEW_ROWS, toSerializable(rows));
+    saveSession(SESSION_KEYS.IMAGE_POOL, sessionPool);
+    setLastSavedAt(new Date());
+    setSavedTick((n) => n + 1);
+  };
+
+  // 새로 시작 · 모든 임시저장 · 사진 풀 · 폼 초기화
+  const resetAll = () => {
+    if (!confirm("작성 중인 모든 내용을 지우고 처음부터 시작합니다.\n\n계속하시겠어요?")) return;
+    clearManySessions([SESSION_KEYS.BULK_NEW_ROWS, SESSION_KEYS.IMAGE_POOL]);
+    setRows(Array.from({ length: INITIAL_ROWS }, (_, i) => makeRow(i)));
+    setSessionPool([]);
+  };
 
   // 카테고리 실시간 로드 (라이브 데이터) · 최상위 + 하위 모두
   const [liveCategories, setLiveCategories] = useState<Array<{ id: number; name_ja: string; name_ko: string; parent_id: number | null }>>([]);
@@ -170,10 +249,13 @@ export default function BulkNewProductsPage() {
   // 라이브러리 피커 활성 행 · null이면 닫힘
   const [pickerRowKey, setPickerRowKey] = useState<number | null>(null);
 
-  // 세션 이미지 풀 · 이 세션에서 업로드된 URL만 (스토리지 전체 X)
-  const [sessionPool, setSessionPool] = useState<string[]>([]);
+  // 세션 이미지 풀 · 이 브라우저 세션에서 업로드된 URL만 · sessionStorage로 페이지 이동 시에도 유지
+  const [sessionPool, setSessionPool] = useState<string[]>(() => loadSession<string[]>(SESSION_KEYS.IMAGE_POOL, []));
   const [sessionUploading, setSessionUploading] = useState(false);
   const sessionBulkInputRef = useRef<HTMLInputElement>(null);
+
+  // 세션 풀 변경 시 자동 저장
+  useEffect(() => { saveSession(SESSION_KEYS.IMAGE_POOL, sessionPool); }, [sessionPool]);
 
   const uploadToSessionPool = async (files: File[]) => {
     setSessionUploading(true);
@@ -291,6 +373,8 @@ export default function BulkNewProductsPage() {
     setUploading(false);
 
     if (failed.length === 0) {
+      // 성공 시 임시저장 초기화
+      clearManySessions([SESSION_KEYS.BULK_NEW_ROWS, SESSION_KEYS.IMAGE_POOL]);
       alert(`✓ ${ok}건 모두 등록 완료`);
       router.push("/products");
     } else {
@@ -300,12 +384,59 @@ export default function BulkNewProductsPage() {
 
   return (
     <div className="pb-8">
+      {/* 메일 스타일 · 임시저장 복원 안내 팝업 */}
+      {restorePrompt && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-11 h-11 rounded-full bg-amber-100 flex items-center justify-center text-2xl flex-shrink-0">💾</div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">이전에 작성 중인 내용이 있어요</h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  {restorePrompt.rowCount > 0 && <>작성 중인 상품 <b className="text-gray-700">{restorePrompt.rowCount}건</b></>}
+                  {restorePrompt.rowCount > 0 && restorePrompt.poolCount > 0 && <> · </>}
+                  {restorePrompt.poolCount > 0 && <>담아둔 사진 <b className="text-gray-700">{restorePrompt.poolCount}장</b></>}
+                  <br />불러와서 이어서 작업하시겠어요?
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 mt-6">
+              <button
+                onClick={doDiscard}
+                className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
+              >
+                🗑 새로 시작
+              </button>
+              <button
+                onClick={doRestore}
+                className="px-5 py-2 text-sm bg-[var(--color-brand)] text-white rounded-lg hover:bg-[var(--color-brand-dk)] font-semibold"
+              >
+                ✎ 불러오기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl md:text-2xl font-medium text-gray-900">상품 일괄 등록</h1>
           <p className="text-sm text-gray-500 mt-1">
             여러 상품을 한 번에 등록합니다. 각 행에 이미지를 드래그&드롭 하세요.
           </p>
+          <div className="flex items-center gap-2 mt-1.5 text-[11px]">
+            <button
+              onClick={manualSave}
+              className="px-2 py-0.5 bg-white border border-gray-200 text-gray-600 rounded-md hover:bg-gray-50 flex items-center gap-1"
+              title="현재까지 작성한 내용을 지금 즉시 임시저장"
+            >
+              💾 임시저장
+            </button>
+            <span key={savedTick} className={`text-gray-400 ${savedTick > 0 ? "animate-fade-in" : ""}`}>
+              {lastSavedAt
+                ? `방금 저장됨 · ${lastSavedAt.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`
+                : "자동 임시저장 · 페이지 이동해도 유지"}
+            </span>
+          </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {translateMsg && (

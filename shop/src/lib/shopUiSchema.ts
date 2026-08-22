@@ -24,20 +24,21 @@ export interface ShopUiConfig {
   };
 }
 
+// ⚠ 원칙: 현재 shop 실제 화면의 값과 동일하게 유지 (adm/lib/shopUiSchema.ts와 동기화)
 export const DEFAULT_CONFIG: ShopUiConfig = {
   version: 1,
   productList: {
-    columnsDesktop: 3,
+    columnsDesktop: 4,
     columnsMobile: 2,
-    gap: 16,
+    gap: 32,
     showName: true,
     showPrice: true,
     showCategory: false,
     imageAspect: "square",
-    imageBorderRadius: 8,
+    imageBorderRadius: 0,
   },
   pagination: { options: [25, 50, 100], default: 25 },
-  categoryTabs: { columnsDesktop: 5, columnsMobile: 4, maxRows: 2 },
+  categoryTabs: { columnsDesktop: 8, columnsMobile: 4, maxRows: 2 },
 };
 
 export function mergeWithDefaults(input: unknown): ShopUiConfig {

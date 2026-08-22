@@ -4,12 +4,13 @@
 @source inline("grid-cols-{1,2,3,4,5,6,7,8,9,10,12} md:grid-cols-{1,2,3,4,5,6,7,8,9,10,12} lg:grid-cols-{1,2,3,4,5,6,7,8,9,10,12}");
 
 /* 매장 화면 커스터마이징 · 관리자에서 조정 · CSS 변수는 ShopUiContext가 root에 주입 */
+/* 초기값 = shop 원래 화면과 동일 · 관리자 미설정 시 폴백 */
 :root {
-  --shop-list-cols-d: 3;
+  --shop-list-cols-d: 4;
   --shop-list-cols-m: 2;
-  --shop-list-gap: 16px;
-  --shop-list-radius: 8px;
-  --shop-cat-cols-d: 5;
+  --shop-list-gap: 32px;
+  --shop-list-radius: 0px;
+  --shop-cat-cols-d: 8;
   --shop-cat-cols-m: 4;
 }
 .shop-product-grid {

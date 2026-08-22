@@ -28,24 +28,29 @@ export interface ShopUiConfig {
   };
 }
 
+// ⚠ 원칙: 현재 shop 실제 화면의 값과 동일하게 유지
+// 개발자가 shop 코드를 수정하면 · 아래 DEFAULT_CONFIG도 함께 갱신해서 「디폴트 = 지금 보이는 화면」 상태 유지
 export const DEFAULT_CONFIG: ShopUiConfig = {
   version: 1,
   productList: {
-    columnsDesktop: 3,
+    // shop/src/app/page.tsx · className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8"
+    columnsDesktop: 4,
     columnsMobile: 2,
-    gap: 16,
+    gap: 32,
     showName: true,
     showPrice: true,
     showCategory: false,
     imageAspect: "square",
-    imageBorderRadius: 8,
+    imageBorderRadius: 0,
   },
   pagination: {
+    // shop 원래 PAGE_SIZE_OPTIONS
     options: [25, 50, 100],
     default: 25,
   },
   categoryTabs: {
-    columnsDesktop: 5,
+    // shop 원래 `grid-cols-4 md:grid-cols-8` → 모바일 4 · 데스크 8
+    columnsDesktop: 8,
     columnsMobile: 4,
     maxRows: 2,
   },

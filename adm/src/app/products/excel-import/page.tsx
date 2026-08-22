@@ -24,6 +24,12 @@ interface PoolItem {
   uploading?: boolean;
 }
 
+interface RowOption {
+  option_name: string;
+  additional_price: number;
+  stock: number;
+}
+
 interface ParsedRow {
   raw: Record<string, string>;
   key: string; // 유니크 (등록 후 리스트 재계산 시 안정)
@@ -33,7 +39,8 @@ interface ParsedRow {
   category_ko: string;
   sub_category_ko: string;
   description_ko: string;
-  imageUrls: string[]; // 좌측에서 매핑된 이미지들
+  imageUrls: string[]; // 매핑된 이미지들 · 사진 순서 = 매장 노출 순서
+  options: RowOption[]; // 개별 상품 옵션 (등록/수정 화면과 동일)
   status: "idle" | "uploading" | "success" | "failed";
   error?: string;
   productId?: number;
@@ -154,6 +161,7 @@ export default function ExcelImportPage() {
         sub_category_ko: rec.sub_category_ko || "",
         description_ko: rec.description_ko || "",
         imageUrls: [] as string[],
+        options: [] as RowOption[],
         status: "idle" as const,
       };
     }).filter((r) => r.name_ko); // 상품명 없는 행은 스킵
@@ -184,6 +192,56 @@ export default function ExcelImportPage() {
 
   const removeImgFromRow = (rowKey: string, url: string) => {
     setRows((prev) => prev.map((r) => r.key === rowKey ? { ...r, imageUrls: r.imageUrls.filter((u) => u !== url) } : r));
+  };
+
+  // 사진 순서 변경 · 드래그 앤 드롭 (bulk-new와 동일 스타일)
+  const [rowImgDrag, setRowImgDrag] = useState<{ rowKey: string | null; from: number | null; over: number | null }>({ rowKey: null, from: null, over: null });
+  const moveRowImage = (rowKey: string, from: number, to: number) => {
+    setRows((prev) => prev.map((r) => {
+      if (r.key !== rowKey) return r;
+      const a = [...r.imageUrls];
+      const [moved] = a.splice(from, 1);
+      a.splice(to, 0, moved);
+      return { ...r, imageUrls: a };
+    }));
+  };
+
+  // 개별 행에 직접 사진 업로드 · 세션 풀을 거치지 않음 (풀도 함께 저장)
+  const uploadDirectToRow = async (rowKey: string, files: File[]) => {
+    const uploaded: string[] = [];
+    for (const file of files) {
+      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+      const path = `products/${Date.now()}_${Math.random().toString(36).slice(2, 10)}.${ext}`;
+      const { error } = await supabase.storage.from("product-images").upload(path, file);
+      if (error) { console.error("업로드 실패:", error); continue; }
+      const { data: pub } = supabase.storage.from("product-images").getPublicUrl(path);
+      uploaded.push(pub.publicUrl);
+      // 세션 풀에도 추가 (다른 행에서 재사용 가능)
+      setPool((prev) => [{ url: pub.publicUrl, name: file.name }, ...prev]);
+    }
+    if (uploaded.length > 0) {
+      setRows((prev) => prev.map((r) => r.key === rowKey ? { ...r, imageUrls: [...r.imageUrls, ...uploaded] } : r));
+    }
+  };
+
+  // 옵션 편집
+  const addRowOption = (rowKey: string) => {
+    setRows((prev) => prev.map((r) => r.key === rowKey
+      ? { ...r, options: [...r.options, { option_name: "", additional_price: 0, stock: 99 }] }
+      : r));
+  };
+  const updateRowOption = (rowKey: string, idx: number, patch: Partial<RowOption>) => {
+    setRows((prev) => prev.map((r) => {
+      if (r.key !== rowKey) return r;
+      const next = [...r.options];
+      next[idx] = { ...next[idx], ...patch };
+      return { ...r, options: next };
+    }));
+  };
+  const removeRowOption = (rowKey: string, idx: number) => {
+    setRows((prev) => prev.map((r) => r.key === rowKey
+      ? { ...r, options: r.options.filter((_, i) => i !== idx) }
+      : r));
   };
 
   // ── 템플릿 다운로드 · 카테고리 트리 (상위→하위 종속 드롭다운) ──
@@ -222,7 +280,8 @@ export default function ExcelImportPage() {
   };
 
   const canSubmit = rows.length > 0 && !busy;
-  const validCount = rows.filter((r) => r.name_ko && r.price !== null && r.category_ko).length;
+  // 사진은 온라인쇼핑몰 필수 · imageUrls 없으면 등록 대상에서 제외
+  const validCount = rows.filter((r) => r.name_ko && r.price !== null && r.category_ko && r.imageUrls.length > 0).length;
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -236,6 +295,7 @@ export default function ExcelImportPage() {
       if (!r.name_ko) { setRows((prev) => prev.map((x) => x.key === r.key ? { ...x, status: "failed", error: "상품명이 비어있어요" } : x)); continue; }
       if (r.price === null) { setRows((prev) => prev.map((x) => x.key === r.key ? { ...x, status: "failed", error: "가격이 비어있어요" } : x)); continue; }
       if (!r.category_ko) { setRows((prev) => prev.map((x) => x.key === r.key ? { ...x, status: "failed", error: "카테고리가 비어있어요" } : x)); continue; }
+      if (r.imageUrls.length === 0) { setRows((prev) => prev.map((x) => x.key === r.key ? { ...x, status: "failed", error: "사진이 없어요 · 왼쪽에서 담아 이 상품에 연결해주세요" } : x)); continue; }
       const topCat = catMaps.top.get(r.category_ko);
       if (!topCat) { setRows((prev) => prev.map((x) => x.key === r.key ? { ...x, status: "failed", error: `카테고리 「${r.category_ko}」는 카테고리 관리에 없는 이름이에요` } : x)); continue; }
       let subCat: CategoryEntry | undefined;
@@ -264,8 +324,8 @@ export default function ExcelImportPage() {
         description_ko: r.description_ko || null,
         description_ja: descJa || null,
         is_active: true,
-        image: r.imageUrls[0] || "https://placehold.co/600x600/e5e7eb/9ca3af?text=No+Image",
-        images: r.imageUrls.length > 0 ? r.imageUrls : null,
+        image: r.imageUrls[0],
+        images: r.imageUrls,
         source: "CSV",
       };
       const { data, error } = await supabase.from("products").insert(record).select("id").single();
