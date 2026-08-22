@@ -510,10 +510,10 @@ export default function BulkNewProductsPage() {
                     : "border-transparent"
             }`}
           >
-            <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr_auto] gap-4 items-start">
-              {/* 이미지 영역 · 빈 상태는 단일 클릭+드롭 박스 · 채워지면 그리드 */}
+            <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr_auto] gap-4 items-stretch">
+              {/* 이미지 영역 · 빈 상태는 단일 클릭+드롭 박스 · 채워지면 그리드 · 우측 폼과 높이 맞춤 */}
               {row.images.length === 0 ? (
-                <div className={`min-h-[92px] ${sessionPool.length > 0 ? "grid grid-cols-2 gap-2" : ""}`}>
+                <div className={`h-full min-h-[240px] ${sessionPool.length > 0 ? "grid grid-cols-2 gap-2" : ""}`}>
                   {/* 클릭+드래그 통합 · 하나의 박스 = 하나의 반응 영역 */}
                   <label
                     onDragOver={(e) => {
@@ -530,7 +530,7 @@ export default function BulkNewProductsPage() {
                       if (!e.dataTransfer.types.includes("Files")) return;
                       if (e.dataTransfer.files.length > 0) addImagesToRow(row.key, e.dataTransfer.files);
                     }}
-                    className={`cursor-pointer flex flex-col items-center justify-center text-center border-2 border-dashed rounded-lg transition py-4 px-3 min-h-[92px] ${
+                    className={`cursor-pointer flex flex-col items-center justify-center text-center border-2 border-dashed rounded-lg transition py-4 px-3 h-full min-h-[240px] ${
                       dragOverKey === row.key
                         ? "border-blue-500 bg-blue-50"
                         : "border-gray-300 bg-gray-50 hover:border-gray-500 hover:bg-white"
@@ -554,7 +554,7 @@ export default function BulkNewProductsPage() {
                     <button
                       type="button"
                       onClick={() => setPickerRowKey(row.key)}
-                      className="flex flex-col items-center justify-center text-center rounded-lg transition bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-sm hover:shadow-md hover:-translate-y-0.5 border-2 border-emerald-500 py-4 px-3 min-h-[92px]"
+                      className="flex flex-col items-center justify-center text-center rounded-lg transition bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-sm hover:shadow-md hover:-translate-y-0.5 border-2 border-emerald-500 py-4 px-3 h-full min-h-[240px]"
                       title={`담아둔 사진 ${sessionPool.length}장에서 골라 이 상품에 넣기`}
                     >
                       <span className="text-2xl leading-none mb-0.5">📸</span>
@@ -579,7 +579,7 @@ export default function BulkNewProductsPage() {
                     if (!e.dataTransfer.types.includes("Files")) return;
                     if (e.dataTransfer.files.length > 0) addImagesToRow(row.key, e.dataTransfer.files);
                   }}
-                  className={`border-2 border-dashed rounded-lg p-2.5 min-h-[92px] transition ${
+                  className={`border-2 border-dashed rounded-lg p-2.5 h-full min-h-[240px] transition ${
                     dragOverKey === row.key
                       ? "border-blue-500 bg-blue-50"
                       : "border-gray-200 bg-gray-50"

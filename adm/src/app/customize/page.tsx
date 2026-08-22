@@ -10,9 +10,11 @@ import { supabase } from "@/lib/supabase";
 import { SHOP_UI_SCHEMA, DEFAULT_CONFIG, mergeWithDefaults, deriveMobileValues, type ShopUiConfig, type FieldMeta } from "@/lib/shopUiSchema";
 import FormActionBar from "@/components/FormActionBar";
 import ShopPreview from "@/components/ShopPreview";
-import { loadSession, saveSession, clearSession } from "@/lib/sessionPersistence";
+import { getLatestDraft, upsertDraft, deleteDraft, listDrafts } from "@/lib/adminDrafts";
+import { useSearchParams } from "next/navigation";
 
-const DRAFT_KEY = "adm.session.customizeDraft";
+const PAGE_KEY = "customize";
+const PAGE_LABEL = "매장 화면 관리";
 
 interface Preset {
   id: number;
@@ -84,55 +86,70 @@ export default function CustomizePage() {
   const [previewDevice, setPreviewDevice] = useState<"desktop" | "mobile">("desktop");
   const [previewPage, setPreviewPage] = useState<"list" | "detail">("list");
 
-  // 임시저장 · 메일 스타일 팝업 + 자동 저장 + 수동 임시저장
-  const [restorePrompt, setRestorePrompt] = useState<ShopUiConfig | null>(null);
+  // 임시저장 · 다음 메일 스타일 (여러 개 목록 + 만료)
+  const [restorePrompt, setRestorePrompt] = useState<{ data: ShopUiConfig; draftId: string } | null>(null);
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(false);
+  const [currentDraftId, setCurrentDraftId] = useState<string | null>(null);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [savedTick, setSavedTick] = useState(0);
+  const searchParams = useSearchParams();
+  const requestedDraftId = searchParams.get("draft");
 
-  // 활성 프리셋 로드 완료 후 · 임시저장된 것 있으면 팝업
+  // 마운트 시 · draft 파라미터 있으면 그거로 · 아니면 최근 임시저장 감지
   useEffect(() => {
     if (loading || !active) return;
-    const draft = loadSession<ShopUiConfig | null>(DRAFT_KEY, null);
-    if (draft && draft.version) {
-      // 활성 config와 다른 경우만 팝업
-      if (JSON.stringify(draft) !== JSON.stringify(config)) {
-        setRestorePrompt(draft);
-      } else {
+    // URL로 특정 draft 이어서 편집
+    if (requestedDraftId) {
+      const all = listDrafts(PAGE_KEY);
+      const d = all.find((x) => x.id === requestedDraftId);
+      if (d) {
+        setConfig(mergeWithDefaults(d.data as unknown));
+        setCurrentDraftId(d.id);
+        setDirty(true);
         setAutoSaveEnabled(true);
+        return;
       }
+    }
+    // 자동 감지
+    const latest = getLatestDraft(PAGE_KEY);
+    if (latest && JSON.stringify(latest.data) !== JSON.stringify(config)) {
+      setRestorePrompt({ data: latest.data as ShopUiConfig, draftId: latest.id });
     } else {
       setAutoSaveEnabled(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, active?.id]);
+  }, [loading, active?.id, requestedDraftId]);
 
-  // rows(config) 자동 저장 · 500ms debounce
+  // config 자동 저장 (5초 debounce · 너무 잦으면 로컬 저장 부담)
   useEffect(() => {
     if (!autoSaveEnabled || saving) return;
     const t = setTimeout(() => {
-      saveSession(DRAFT_KEY, config);
+      const d = upsertDraft({ id: currentDraftId || undefined, pageKey: PAGE_KEY, pageLabel: PAGE_LABEL, data: config });
+      if (!currentDraftId) setCurrentDraftId(d.id);
       setLastSavedAt(new Date());
-    }, 500);
+    }, 5000);
     return () => clearTimeout(t);
-  }, [config, autoSaveEnabled, saving]);
+  }, [config, autoSaveEnabled, saving, currentDraftId]);
 
   const manualSave = () => {
-    saveSession(DRAFT_KEY, config);
+    const title = prompt("이 임시저장에 이름을 붙여주세요 (비우면 자동)", "") || undefined;
+    const d = upsertDraft({ pageKey: PAGE_KEY, pageLabel: PAGE_LABEL, data: config, title });
+    setCurrentDraftId(d.id);
     setLastSavedAt(new Date());
     setSavedTick((n) => n + 1);
   };
 
   const doRestore = () => {
     if (restorePrompt) {
-      setConfig(mergeWithDefaults(restorePrompt));
+      setConfig(mergeWithDefaults(restorePrompt.data));
+      setCurrentDraftId(restorePrompt.draftId);
       setDirty(true);
     }
     setRestorePrompt(null);
     setAutoSaveEnabled(true);
   };
   const doDiscard = () => {
-    clearSession(DRAFT_KEY);
+    if (restorePrompt) deleteDraft(restorePrompt.draftId);
     setRestorePrompt(null);
     setAutoSaveEnabled(true);
   };
@@ -152,7 +169,7 @@ export default function CustomizePage() {
       setMsg("저장 완료 · 매장에 반영되었습니다");
       setDirty(false);
       // 정식 저장 완료 시 · 임시저장은 정리
-      clearSession(DRAFT_KEY);
+      if (currentDraftId) { deleteDraft(currentDraftId); setCurrentDraftId(null); }
       setLastSavedAt(null);
       load();
     }

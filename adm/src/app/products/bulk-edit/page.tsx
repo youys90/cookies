@@ -60,7 +60,7 @@ function BulkEditInner() {
       if (ids.length === 0) { setLoading(false); return; }
       const { data: prods } = await supabase
         .from("products")
-        .select("id, name, name_ja, name_ko, price, original_price, category, category_ja, category_ko, sub_category, stock, is_active, image")
+        .select("id, name, name_ja, name_ko, price, original_price, category, category_ja, category_ko, sub_category, description_ja, description_ko, is_active, image, images")
         .in("id", ids);
       const { data: cats } = await supabase
         .from("categories")
