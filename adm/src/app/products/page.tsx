@@ -12,6 +12,7 @@ import CsvImportModal from "@/components/CsvImportModal";
 import type { CsvImportResult } from "@/components/CsvImportModal";
 import { generateCsv, downloadCsv } from "@/lib/csv";
 import { useAdmLanguage } from "@/contexts/LanguageContext";
+import CategoryFilter from "@/components/CategoryFilter";
 
 interface Product {
   id: number;
@@ -520,68 +521,27 @@ export default function ProductsPage() {
       {/* Filters */}
       <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
         <div className="flex flex-col gap-3">
-          {/* 카테고리 필터 · 한국어 · 최상위 · flex-wrap */}
-          <div className="flex items-start gap-2">
-            <span className="text-sm text-gray-500 whitespace-nowrap pt-1.5 flex-shrink-0">카테고리</span>
-            <div className="flex flex-wrap gap-1.5 flex-1">
-              {[{ id: 0, name_ja: language === "ko" ? "전체" : "全体", name_ko: "전체", parent_id: null }, ...topCategories].map((cat) => {
-                const active = selectedCategory === cat.name_ja;
-                const label = language === "ko" ? (cat.name_ko || cat.name_ja) : (cat.name_ja || cat.name_ko);
-                const tooltip = language === "ko" ? cat.name_ja : cat.name_ko;
-                return (
-                  <button
-                    key={cat.id || "all"}
-                    onClick={() => handleCategoryChange(cat.name_ja)}
-                    className={`px-3 py-1 text-sm rounded-full transition-colors whitespace-nowrap ${
-                      active
-                        ? "bg-gray-900 text-white shadow-sm"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                    }`}
-                    title={tooltip !== label ? tooltip : undefined}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          {/* 카테고리 필터 · 드롭다운 + 검색 (100+ 대응 · 크림디자인팀 v3) */}
+          <CategoryFilter
+            language={language}
+            categories={[{ id: 0, name_ja: language === "ko" ? "전체" : "全体", name_ko: "전체", parent_id: null }, ...topCategories]}
+            selected={selectedCategory}
+            onChange={handleCategoryChange}
+            label={language === "ko" ? "카테고리" : "カテゴリー"}
+            allLabel={language === "ko" ? "전체" : "全体"}
+          />
 
-          {/* 하위 카테고리 필터 · 최상위 선택 시 그 하위만 노출 */}
+          {/* 하위 카테고리 필터 · 최상위 선택 시 · 개수 적을 땐 pill · 많으면 드롭다운 자동 */}
           {subCategoriesOfSelected.length > 0 && (
-            <div className="flex items-start gap-2 pl-4 border-l-2 border-gray-200">
-              <span className="text-xs text-gray-400 whitespace-nowrap pt-1.5 flex-shrink-0">{language === "ko" ? "└ 하위" : "└ サブ"}</span>
-              <div className="flex flex-wrap gap-1.5 flex-1">
-                <button
-                  onClick={() => handleSubCategoryChange("")}
-                  className={`px-2.5 py-0.5 text-xs rounded-full transition-colors whitespace-nowrap ${
-                    !selectedSubCategory
-                      ? "bg-gray-700 text-white"
-                      : "bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200"
-                  }`}
-                >
-                  {language === "ko" ? "전체" : "全体"}
-                </button>
-                {subCategoriesOfSelected.map((sub) => {
-                  const active = selectedSubCategory === sub.name_ja;
-                  const label = language === "ko" ? (sub.name_ko || sub.name_ja) : (sub.name_ja || sub.name_ko);
-                  const tooltip = language === "ko" ? sub.name_ja : sub.name_ko;
-                  return (
-                    <button
-                      key={sub.id}
-                      onClick={() => handleSubCategoryChange(sub.name_ja)}
-                      className={`px-2.5 py-0.5 text-xs rounded-full transition-colors whitespace-nowrap ${
-                        active
-                          ? "bg-gray-700 text-white"
-                          : "bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200"
-                      }`}
-                      title={tooltip !== label ? tooltip : undefined}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+            <CategoryFilter
+              language={language}
+              categories={subCategoriesOfSelected}
+              selected={selectedSubCategory}
+              onChange={handleSubCategoryChange}
+              label={language === "ko" ? "└ 하위" : "└ サブ"}
+              allLabel={language === "ko" ? "전체" : "全体"}
+              indent
+            />
           )}
 
           <div className="flex flex-wrap items-center gap-4">
