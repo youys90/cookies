@@ -392,64 +392,80 @@ export default function BulkNewProductsPage() {
             }`}
           >
             <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr_auto] gap-4 items-start">
-              {/* 이미지 드롭 영역 · 카드 순서 변경 드래그와 파일 drop 명확 구분 */}
-              <div
-                onDragOver={(e) => {
-                  // 카드 순서 변경 중이면 외부 drop 인디케이터 안 띄움
-                  if (rowDrag.from !== null) return;
-                  // 실제 파일 drag만 감지
-                  if (!e.dataTransfer.types.includes("Files")) return;
-                  e.preventDefault();
-                  setDragOverKey(row.key);
-                }}
-                onDragLeave={() => setDragOverKey(null)}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  setDragOverKey(null);
-                  // 카드 순서 변경 중이면 파일 추가 안 함 (중복 방지)
-                  if (rowDrag.from !== null) return;
-                  // 실제 파일이 아닌 drag는 무시 (브라우저의 이미지 요소 기본 dragging 등)
-                  if (!e.dataTransfer.types.includes("Files")) return;
-                  if (e.dataTransfer.files.length > 0) addImagesToRow(row.key, e.dataTransfer.files);
-                }}
-                className={`border-2 border-dashed rounded-lg p-3 min-h-[120px] cursor-pointer transition ${
-                  dragOverKey === row.key
-                    ? "border-blue-500 bg-blue-50"
-                    : "border-gray-200 hover:border-gray-400 bg-gray-50"
-                }`}
-              >
-                {row.images.length === 0 ? (
-                  <div className={`h-full min-h-[110px] ${sessionPool.length > 0 ? "grid grid-cols-2 gap-2" : ""}`}>
-                    {/* 새 사진 업로드 · 세션 풀 비어있을 땐 단독 · 있을 땐 좌 */}
-                    <label className="cursor-pointer flex flex-col items-center justify-center text-center border-2 border-dashed border-gray-300 bg-white rounded hover:border-gray-500 hover:bg-gray-50 transition h-full">
-                      <svg className="w-8 h-8 text-gray-400 mb-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                        <path d="M12 15V3M7 8l5-5 5 5M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
-                      </svg>
-                      <p className="text-xs text-gray-600 font-medium leading-tight">사진 올리기</p>
-                      <p className="text-[10px] text-gray-400 mt-0.5">드래그 또는 클릭</p>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        className="hidden"
-                        onChange={(e) => e.target.files && addImagesToRow(row.key, e.target.files)}
-                      />
-                    </label>
-                    {/* 세션 풀에서 선택 · 담긴 사진이 있을 때만 */}
-                    {sessionPool.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => setPickerRowKey(row.key)}
-                        className="flex flex-col items-center justify-center text-center rounded transition bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-sm hover:shadow-md hover:-translate-y-0.5 border-2 border-emerald-500"
-                        title={`담아둔 사진 ${sessionPool.length}장에서 골라 이 상품에 넣기`}
-                      >
-                        <span className="text-2xl leading-none mb-0.5">📸</span>
-                        <p className="text-[11px] font-semibold leading-tight">사진 고르기</p>
-                        <p className="text-[9px] mt-0.5 opacity-90">담아둔 {sessionPool.length}장</p>
-                      </button>
-                    )}
-                  </div>
-                ) : (
+              {/* 이미지 영역 · 빈 상태는 단일 클릭+드롭 박스 · 채워지면 그리드 */}
+              {row.images.length === 0 ? (
+                <div className={`min-h-[92px] ${sessionPool.length > 0 ? "grid grid-cols-2 gap-2" : ""}`}>
+                  {/* 클릭+드래그 통합 · 하나의 박스 = 하나의 반응 영역 */}
+                  <label
+                    onDragOver={(e) => {
+                      if (rowDrag.from !== null) return;
+                      if (!e.dataTransfer.types.includes("Files")) return;
+                      e.preventDefault();
+                      setDragOverKey(row.key);
+                    }}
+                    onDragLeave={() => setDragOverKey(null)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setDragOverKey(null);
+                      if (rowDrag.from !== null) return;
+                      if (!e.dataTransfer.types.includes("Files")) return;
+                      if (e.dataTransfer.files.length > 0) addImagesToRow(row.key, e.dataTransfer.files);
+                    }}
+                    className={`cursor-pointer flex flex-col items-center justify-center text-center border-2 border-dashed rounded-lg transition py-4 px-3 min-h-[92px] ${
+                      dragOverKey === row.key
+                        ? "border-blue-500 bg-blue-50"
+                        : "border-gray-300 bg-gray-50 hover:border-gray-500 hover:bg-white"
+                    }`}
+                  >
+                    <svg className="w-7 h-7 text-gray-400 mb-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <path d="M12 15V3M7 8l5-5 5 5M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
+                    </svg>
+                    <p className="text-xs text-gray-700 font-medium leading-tight">사진 올리기</p>
+                    <p className="text-[10px] text-gray-400 mt-0.5">드래그 또는 클릭</p>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => e.target.files && addImagesToRow(row.key, e.target.files)}
+                    />
+                  </label>
+                  {/* 세션 풀에서 선택 · 담긴 사진이 있을 때만 우측 노출 */}
+                  {sessionPool.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setPickerRowKey(row.key)}
+                      className="flex flex-col items-center justify-center text-center rounded-lg transition bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-sm hover:shadow-md hover:-translate-y-0.5 border-2 border-emerald-500 py-4 px-3 min-h-[92px]"
+                      title={`담아둔 사진 ${sessionPool.length}장에서 골라 이 상품에 넣기`}
+                    >
+                      <span className="text-2xl leading-none mb-0.5">📸</span>
+                      <p className="text-[11px] font-semibold leading-tight">사진 고르기</p>
+                      <p className="text-[9px] mt-0.5 opacity-90">담아둔 {sessionPool.length}장</p>
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div
+                  onDragOver={(e) => {
+                    if (rowDrag.from !== null) return;
+                    if (!e.dataTransfer.types.includes("Files")) return;
+                    e.preventDefault();
+                    setDragOverKey(row.key);
+                  }}
+                  onDragLeave={() => setDragOverKey(null)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setDragOverKey(null);
+                    if (rowDrag.from !== null) return;
+                    if (!e.dataTransfer.types.includes("Files")) return;
+                    if (e.dataTransfer.files.length > 0) addImagesToRow(row.key, e.dataTransfer.files);
+                  }}
+                  className={`border-2 border-dashed rounded-lg p-2.5 min-h-[92px] transition ${
+                    dragOverKey === row.key
+                      ? "border-blue-500 bg-blue-50"
+                      : "border-gray-200 bg-gray-50"
+                  }`}
+                >
                   <div className="grid grid-cols-3 gap-1.5">
                     {row.images.map((img, i) => {
                       const isDragging = rowDrag.rowKey === row.key && rowDrag.from === i;
@@ -500,23 +516,18 @@ export default function BulkNewProductsPage() {
                         onChange={(e) => e.target.files && addImagesToRow(row.key, e.target.files)}
                       />
                     </label>
-                    <button
-                      type="button"
-                      onClick={() => setPickerRowKey(row.key)}
-                      className={`aspect-square rounded flex flex-col items-center justify-center transition ${
-                        sessionPool.length === 0
-                          ? "border-2 border-dashed border-gray-200 text-gray-300 cursor-not-allowed"
-                          : "bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-sm hover:shadow-md hover:-translate-y-0.5 border-2 border-emerald-500"
-                      }`}
-                      disabled={sessionPool.length === 0}
-                      title={sessionPool.length === 0 ? "먼저 상단의 「사진 미리 담기」로 사진을 올려주세요" : `담아둔 사진 ${sessionPool.length}장에서 골라 이 상품에 넣기`}
-                    >
-                      <span className="text-lg leading-none">📸</span>
-                      <span className="text-[8px] mt-0.5 font-semibold">사진 고르기</span>
-                      {sessionPool.length > 0 && (
+                    {sessionPool.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setPickerRowKey(row.key)}
+                        className="aspect-square rounded flex flex-col items-center justify-center transition bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-sm hover:shadow-md hover:-translate-y-0.5 border-2 border-emerald-500"
+                        title={`담아둔 사진 ${sessionPool.length}장에서 골라 이 상품에 넣기`}
+                      >
+                        <span className="text-lg leading-none">📸</span>
+                        <span className="text-[8px] mt-0.5 font-semibold">사진 고르기</span>
                         <span className="text-[8px] leading-none mt-0.5 opacity-80">({sessionPool.length}장)</span>
-                      )}
-                    </button>
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
