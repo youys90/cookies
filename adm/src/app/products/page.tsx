@@ -47,7 +47,6 @@ const CSV_HEADER = [
   "카테고리",
   "하위 카테고리",
   "상품 설명",
-  "재고",
   "판매상태",
 ];
 
@@ -709,9 +708,6 @@ export default function ProductsPage() {
                   가격
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 tracking-wider">
-                  재고
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 tracking-wider">
                   상태
                 </th>
                 {viewMode === "detail" && (
@@ -792,23 +788,6 @@ export default function ProductsPage() {
                           {formatPrice(product.original_price)}
                         </p>
                       )}
-                    </td>
-                    <td className="px-6 py-4">
-                      <InlineEditCell
-                        value={product.stock ?? 0}
-                        type="number"
-                        min={0}
-                        suffix="개"
-                        format={(v) => String(v)}
-                        onSave={(v) => saveField(product.id, "stock", Number(v))}
-                        className={
-                          (product.stock || 0) === 0
-                            ? "text-red-600"
-                            : (product.stock || 0) <= 10
-                              ? "text-yellow-600"
-                              : "text-gray-600"
-                        }
-                      />
                     </td>
                     <td className="px-6 py-4">
                       <button

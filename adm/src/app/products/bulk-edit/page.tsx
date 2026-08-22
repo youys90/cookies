@@ -1,18 +1,22 @@
 "use client";
 
 // 상품 일괄 수정 (bulk-edit)
-// - 상품 관리 목록에서 여러 상품 체크 → "일괄수정" 버튼으로 진입
-// - 각 상품 · 편집 가능 필드 (이름/가격/정가/재고/카테고리/판매상태) 카드 UI
-// - 이미지는 개별 편집 페이지에서 (여기서는 텍스트 필드만 · 심플)
-// - 저장 시 · 여러 상품 동시 update
+// - bulk-new와 동일한 사진 편집 UX (드래그 재정렬 · 개별 업로드 · 세션 풀)
+// - 설명 · 자동번역까지 포함
+// - 사장님: "일괄등록 잘 만들어져 있으니 그거 따라가자"
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useRef, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import { useAdmLanguage } from "@/contexts/LanguageContext";
+import { translateKoJa } from "@/lib/translate";
 import FormActionBar from "@/components/FormActionBar";
+import ImageLibraryPicker from "@/components/ImageLibraryPicker";
+import { SESSION_KEYS, loadSession, saveSession } from "@/lib/sessionPersistence";
+
+interface ImageItem { file: File | null; preview: string; url?: string }
 
 interface Product {
   id: number;
@@ -25,9 +29,14 @@ interface Product {
   category_ja?: string | null;
   category_ko?: string | null;
   sub_category?: string | null;
+  description_ja?: string | null;
+  description_ko?: string | null;
   stock?: number | null;
   is_active?: boolean | null;
   image: string;
+  images?: string[] | null;
+  // 편집 상태 · UI 내부에서만
+  editImages?: ImageItem[];
 }
 
 function BulkEditInner() {
@@ -91,7 +100,8 @@ function BulkEditInner() {
           original_price: p.original_price ? Number(p.original_price) : null,
           category: p.category,
           sub_category: p.sub_category || null,
-          stock: p.stock !== null && p.stock !== undefined ? Number(p.stock) : null,
+          // 재고는 옵션 단위에서만 관리 · 상품 자체는 null (필요 시 별도 편집)
+          // stock: p.stock !== null && p.stock !== undefined ? Number(p.stock) : null,
           is_active: !!p.is_active,
         })
         .eq("id", p.id);
@@ -114,20 +124,32 @@ function BulkEditInner() {
   }
 
   return (
-    <div className="pb-8">
-      {/* 수정 모드 시각 구분 · 앰버 · 일괄 표기 */}
-      <div className="mb-6 relative pl-4 py-1 border-l-4 border-amber-500 bg-amber-50/40 rounded-r-lg">
-        <div className="absolute -left-1 top-0 bottom-0 w-1 bg-amber-500 rounded-full"></div>
-        <div className="flex items-center gap-2 flex-wrap py-1">
-          <h1 className="text-xl md:text-2xl font-medium text-gray-900">상품 일괄 수정</h1>
-          <span className="inline-flex items-center gap-1 bg-amber-500 text-white text-[11px] font-bold px-2.5 py-1 rounded-full shadow-sm tracking-wide">
-            ✏️ 일괄 수정
-          </span>
-          <span className="text-xs text-amber-800 bg-amber-100 border border-amber-200 px-2 py-0.5 rounded-full font-medium">
-            {products.length}개 선택
-          </span>
+    <div className="pb-8 -mx-8 -mt-8 px-8 pt-4 min-h-screen bg-gradient-to-br from-amber-50/60 via-white to-amber-50/30">
+      {/* 상단 얇은 앰버 스트라이프 · 수정 모드 확실히 */}
+      <div className="fixed top-0 left-64 right-0 h-1 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 z-30"></div>
+
+      {/* 큰 앰버 배너 · 수정 모드 · new/[id]와 동일한 시각 언어 */}
+      <div className="mb-6 relative overflow-hidden rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg">
+        <div className="absolute inset-0 opacity-10 pointer-events-none">
+          <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-white blur-3xl"></div>
         </div>
-        <p className="text-sm text-amber-800/70 mt-1">각 상품의 값을 확인·변경한 뒤 상단 저장 버튼을 누르세요</p>
+        <div className="relative flex items-center justify-between p-5 flex-wrap gap-3">
+          <div className="flex items-center gap-4">
+            <span className="text-4xl leading-none animate-pulse-slow">✏️</span>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-2xl font-bold">상품 일괄 수정</h1>
+                <span className="text-[11px] font-bold bg-white/20 backdrop-blur border border-white/30 px-2.5 py-0.5 rounded-full tracking-wider">EDIT</span>
+              </div>
+              <p className="text-xs text-amber-50/95 mt-1">기존 상품 여러 개를 · 한 화면에서 · 확인하고 수정</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs bg-white/20 backdrop-blur border border-white/30 px-3 py-1 rounded-full font-medium">
+              {products.length}개 선택
+            </span>
+          </div>
+        </div>
       </div>
 
 
@@ -177,15 +199,6 @@ function BulkEditInner() {
                     type="number"
                     value={p.original_price || ""}
                     onChange={(e) => updateField(p.id, "original_price", e.target.value ? Number(e.target.value) : null)}
-                    className="mt-1 w-full px-2 py-1 text-sm border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-[var(--color-brand)]"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] text-gray-500 uppercase tracking-wider">재고</label>
-                  <input
-                    type="number"
-                    value={p.stock ?? ""}
-                    onChange={(e) => updateField(p.id, "stock", e.target.value ? Number(e.target.value) : null)}
                     className="mt-1 w-full px-2 py-1 text-sm border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-[var(--color-brand)]"
                   />
                 </div>

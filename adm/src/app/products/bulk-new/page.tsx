@@ -348,7 +348,7 @@ export default function BulkNewProductsPage() {
         name_ko: row.nameKo,
         price: Number(row.price),
         original_price: row.originalPrice ? Number(row.originalPrice) : null,
-        stock: row.stock ? Number(row.stock) : null,
+        stock: null,
         category: row.categoryJa,
         category_ja: row.categoryJa,
         category_ko: catKo,
@@ -702,16 +702,6 @@ export default function BulkNewProductsPage() {
                     type="number"
                     value={row.originalPrice}
                     onChange={(e) => updateRow(row.key, { originalPrice: e.target.value })}
-                    placeholder="-"
-                    className="mt-1 w-full px-2.5 py-1.5 text-sm border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-gray-900"
-                  />
-                </div>
-                <div className="col-span-3 sm:col-span-1">
-                  <label className="text-[10px] text-gray-500 uppercase tracking-wider">재고</label>
-                  <input
-                    type="number"
-                    value={row.stock}
-                    onChange={(e) => updateRow(row.key, { stock: e.target.value })}
                     placeholder="-"
                     className="mt-1 w-full px-2.5 py-1.5 text-sm border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-gray-900"
                   />

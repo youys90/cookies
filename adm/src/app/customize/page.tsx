@@ -138,13 +138,19 @@ export default function CustomizePage() {
   };
 
   const openPreview = () => {
-    // 편집 중 config를 sessionStorage에 담아 shop이 preview 모드로 읽음
-    const payload = { config, ts: Date.now(), device: previewDevice };
+    // adm(3002)과 shop(3001)은 다른 origin · sessionStorage 공유 불가
+    // → config를 URL 파라미터로 전달 (Base64 · 데이터 크기 작음)
+    let encoded = "";
     try {
-      sessionStorage.setItem("shopUiPreviewDraft", JSON.stringify(payload));
-    } catch {}
-    // 모바일 미리보기 · 기기 크기 힌트 URL 파라미터로 전달
-    const params = new URLSearchParams({ preview: "draft", device: previewDevice });
+      encoded = btoa(unescape(encodeURIComponent(JSON.stringify(config))));
+    } catch (e) {
+      console.error("config 인코딩 실패:", e);
+    }
+    const params = new URLSearchParams({
+      preview: "draft",
+      device: previewDevice,
+      c: encoded,
+    });
     window.open(`${SHOP_URL}?${params.toString()}`, "_blank", "noopener");
   };
 

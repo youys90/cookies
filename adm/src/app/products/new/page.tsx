@@ -760,19 +760,6 @@ export default function NewProductPage() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              재고 수량
-            </label>
-            <input
-              type="number"
-              value={formData.stock}
-              onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-base"
-              placeholder="0"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
               상품 설명 (日本語)
             </label>
             <div className="flex gap-2">
