@@ -474,26 +474,52 @@ export async function parseXlsxToObjects(file: File): Promise<Record<string, str
   const ws = wb.worksheets[0];
   if (!ws) return [];
 
-  // 헤더 행 · 5행 (템플릿 규격) · 다만 임의 xlsx는 1행 가정
-  // 첫 유효 행 = 헤더 로 자동 탐지
+  // 헤더 행 자동 탐지 · 부분 매칭 · "상품명", "가격", "카테고리" 중 하나라도 포함된 셀이 있으면 헤더 행
+  // (템플릿 규격: 5행 · 임의 xlsx: 1행 · CSV → xlsx 변환: 1행)
+  const HEADER_KEYWORDS = ["상품명", "가격", "카테고리"];
   let headerRowIdx = -1;
-  const headerCandidates = ["상품명(일본어)", "상품명 (일본어)", "상품명(한국어)", "상품명 (한국어)", "가격", "카테고리"];
   ws.eachRow((row, rowNumber) => {
     if (headerRowIdx > 0) return;
     const values = row.values as (string | number | undefined)[];
     if (!values) return;
     const strs = values.map((v) => String(v ?? "").trim());
-    if (headerCandidates.some((h) => strs.includes(h))) headerRowIdx = rowNumber;
+    // 셀 텍스트에 키워드가 포함되어 있으면 헤더 행으로 인식
+    if (HEADER_KEYWORDS.some((kw) => strs.some((s) => s.includes(kw)))) {
+      headerRowIdx = rowNumber;
+    }
   });
   if (headerRowIdx < 0) return [];
 
-  // 헤더 배열 · "필수*" 표기 정리 · 공백 통일
+  // 헤더 배열 · "필수*", "(¥)", 공백 등 정리 → 대표 키로 정규화
   const headerRow = ws.getRow(headerRowIdx);
   const headers: string[] = [];
   headerRow.eachCell({ includeEmpty: false }, (cell, colNumber) => {
     const raw = String(cell.value ?? "").trim();
-    // "상품명 (일본어) *" → "상품명(일본어)" 로 정규화
-    const cleaned = raw.replace(/\s*\*\s*$/, "").replace(/\s*\(\s*/g, "(").replace(/\s*\)\s*/g, ")").trim();
+    // 정규화: 필수 * 제거 · (¥) 등 괄호 안 통화기호 제거 · 공백 정리
+    let cleaned = raw
+      .replace(/\s*\*\s*$/, "") // 끝의 " *" 제거
+      .replace(/\s*\([^)]*[¥$₩€£]\s*\)\s*/g, "") // (¥), (₩), ($) 등 통화 포함 괄호 삭제
+      .replace(/\s+/g, " ") // 연속 공백 하나로
+      .trim();
+    // 자주 쓰는 별칭 매핑
+    const aliases: Record<string, string> = {
+      "상품명": "상품명",
+      "상품 명": "상품명",
+      "상품명 (한국어)": "상품명",
+      "상품명(한국어)": "상품명",
+      "가격": "가격",
+      "판매가": "가격",
+      "정가": "정가",
+      "카테고리": "카테고리",
+      "하위 카테고리": "하위 카테고리",
+      "하위카테고리": "하위 카테고리",
+      "상품 설명": "상품 설명",
+      "상품설명": "상품 설명",
+      "설명": "상품 설명",
+      "재고": "재고",
+      "판매상태": "판매상태",
+    };
+    cleaned = aliases[cleaned] || cleaned;
     headers[colNumber - 1] = cleaned;
   });
 

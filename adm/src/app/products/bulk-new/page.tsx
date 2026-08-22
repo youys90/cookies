@@ -311,31 +311,48 @@ export default function BulkNewProductsPage() {
           {translateMsg && (
             <span className="text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-3 py-1 font-medium">{translateMsg}</span>
           )}
-          {/* 세션 이미지 풀 · 이번 세션에서 업로드한 사진만 · 각 행에서 재사용 */}
-          <div className="flex items-center gap-1.5 border border-[var(--color-brand)]/25 bg-[var(--color-brand)]/5 rounded-full pl-3 pr-1 py-0.5">
-            <span className="text-[11px] font-semibold text-[var(--color-brand-dk)]">📸 세션 풀</span>
-            <span className="text-[11px] text-gray-600">{sessionPool.length}장</span>
-            <button
-              type="button"
-              onClick={() => sessionBulkInputRef.current?.click()}
-              disabled={sessionUploading}
-              className="ml-1 px-2.5 py-1 text-[11px] bg-[var(--color-brand)] text-white rounded-full hover:bg-[var(--color-brand-dk)] font-medium disabled:opacity-50"
-              title="이번 세션 전용 이미지 풀에 여러 장 한 번에 업로드 · 각 행에서 재사용 가능"
-            >
-              {sessionUploading ? "업로드 중..." : "+ 일괄 업로드"}
-            </button>
-            <input
-              ref={sessionBulkInputRef}
-              type="file"
-              accept="image/*"
-              multiple
-              className="hidden"
-              onChange={(e) => {
-                if (e.target.files && e.target.files.length > 0) uploadToSessionPool(Array.from(e.target.files));
-                e.target.value = "";
-              }}
-            />
-          </div>
+          {/* 사진 미리 담아두기 · 이번 등록에서만 재사용 가능 · 눈에 확 띄는 디자인 */}
+          <button
+            type="button"
+            onClick={() => sessionBulkInputRef.current?.click()}
+            disabled={sessionUploading}
+            className={`group relative flex items-center gap-2.5 pl-3 pr-3.5 py-2 rounded-xl font-medium text-sm shadow-md transition-all disabled:opacity-60 ${
+              sessionPool.length === 0
+                ? "bg-gradient-to-br from-[var(--color-brand)] via-[#D6A490] to-[var(--color-brand-dk)] text-white hover:shadow-lg hover:-translate-y-0.5 animate-pulse-slow"
+                : "bg-gradient-to-br from-emerald-500 to-emerald-600 text-white hover:from-emerald-600 hover:to-emerald-700 hover:shadow-lg"
+            }`}
+            title={sessionPool.length === 0
+              ? "여러 장 사진을 한 번에 올려두면 · 아래 각 상품 행에서 클릭 한 번으로 골라 넣을 수 있어요"
+              : `이번 등록에 담아둔 사진 ${sessionPool.length}장 · 아래 상품 행에서 「사진 고르기」로 재사용 가능`}
+          >
+            {/* 아이콘 · 사진 여러 장 겹친 이미지 */}
+            <span className="text-xl leading-none">📸</span>
+            <div className="flex flex-col items-start leading-tight">
+              <span className="text-[13px] font-bold">
+                {sessionUploading ? "올리는 중..." : sessionPool.length === 0 ? "사진 미리 담기" : `담긴 사진 ${sessionPool.length}장`}
+              </span>
+              <span className="text-[10px] opacity-90">
+                {sessionPool.length === 0 ? "▼ 클릭해서 여러 장 한 번에 올리기" : "▼ 사진 더 담으려면 클릭"}
+              </span>
+            </div>
+            {/* 새로 담긴 사진 배지 (담긴 상태일 때 강조) */}
+            {sessionPool.length > 0 && (
+              <span className="ml-1 flex items-center justify-center min-w-[24px] h-6 px-1.5 bg-white/25 backdrop-blur rounded-full text-[11px] font-bold border border-white/40">
+                {sessionPool.length}
+              </span>
+            )}
+          </button>
+          <input
+            ref={sessionBulkInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              if (e.target.files && e.target.files.length > 0) uploadToSessionPool(Array.from(e.target.files));
+              e.target.value = "";
+            }}
+          />
           <button
             onClick={bulkTranslate}
             disabled={translating || uploading}
@@ -469,12 +486,19 @@ export default function BulkNewProductsPage() {
                     <button
                       type="button"
                       onClick={() => setPickerRowKey(row.key)}
-                      className="aspect-square border-2 border-dashed border-[var(--color-brand)]/40 rounded flex flex-col items-center justify-center text-[var(--color-brand)] hover:bg-[var(--color-brand)]/5 disabled:opacity-30"
+                      className={`aspect-square rounded flex flex-col items-center justify-center transition ${
+                        sessionPool.length === 0
+                          ? "border-2 border-dashed border-gray-200 text-gray-300 cursor-not-allowed"
+                          : "bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-sm hover:shadow-md hover:-translate-y-0.5 border-2 border-emerald-500"
+                      }`}
                       disabled={sessionPool.length === 0}
-                      title={sessionPool.length === 0 ? "먼저 상단 「+ 일괄 업로드」로 이미지 풀에 담아주세요" : "세션 이미지 풀에서 선택"}
+                      title={sessionPool.length === 0 ? "먼저 상단의 「사진 미리 담기」로 사진을 올려주세요" : `담아둔 사진 ${sessionPool.length}장에서 골라 이 상품에 넣기`}
                     >
-                      <span className="text-base leading-none">📸</span>
-                      <span className="text-[8px] mt-0.5">세션 풀</span>
+                      <span className="text-lg leading-none">📸</span>
+                      <span className="text-[8px] mt-0.5 font-semibold">사진 고르기</span>
+                      {sessionPool.length > 0 && (
+                        <span className="text-[8px] leading-none mt-0.5 opacity-80">({sessionPool.length}장)</span>
+                      )}
                     </button>
                   </div>
                 )}

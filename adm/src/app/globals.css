@@ -36,3 +36,12 @@ body {
 .animate-fade-in {
   animation: admFadeIn 0.35s ease-out both;
 }
+
+/* 세션 풀 · 눈에 띄게 하는 은은한 pulse */
+@keyframes admPulseSlow {
+  0%, 100% { box-shadow: 0 4px 12px -2px rgba(200, 144, 127, 0.35); transform: translateY(0); }
+  50%      { box-shadow: 0 6px 20px -2px rgba(200, 144, 127, 0.6); transform: translateY(-1px); }
+}
+.animate-pulse-slow {
+  animation: admPulseSlow 2.4s ease-in-out infinite;
+}
