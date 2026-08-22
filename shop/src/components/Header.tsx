@@ -6,19 +6,28 @@ import { useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useCart } from "@/contexts/CartContext";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useShopUi } from "@/contexts/ShopUiContext";
 
 export default function Header() {
   const { totalItems } = useCart();
   const { t, language } = useLanguage();
+  const { isInnerFrame, previewPage, config: shopUi } = useShopUi();
   const pathname = usePathname();
   const sp = useSearchParams();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  // 슬림바 메시지 (반복용 - 한 셋트를 2벌 렌더해서 무한 루프)
-  // ⚠ 정책: 조건 없이 전 상품 배송비 + 통관보장 무료 (2026-08 개정)
-  const promoMsgs = language === "ja"
-    ? ["2026 S/S NEW RELEASE", "2万円以上ご購入で送料無料", "2万円以上ご購入で通関保証無料"]
-    : ["2026 S/S NEW RELEASE", "2만엔 이상 구매 시 배송비 무료", "2만엔 이상 구매 시 통관보장 무료"];
+  // 관리자 미리보기 iframe · 「메인 상단」 편집 중이면 헤더 노출 (편집 대상)
+  // 나머지 편집 대상 (상품 목록/상품 상세) 에서는 · 헤더 숨김 (상단 스크롤 최소화)
+  if (isInnerFrame && previewPage !== "mainTop") return null;
+
+  // 슬림바 메시지 · 사장님이 「화면 꾸미기」에서 설정한 문구 우선 · 없으면 언어별 기본값
+  const configuredMsgs = (shopUi.mainTop?.promoBarMessages || []).filter((s) => s.trim().length > 0);
+  const promoMsgs = configuredMsgs.length > 0
+    ? configuredMsgs
+    : language === "ja"
+      ? ["2026 S/S NEW RELEASE", "2万円以上ご購入で送料無料", "2万円以上ご購入で通関保証無料"]
+      : ["2026 S/S NEW RELEASE", "2만엔 이상 구매 시 배송비 무료", "2만엔 이상 구매 시 통관보장 무료"];
+  const promoBarEnabled = shopUi.mainTop?.promoBarEnabled !== false;
 
   // 메뉴 정의 + active 매처 (현재 URL/쿼리 기준) - 3개 메뉴 (SHOP/REVIEW/BRAND)
   // 리뷰 진입점: 헤더 REVIEW 메뉴 (2026-08 판석이형 피드백 반영)
@@ -34,16 +43,18 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-50 bg-white">
-      {/* ─── 상단 슬림바 (텍스트 무한 루프) ─── */}
-      <div className="bg-[var(--color-text)] text-white text-[11px] tracking-widest h-8 flex items-center overflow-hidden">
-        <div className="marquee-track">
-          {Array.from({ length: 2 }).flatMap((_, dup) =>
-            promoMsgs.map((m, i) => (
-              <span key={`${dup}-${i}`} className="opacity-90">{m}</span>
-            ))
-          )}
+      {/* ─── 상단 슬림바 (텍스트 무한 루프) · 사장님 설정에 따라 표시/숨김 ─── */}
+      {promoBarEnabled && (
+        <div className="bg-[var(--color-text)] text-white text-[11px] tracking-widest h-8 flex items-center overflow-hidden">
+          <div className="marquee-track">
+            {Array.from({ length: 2 }).flatMap((_, dup) =>
+              promoMsgs.map((m, i) => (
+                <span key={`${dup}-${i}`} className="opacity-90">{m}</span>
+              ))
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ─── 메인 헤더 ─── */}
       <div className="border-b border-[var(--color-line)]">

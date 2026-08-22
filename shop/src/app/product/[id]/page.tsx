@@ -46,7 +46,7 @@ export default function ProductDetail() {
   const { addToCart } = useCart();
   const router = useRouter();
   const { language, t, formatPrice } = useLanguage();
-  const { config: shopUi } = useShopUi();
+  const { config: shopUi, isInnerFrame, isPreview } = useShopUi();
   const detailUi = shopUi.productDetail;
   const productId = Number(params.id);
   const [product, setProduct] = useState<Product | null>(null);
@@ -168,7 +168,16 @@ export default function ProductDetail() {
   const galleryImgs: string[] = (() => {
     const arr = Array.isArray(product.images) ? (product.images as string[]) : [];
     const filtered = arr.filter((u) => typeof u === "string" && u.length > 0);
-    return filtered.length > 0 ? filtered : product.image ? [product.image] : [];
+    const base = filtered.length > 0 ? filtered : product.image ? [product.image] : [];
+    // 관리자 「화면 꾸미기」 미리보기 (인라인 iframe · 새 탭 미리보기 모두) · 사장님이 설정한 썸네일 셀 수만큼 이미지 반복 채워서 시각화
+    // 실제 손님 접속 (preview 파라미터 없음) 에서는 원본 이미지 그대로
+    if ((isInnerFrame || isPreview) && base.length > 0) {
+      const needed = Math.max(base.length, shopUi.productDetail.thumbColumns * shopUi.productDetail.thumbMaxRows);
+      const padded: string[] = [];
+      for (let i = 0; i < needed; i++) padded.push(base[i % base.length]);
+      return padded;
+    }
+    return base;
   })();
   const currentImg = galleryImgs[imgIdx] || product.image || "";
 
@@ -206,8 +215,27 @@ export default function ProductDetail() {
 
   return (
     <div className="bg-white text-[var(--color-text)]">
-      {/* breadcrumb + 뒤로가기 */}
-      <nav className="max-w-[1400px] mx-auto px-4 lg:px-8 pt-6 pb-3">
+      {/* PC 이상 · 플로팅 원형 뒤로가기 · 좌측 중앙 · 스크롤 무관 항상 노출 */}
+      <button
+        type="button"
+        onClick={() => {
+          if (typeof window !== "undefined" && window.history.length > 1 && document.referrer && new URL(document.referrer).host === window.location.host) {
+            router.back();
+          } else {
+            router.push("/");
+          }
+        }}
+        className="hidden md:flex fixed left-6 top-1/2 -translate-y-1/2 z-40 w-12 h-12 items-center justify-center rounded-full bg-black text-white shadow-2xl hover:bg-gray-800 hover:scale-105 transition"
+        aria-label={language === "ja" ? "戻る" : "뒤로가기"}
+        title={language === "ja" ? "戻る" : "뒤로가기"}
+      >
+        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+
+      {/* breadcrumb + 뒤로가기 · sticky로 스크롤 후에도 접근 가능 */}
+      <nav className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-[var(--color-line-soft)] max-w-[1400px] mx-auto px-4 lg:px-8 py-3">
         <div className="flex items-center justify-between gap-4">
           <ol className="flex items-center gap-2 text-[11px] tracking-[0.1em] text-[var(--color-text-mute)] min-w-0 flex-1">
             <li><Link href="/" className="hover:text-[var(--color-text)]">HOME</Link></li>
@@ -241,6 +269,7 @@ export default function ProductDetail() {
           {/* ─── 좌: 이미지 영역 ─── */}
           <div>
             <div className="relative aspect-square bg-[var(--color-bg-soft)] overflow-hidden">
+              {/* 이미지 위 오버레이 뒤로가기 제거 · 사진 조작 실수 방지 · breadcrumb 우측 뒤로가기 버튼 사용 */}
               {currentImg && (
                 <Image
                   src={currentImg}

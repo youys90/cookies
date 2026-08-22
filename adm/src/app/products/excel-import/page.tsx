@@ -9,15 +9,21 @@
 // - 카테고리(한국어) → DB 매핑 → name_ja/category
 // - 상품명·설명(한국어) → 자동 번역 → name_ja/description_ja
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { translateKoJa } from "@/lib/translate";
 import { downloadProductTemplate, parseXlsxToObjects } from "@/lib/xlsxTemplate";
 import { parseCsvToObjects } from "@/lib/csv";
 import { CSV_HEADER_MAP } from "../page";
 import FormActionBar from "@/components/FormActionBar";
+import DraftSaveButton from "@/components/DraftSaveButton";
+import { upsertDraft, listDrafts } from "@/lib/adminDrafts";
+
+const PAGE_KEY = "excel-import";
+const PAGE_LABEL = "엑셀 일괄 등록";
 
 interface PoolItem {
   url: string;
@@ -53,7 +59,7 @@ interface CategoryEntry {
   parent_id: number | null;
 }
 
-export default function ExcelImportPage() {
+function ExcelImportInner() {
   const [pool, setPool] = useState<PoolItem[]>([]);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [rows, setRows] = useState<ParsedRow[]>([]);
@@ -64,6 +70,39 @@ export default function ExcelImportPage() {
   const [downloadingTpl, setDownloadingTpl] = useState(false);
   const excelInputRef = useRef<HTMLInputElement>(null);
   const imgInputRef = useRef<HTMLInputElement>(null);
+
+  // 임시저장 · adminDrafts 시스템 · 명시 저장만 · draft 파라미터로 이어서 편집
+  const [currentDraftId, setCurrentDraftId] = useState<string | null>(null);
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const [savedTick, setSavedTick] = useState(0);
+  const sp = useSearchParams();
+  const requestedDraftId = sp.get("draft");
+
+  useEffect(() => {
+    if (!requestedDraftId) return;
+    const all = listDrafts(PAGE_KEY);
+    const d = all.find((x) => x.id === requestedDraftId);
+    if (d && d.data && typeof d.data === "object") {
+      const data = d.data as { pool?: PoolItem[]; rows?: ParsedRow[]; fileName?: string; picked?: string[] };
+      if (Array.isArray(data.pool)) setPool(data.pool);
+      if (Array.isArray(data.rows)) setRows(data.rows);
+      if (typeof data.fileName === "string") setFileName(data.fileName);
+      if (Array.isArray(data.picked)) setPicked(new Set(data.picked));
+      setCurrentDraftId(d.id);
+    }
+  }, [requestedDraftId]);
+
+  const manualSave = () => {
+    const d = upsertDraft({
+      id: currentDraftId || undefined,
+      pageKey: PAGE_KEY,
+      pageLabel: PAGE_LABEL,
+      data: { pool, rows, fileName, picked: Array.from(picked) },
+    });
+    setCurrentDraftId(d.id);
+    setLastSavedAt(new Date());
+    setSavedTick((n) => n + 1);
+  };
 
   useEffect(() => {
     (async () => {
@@ -291,6 +330,11 @@ export default function ExcelImportPage() {
     let ok = 0;
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i];
+      // 이미 등록 완료된 행은 스킵 · 중복 등록 방지 (사장님 지적)
+      if (r.status === "success") {
+        setPhase(`${i + 1} / ${rows.length} · 이미 등록됨 · 스킵`);
+        continue;
+      }
       setPhase(`${i + 1} / ${rows.length} · ${r.name_ko.slice(0, 20)}`);
       // 검증
       if (!r.name_ko) { setRows((prev) => prev.map((x) => x.key === r.key ? { ...x, status: "failed", error: "상품명이 비어있어요" } : x)); continue; }
@@ -374,6 +418,9 @@ export default function ExcelImportPage() {
           <p className="text-sm text-gray-500 mt-1">
             상품 이미지와 작성한 엑셀 파일을 올려주세요. 내용을 확인한 뒤 상품을 한꺼번에 등록할 수 있습니다.
           </p>
+          <div className="mt-3">
+            <DraftSaveButton onSave={manualSave} lastSavedAt={lastSavedAt} savedTick={savedTick} />
+          </div>
         </div>
         {phase && <div className="text-xs text-gray-600 self-center">{phase}</div>}
       </div>
@@ -666,15 +713,7 @@ export default function ExcelImportPage() {
                                       placeholder="추가가격"
                                       className="w-24 px-2 py-1 text-xs border border-gray-200 rounded"
                                     />
-                                    <span className="text-[10px] text-gray-500">재고</span>
-                                    <input
-                                      type="number"
-                                      value={opt.stock}
-                                      onChange={(e) => updateRowOption(r.key, oi, { stock: Number(e.target.value) })}
-                                      onClick={(e) => e.stopPropagation()}
-                                      placeholder="재고"
-                                      className="w-16 px-2 py-1 text-xs border border-gray-200 rounded"
-                                    />
+                                    {/* 재고 필드 · 사장님 요청으로 UI 숨김 · 저장 시 기본 99로 */}
                                     <button
                                       type="button"
                                       onClick={(e) => { e.stopPropagation(); removeRowOption(r.key, oi); }}
@@ -709,5 +748,13 @@ export default function ExcelImportPage() {
         }}
       />
     </div>
+  );
+}
+
+export default function ExcelImportPage() {
+  return (
+    <Suspense fallback={<div className="p-10 text-center text-gray-500">로딩 중...</div>}>
+      <ExcelImportInner />
+    </Suspense>
   );
 }

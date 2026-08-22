@@ -14,9 +14,13 @@ interface Ctx {
   loaded: boolean;
   isPreview: boolean;
   previewDevice: "desktop" | "mobile";
+  /** 관리자 미리보기용 iframe에서 렌더되는 중 · 헤더/히어로/공지 등 상단 요소 숨김 */
+  isInnerFrame: boolean;
+  /** 미리보기에서 편집 중인 대상 · 관련 영역만 강조 · 나머지 placeholder */
+  previewPage: "list" | "detail" | "mainTop" | null;
 }
 
-const ShopUiCtx = createContext<Ctx>({ config: DEFAULT_CONFIG, loaded: false, isPreview: false, previewDevice: "desktop" });
+const ShopUiCtx = createContext<Ctx>({ config: DEFAULT_CONFIG, loaded: false, isPreview: false, previewDevice: "desktop", isInnerFrame: false, previewPage: null });
 
 export function useShopUi() { return useContext(ShopUiCtx); }
 
@@ -25,6 +29,8 @@ export function ShopUiProvider({ children }: { children: ReactNode }) {
   const [loaded, setLoaded] = useState(false);
   const [isPreview, setIsPreview] = useState(false);
   const [previewDevice, setPreviewDevice] = useState<"desktop" | "mobile">("desktop");
+  const [isInnerFrame, setIsInnerFrame] = useState(false);
+  const [previewPage, setPreviewPage] = useState<"list" | "detail" | "mainTop" | null>(null);
 
   useEffect(() => {
     // 미리보기 모드 우선
@@ -33,7 +39,11 @@ export function ShopUiProvider({ children }: { children: ReactNode }) {
       const preview = params.get("preview");
       const device = params.get("device");
       const encoded = params.get("c");
+      const inner = params.get("innerFrame");
+      const pv = params.get("previewPage");
       if (device === "mobile") setPreviewDevice("mobile");
+      if (inner === "1") setIsInnerFrame(true);
+      if (pv === "list" || pv === "detail" || pv === "mainTop") setPreviewPage(pv);
       if (preview === "draft") {
         // 1) URL 파라미터 c (Base64) 우선 · adm과 origin이 달라 sessionStorage 불가 시
         if (encoded) {
@@ -92,24 +102,34 @@ export function ShopUiProvider({ children }: { children: ReactNode }) {
   }, [config]);
 
   return (
-    <ShopUiCtx.Provider value={{ config, loaded, isPreview, previewDevice }}>
-      {isPreview && (
-        <div className="sticky top-0 z-50 bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 text-white shadow-lg">
-          <div className="max-w-6xl mx-auto flex items-center justify-between gap-3 px-4 py-2">
-            <div className="flex items-center gap-2 font-bold text-sm">
-              <span className="animate-pulse">🔍</span>
-              <span>미리보기 모드</span>
-              <span className="text-amber-100">·</span>
-              <span>{previewDevice === "mobile" ? "📱 모바일 (390px)" : "🖥 PC"}</span>
-            </div>
-            <div className="text-[11px] text-amber-100">
-              편집 중 화면입니다 · 실제 매장에는 아직 반영되지 않았어요
+    <ShopUiCtx.Provider value={{ config, loaded, isPreview, previewDevice, isInnerFrame, previewPage }}>
+      {isPreview && !isInnerFrame && (
+        <>
+          {/* 상단 스티키 배너 · 눈에 확 띄는 미리보기 표시 (실제 매장과 오해 방지) */}
+          <div className="sticky top-0 z-[100] bg-gradient-to-r from-amber-500 via-orange-500 to-amber-500 text-white shadow-2xl border-b-4 border-orange-700 animate-pulse-slow">
+            <div className="max-w-6xl mx-auto flex items-center justify-between gap-3 px-4 py-3">
+              <div className="flex items-center gap-2 font-black text-base">
+                <span className="text-xl animate-bounce">🔍</span>
+                <span className="tracking-widest">MIRIBOGI · 미리보기 · PREVIEW</span>
+                <span className="text-amber-100">·</span>
+                <span>{previewDevice === "mobile" ? "📱 모바일 (390px)" : "🖥 PC"}</span>
+              </div>
+              <div className="text-xs font-bold bg-white/20 backdrop-blur border border-white/40 rounded-full px-3 py-1">
+                ⚠ 편집 중 화면 · 실제 매장 아님
+              </div>
             </div>
           </div>
-        </div>
+          {/* 화면 테두리 · 미리보기 상태를 지속 시각화 */}
+          <div className="fixed inset-0 pointer-events-none z-[9999] border-4 border-amber-500 animate-pulse-slow" style={{ boxShadow: "inset 0 0 0 3px rgba(255,255,255,0.7)" }} />
+          {/* 좌측 하단 플로팅 뱃지 */}
+          <div className="fixed bottom-4 left-4 z-[9999] bg-amber-500 text-white px-3 py-2 rounded-lg shadow-2xl flex items-center gap-2 border-2 border-white">
+            <span className="text-sm font-black">🔍 미리보기</span>
+            <span className="text-[10px] opacity-90">실제 매장 아님</span>
+          </div>
+        </>
       )}
       {/* 모바일 미리보기 · 실제 매장은 원래대로 렌더 · 폭만 안내 */}
-      {isPreview && previewDevice === "mobile" && (
+      {isPreview && !isInnerFrame && previewDevice === "mobile" && (
         <div className="fixed top-11 left-1/2 -translate-x-1/2 z-40 px-3 py-1 bg-blue-500 text-white text-[10px] font-medium rounded-full shadow pointer-events-none">
           📱 진짜 모바일 화면으로 보려면 · 브라우저 창을 좁게 조정하거나 · 개발자 도구 (F12) → 모바일 뷰
         </div>

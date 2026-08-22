@@ -13,6 +13,12 @@ import ImageLibraryPicker from "@/components/ImageLibraryPicker";
 import FormActionBar from "@/components/FormActionBar";
 import { SESSION_KEYS, loadSession, saveSession, clearSession, clearManySessions } from "@/lib/sessionPersistence";
 import DraftSaveButton from "@/components/DraftSaveButton";
+import { upsertDraft, listDrafts } from "@/lib/adminDrafts";
+
+const PAGE_KEY = "bulk-new";
+const PAGE_LABEL = "상품 일괄 등록";
+import { downloadProductTemplate, parseXlsxToObjects } from "@/lib/xlsxTemplate";
+import { parseCsvToObjects } from "@/lib/csv";
 
 const categoriesJa = [
   "アクセサリー",
@@ -35,6 +41,13 @@ const categoriesKo = [
   "➡ Premium High-Quality ✨",
 ];
 
+interface RowOption {
+  option_name: string;
+  additional_price: number;
+  stock: number;
+  is_active: boolean;
+}
+
 interface Row {
   key: number;
   images: { file: File | null; preview: string; url?: string }[];
@@ -48,6 +61,7 @@ interface Row {
   descriptionJa: string;
   descriptionKo: string;
   isActive: boolean;
+  options: RowOption[];
   status?: "pending" | "uploading" | "ok" | "error";
   error?: string;
 }
@@ -68,6 +82,7 @@ function makeRow(key: number): Row {
     descriptionJa: "",
     descriptionKo: "",
     isActive: true,
+    options: [],
     status: "pending",
   };
 }
@@ -141,10 +156,42 @@ export default function BulkNewProductsPage() {
     return () => clearTimeout(t);
   }, [rows, uploading, autoSaveEnabled]);
 
-  // 「임시저장」 버튼 · 즉시 저장 (수동)
+  // 「임시저장」 버튼 · 세션(브라우저 유지) + adminDrafts(임시저장 목록 페이지에서 관리) 동시 저장
+  const currentDraftIdRef = useRef<string | null>(null);
+
+  // 「저장한 목록 불러오기」 · 이 페이지 (bulk-new) 임시저장만 필터해서 팝업
+  const [showDraftListModal, setShowDraftListModal] = useState(false);
+  const [draftList, setDraftList] = useState<Array<{ id: string; title: string; updatedAt: number; data: unknown }>>([]);
+  const openDraftList = () => {
+    const all = listDrafts(PAGE_KEY);
+    setDraftList(all.map((d) => ({ id: d.id, title: d.title, updatedAt: d.updatedAt, data: d.data })));
+    setShowDraftListModal(true);
+  };
+  const loadDraft = (draftId: string) => {
+    const d = draftList.find((x) => x.id === draftId);
+    if (!d) return;
+    const data = d.data as { rows?: SerializableRow[]; pool?: string[] } | undefined;
+    if (Array.isArray(data?.rows) && data.rows.length > 0) {
+      setRows(fromSerializable(data.rows));
+      // key 충돌 방지 · nextKeyRef 갱신
+      const maxKey = Math.max(...data.rows.map((r) => r.key), 0);
+      nextKeyRef.current = Math.max(nextKeyRef.current, maxKey + 1);
+    }
+    if (Array.isArray(data?.pool)) setSessionPool(data.pool);
+    currentDraftIdRef.current = draftId;
+    setShowDraftListModal(false);
+  };
+
   const manualSave = () => {
     saveSession(SESSION_KEYS.BULK_NEW_ROWS, toSerializable(rows));
     saveSession(SESSION_KEYS.IMAGE_POOL, sessionPool);
+    const d = upsertDraft({
+      id: currentDraftIdRef.current || undefined,
+      pageKey: PAGE_KEY,
+      pageLabel: PAGE_LABEL,
+      data: { rows: toSerializable(rows), pool: sessionPool },
+    });
+    currentDraftIdRef.current = d.id;
     setLastSavedAt(new Date());
     setSavedTick((n) => n + 1);
   };
@@ -183,6 +230,150 @@ export default function BulkNewProductsPage() {
 
   const addRow = () => {
     setRows((prev) => [...prev, makeRow(nextKeyRef.current++)]);
+  };
+
+  // ── 엑셀 업로드 (excel-import 기능 통합) ─────────────────────
+  const [showExcelModal, setShowExcelModal] = useState(false);
+  const [downloadingTpl, setDownloadingTpl] = useState(false);
+  const [excelParsing, setExcelParsing] = useState(false);
+  const [excelMsg, setExcelMsg] = useState<string>("");
+  const excelInputRef = useRef<HTMLInputElement>(null);
+
+  const downloadTemplate = async () => {
+    setDownloadingTpl(true);
+    try {
+      if (topCats.length > 0) {
+        // DB 상위/하위 트리 조립 · 상위 선택 시 · 해당 하위만 드롭다운 (종속 드롭다운)
+        const tree = topCats.map((t) => ({
+          top: t.name_ko,
+          subs: liveCategories.filter((c) => c.parent_id === t.id).map((c) => c.name_ko),
+        }));
+        await downloadProductTemplate({ categoryTree: tree });
+      } else {
+        await downloadProductTemplate({ topCategories: categoriesKo });
+      }
+    } catch (e) {
+      alert("양식 다운로드 실패: " + String(e));
+    }
+    setDownloadingTpl(false);
+  };
+
+  // Row가 비어있는지 (사용자가 손대지 않았는지) 판정
+  const isRowEmpty = (r: Row) =>
+    !r.nameJa.trim() && !r.nameKo.trim() && r.images.length === 0 &&
+    !r.price.trim() && !r.originalPrice.trim() &&
+    !r.descriptionJa.trim() && !r.descriptionKo.trim() && r.options.length === 0;
+
+  // 파싱된 raw 데이터 → Row 로 변환
+  const rawToRow = (raw: Record<string, string>, key: number): Row => {
+    const norm = (s: string) => s.replace(/\s+/g, "").replace(/[()（）]/g, "");
+    const pick = (candidates: string[]): string => {
+      for (const cand of candidates) {
+        for (const k of Object.keys(raw)) {
+          if (norm(k) === norm(cand)) return String(raw[k] ?? "").trim();
+        }
+      }
+      return "";
+    };
+    const nameKo = pick(["상품명", "商品名", "name_ko", "name"]);
+    const priceStr = pick(["가격", "판매가", "price"]);
+    const origStr = pick(["정가", "original_price"]);
+    const catKo = pick(["카테고리", "category"]);
+    const subKo = pick(["하위카테고리", "sub_category"]);
+    const descKo = pick(["상품설명", "description"]);
+    const saleStr = pick(["판매상태", "판매", "status", "is_active"]);
+    // 옵션 · 쉼표(,) 구분 · 옵션명과 추가금액 · 순서대로 매칭
+    const optNamesStr = pick(["옵션명", "option_names", "options"]);
+    const optPricesStr = pick(["옵션추가금액", "옵션가격", "option_prices"]);
+    const optNames = optNamesStr ? optNamesStr.split(/[,、，]/).map((s) => s.trim()).filter(Boolean) : [];
+    const optPrices = optPricesStr ? optPricesStr.split(/[,、，]/).map((s) => Number(s.replace(/[^\d-]/g, "")) || 0) : [];
+    const parsedOptions: RowOption[] = optNames.map((n, i) => ({
+      option_name: n,
+      additional_price: optPrices[i] || 0,
+      stock: 99,
+      is_active: true,
+    }));
+    // 한국어 카테고리명 → 일본어명 매핑 (DB 기준 · 없으면 하드코딩 fallback)
+    const findCatJa = (koName: string): string => {
+      const dbCat = liveCategories.find((c) => c.parent_id === null && c.name_ko === koName);
+      if (dbCat) return dbCat.name_ja;
+      const idx = categoriesKo.indexOf(koName);
+      if (idx >= 0) return categoriesJa[idx];
+      return categoriesJa[0];
+    };
+    const catJa = catKo ? findCatJa(catKo) : categoriesJa[0];
+    const subCatJa = subKo || "";
+    const isActive = !saleStr || /^(on|✓|판매|판매중|active|true|1)$/i.test(saleStr.trim());
+    return {
+      key,
+      images: [],
+      nameJa: "",
+      nameKo,
+      categoryJa: catJa,
+      subCategoryJa: subCatJa,
+      price: priceStr.replace(/[^\d]/g, ""),
+      originalPrice: origStr.replace(/[^\d]/g, ""),
+      stock: "",
+      descriptionJa: "",
+      descriptionKo: descKo,
+      isActive,
+      options: parsedOptions,
+      status: "pending",
+    };
+  };
+
+  const handleExcelFile = async (file: File) => {
+    setExcelParsing(true);
+    setExcelMsg("");
+    const nm = file.name.toLowerCase();
+    let parsed: Record<string, string>[] = [];
+    try {
+      if (nm.endsWith(".xlsx") || nm.endsWith(".xls")) parsed = await parseXlsxToObjects(file);
+      else parsed = parseCsvToObjects(await file.text());
+    } catch (e) {
+      setExcelParsing(false);
+      alert("파일을 읽지 못했어요. 엑셀 양식이 맞는지 확인해주세요.\n\n오류: " + String(e));
+      return;
+    }
+    if (parsed.length === 0) {
+      setExcelParsing(false);
+      setExcelMsg("파일이 비어있어요.");
+      return;
+    }
+    // 새 Row 생성
+    const newRows: Row[] = parsed.map((raw) => rawToRow(raw, nextKeyRef.current++));
+    // 자동 번역 · 엑셀은 한국어로만 작성하니 · 일본어 필드 즉시 자동 채움
+    setExcelMsg(`🌐 ${newRows.length}건 · 일본어 자동 번역 중...`);
+    let translated = 0;
+    for (const nr of newRows) {
+      if (nr.nameKo && !nr.nameJa) {
+        try { nr.nameJa = await translateKoJa(nr.nameKo, "ko", "ja"); translated++; } catch {}
+      }
+      if (nr.descriptionKo && !nr.descriptionJa) {
+        try { nr.descriptionJa = await translateKoJa(nr.descriptionKo, "ko", "ja"); } catch {}
+      }
+    }
+    setExcelMsg(`🌐 자동 번역 완료 · ${translated}건 채움 · 카드 정리 중...`);
+    // 기존 rows 병합 · 첫 비어있는 위치부터 채움 · 부족하면 append
+    setRows((prev) => {
+      const merged: Row[] = [...prev];
+      let insertIdx = 0;
+      for (const nr of newRows) {
+        // 첫 비어있는 위치 찾기 (insertIdx 이후)
+        while (insertIdx < merged.length && !isRowEmpty(merged[insertIdx])) insertIdx++;
+        if (insertIdx < merged.length) {
+          // key 유지 · 데이터만 교체
+          merged[insertIdx] = { ...nr, key: merged[insertIdx].key };
+          insertIdx++;
+        } else {
+          merged.push(nr);
+        }
+      }
+      return merged;
+    });
+    setExcelParsing(false);
+    setExcelMsg(`✓ ${newRows.length}건 불러왔어요`);
+    setTimeout(() => setShowExcelModal(false), 900);
   };
 
   // 일괄 자동 번역 · JP → KO or KO → JP · 빈 필드만 채움
@@ -229,6 +420,26 @@ export default function BulkNewProductsPage() {
 
   const updateRow = (key: number, patch: Partial<Row>) => {
     setRows((prev) => prev.map((r) => (r.key === key ? { ...r, ...patch } : r)));
+  };
+
+  // ── 옵션 편집 (개별 편집과 동일) ─────────────────────
+  const addRowOption = (key: number) => {
+    setRows((prev) => prev.map((r) => r.key === key
+      ? { ...r, options: [...r.options, { option_name: "", additional_price: 0, stock: 99, is_active: true }] }
+      : r));
+  };
+  const updateRowOption = (key: number, idx: number, patch: Partial<RowOption>) => {
+    setRows((prev) => prev.map((r) => {
+      if (r.key !== key) return r;
+      const list = [...r.options];
+      list[idx] = { ...list[idx], ...patch };
+      return { ...r, options: list };
+    }));
+  };
+  const removeRowOption = (key: number, idx: number) => {
+    setRows((prev) => prev.map((r) => r.key === key
+      ? { ...r, options: r.options.filter((_, i) => i !== idx) }
+      : r));
   };
 
   const addImagesToRow = (key: number, files: FileList | File[]) => {
@@ -343,13 +554,13 @@ export default function BulkNewProductsPage() {
       const catIdx = categoriesJa.indexOf(row.categoryJa);
       const catKo = catIdx >= 0 ? categoriesKo[catIdx] : categoriesKo[0];
 
-      const { error } = await supabase.from("products").insert({
+      const { data: inserted, error } = await supabase.from("products").insert({
         name: row.nameJa || row.nameKo,
         name_ja: row.nameJa,
         name_ko: row.nameKo,
         price: Number(row.price),
         original_price: row.originalPrice ? Number(row.originalPrice) : null,
-        stock: 2147483647, // 재고 UI 미노출 · 큰 값으로 고정 (매장에서 재고 소진 오판 방지)
+        stock: 2147483647,
         category: row.categoryJa,
         category_ja: row.categoryJa,
         category_ko: catKo,
@@ -361,15 +572,34 @@ export default function BulkNewProductsPage() {
         description_ko: row.descriptionKo || null,
         is_active: !!row.isActive,
         source: "일괄",
-      });
+      }).select("id").single();
 
-      if (error) {
-        updateRow(row.key, { status: "error", error: error.message });
-        failed.push({ key: row.key, nameJa: row.nameJa, reason: error.message });
-      } else {
-        updateRow(row.key, { status: "ok" });
-        ok++;
+      if (error || !inserted) {
+        updateRow(row.key, { status: "error", error: error?.message || "insert 실패" });
+        failed.push({ key: row.key, nameJa: row.nameJa, reason: error?.message || "insert 실패" });
+        continue;
       }
+
+      // 옵션 insert · 이름 있는 옵션만
+      const validOpts = row.options.filter((o) => o.option_name.trim());
+      if (validOpts.length > 0) {
+        const optPayload = validOpts.map((o) => ({
+          product_id: inserted.id,
+          option_name: o.option_name.trim(),
+          additional_price: Number(o.additional_price) || 0,
+          stock: Number(o.stock) || 99,
+          is_active: o.is_active !== false,
+        }));
+        const { error: optErr } = await supabase.from("product_options").insert(optPayload);
+        if (optErr) {
+          updateRow(row.key, { status: "error", error: "옵션 저장 실패: " + optErr.message });
+          failed.push({ key: row.key, nameJa: row.nameJa, reason: "옵션: " + optErr.message });
+          continue;
+        }
+      }
+
+      updateRow(row.key, { status: "ok" });
+      ok++;
     }
 
     setUploading(false);
@@ -425,12 +655,20 @@ export default function BulkNewProductsPage() {
           <p className="text-sm text-gray-500 mt-1">
             여러 상품을 한 번에 등록합니다. 각 행에 이미지를 드래그&드롭 하세요.
           </p>
-          <div className="mt-3">
+          <div className="mt-3 flex items-center gap-2 flex-wrap">
             <DraftSaveButton
               onSave={manualSave}
               lastSavedAt={lastSavedAt}
               savedTick={savedTick}
             />
+            <button
+              type="button"
+              onClick={openDraftList}
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-full border-2 border-gray-200 bg-white text-gray-700 hover:border-[var(--color-brand)] hover:text-[var(--color-brand-dk)] transition"
+              title="이 페이지에서 저장한 임시저장을 불러오기"
+            >
+              📂 저장한 목록 불러오기
+            </button>
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -487,8 +725,86 @@ export default function BulkNewProductsPage() {
           >
             {translating ? "🌐 번역 중..." : "🌐 일괄 자동번역"}
           </button>
+          {/* 엑셀 업로드 (excel-import 통합) · 별도 페이지 대신 · 여기서 모달로 처리 */}
+          <button
+            onClick={() => setShowExcelModal(true)}
+            className="flex items-center gap-2 px-4 py-2 text-sm text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg font-medium shadow-sm transition"
+            title="엑셀 파일로 여러 상품을 한꺼번에 불러오기"
+          >
+            <svg viewBox="0 0 24 24" className="w-4 h-4"><rect x="2" y="4" width="20" height="16" rx="2" fill="#FFFFFF" /><path d="M7 8l3.2 4L7 16h2.2l2-2.7L13.2 16h2.2L12.2 12l3.2-4h-2.2l-2 2.7L9.2 8H7z" fill="#107C41" /></svg>
+            엑셀 업로드
+          </button>
         </div>
       </div>
+
+      {/* 엑셀 업로드 모달 · 양식 다운로드 + 파일 업로드 */}
+      {showExcelModal && (
+        <div className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-4" onClick={() => !excelParsing && setShowExcelModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-full bg-emerald-100 flex items-center justify-center">
+                  <svg viewBox="0 0 24 24" className="w-6 h-6"><rect x="2" y="4" width="20" height="16" rx="2" fill="#107C41" /><path d="M7 8l3.2 4L7 16h2.2l2-2.7L13.2 16h2.2L12.2 12l3.2-4h-2.2l-2 2.7L9.2 8H7z" fill="#FFFFFF" /></svg>
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">엑셀로 상품 불러오기</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">엑셀 파일을 올리면 아래 카드가 자동으로 채워져요</p>
+                </div>
+              </div>
+              <button onClick={() => !excelParsing && setShowExcelModal(false)} className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100" disabled={excelParsing}>
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M6 6l12 12M6 18L18 6" /></svg>
+              </button>
+            </div>
+
+            {/* ① 엑셀 양식 다운로드 */}
+            <div className="flex items-center gap-2 mb-3">
+              <span className="w-6 h-6 rounded-full bg-gray-100 text-gray-600 text-[10px] font-bold flex items-center justify-center flex-shrink-0">①</span>
+              <button
+                onClick={downloadTemplate}
+                disabled={downloadingTpl}
+                className="flex-1 px-3 py-2.5 text-xs bg-white border border-[var(--color-brand)]/40 text-[var(--color-brand-dk)] rounded-lg hover:bg-[var(--color-brand)]/5 font-medium disabled:opacity-50 flex items-center justify-center gap-1.5"
+              >
+                <svg viewBox="0 0 24 24" className="w-4 h-4"><rect x="2" y="4" width="20" height="16" rx="2" fill="#107C41" /><path d="M7 8l3.2 4L7 16h2.2l2-2.7L13.2 16h2.2L12.2 12l3.2-4h-2.2l-2 2.7L9.2 8H7z" fill="#FFFFFF" /></svg>
+                {downloadingTpl ? "양식을 만드는 중이에요..." : "엑셀 양식 내려받기 (상품 정보 입력)"}
+              </button>
+            </div>
+
+            {/* ② 엑셀 파일 업로드 */}
+            <div className="flex items-center gap-2 mb-3">
+              <span className="w-6 h-6 rounded-full bg-gray-100 text-gray-600 text-[10px] font-bold flex items-center justify-center flex-shrink-0">②</span>
+              <button
+                onClick={() => excelInputRef.current?.click()}
+                disabled={excelParsing}
+                className="flex-1 px-3 py-2.5 text-xs bg-gray-900 text-white rounded-lg hover:bg-gray-800 font-medium disabled:opacity-50 flex items-center justify-center gap-1.5"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                {excelParsing ? "불러오는 중..." : "작성한 엑셀 파일 올리기 (xlsx, csv)"}
+              </button>
+              <input
+                ref={excelInputRef}
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleExcelFile(file);
+                  e.target.value = "";
+                }}
+              />
+            </div>
+
+            {excelMsg && (
+              <div className="mt-2 p-2 text-xs text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg text-center font-medium">
+                {excelMsg}
+              </div>
+            )}
+
+            <p className="text-[10px] text-gray-400 mt-4 leading-relaxed">
+              💡 아래 편집 중이던 카드에는 영향을 주지 않아요. 비어있는 카드부터 채우고 · 부족하면 새 카드가 자동 추가됩니다. 사진은 여기서 안 넣어져요 · 위 「사진 미리 담기」로 담아 두시고 각 카드에 골라 넣어주세요.
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="space-y-3">
         {rows.map((row, idx) => (
@@ -668,7 +984,7 @@ export default function BulkNewProductsPage() {
                   />
                 </div>
                 <div className="col-span-6 sm:col-span-2">
-                  <label className="text-[10px] text-gray-500 uppercase tracking-wider">카테고리 · 실시간</label>
+                  <label className="text-[10px] text-gray-500 uppercase tracking-wider">카테고리</label>
                   <select
                     value={row.categoryJa}
                     onChange={(e) => updateRow(row.key, { categoryJa: e.target.value, subCategoryJa: "" })}
@@ -704,7 +1020,7 @@ export default function BulkNewProductsPage() {
                 {/* 하위 카테고리 · 라이브 · 상위 선택 시 그 하위만 · 판매상태 드롭다운 */}
                 <div className="col-span-6 sm:col-span-3">
                   <label className="text-[10px] text-gray-500 uppercase tracking-wider">
-                    하위 카테고리 · 실시간 ({subCatsFor(row.categoryJa).length}건)
+                    하위 카테고리 ({subCatsFor(row.categoryJa).length}건)
                   </label>
                   <select
                     value={row.subCategoryJa}
@@ -752,6 +1068,56 @@ export default function BulkNewProductsPage() {
                     rows={2}
                     className="mt-1 w-full px-2.5 py-1.5 text-sm border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-gray-900 resize-y"
                   />
+                </div>
+
+                {/* COLOR 옵션 · 개별 편집과 동일 · 여러 옵션 · 등록 시 반영 */}
+                <div className="col-span-6 border border-gray-200 rounded-lg p-3 bg-gray-50/50">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-gray-800">🎨 COLOR 옵션</span>
+                      <span className="text-[11px] text-gray-500">{row.options.length}건</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => addRowOption(row.key)}
+                      className="text-[11px] px-3 py-1 bg-gray-900 text-white rounded-full hover:bg-gray-800 font-medium"
+                    >
+                      + 옵션 추가
+                    </button>
+                  </div>
+                  {row.options.length === 0 ? (
+                    <p className="text-[11px] text-gray-400 text-center py-2">등록된 옵션이 없습니다. 필요시 「+ 옵션 추가」</p>
+                  ) : (
+                    <div className="space-y-1.5">
+                      {row.options.map((opt, oi) => (
+                        <div key={oi} className="grid grid-cols-12 gap-1.5 items-center bg-white border border-gray-200 rounded p-1.5">
+                          <input
+                            type="text"
+                            placeholder="옵션명 (예: ゴールド)"
+                            value={opt.option_name}
+                            onChange={(e) => updateRowOption(row.key, oi, { option_name: e.target.value })}
+                            className="col-span-7 text-[12px] px-2 py-1 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-gray-900"
+                          />
+                          <input
+                            type="number"
+                            placeholder="추가금액"
+                            value={opt.additional_price || ""}
+                            onChange={(e) => updateRowOption(row.key, oi, { additional_price: Number(e.target.value) })}
+                            className="col-span-4 text-[12px] px-2 py-1 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-gray-900"
+                          />
+                          {/* 재고 필드 · 사장님 요청으로 UI 숨김 · 옵션 생성 시 stock 기본 99로 저장 */}
+                          <button
+                            type="button"
+                            onClick={() => removeRowOption(row.key, oi)}
+                            className="col-span-1 text-red-500 hover:bg-red-50 rounded p-1 flex items-center justify-center"
+                            title="옵션 삭제"
+                          >
+                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 18L18 6M6 6l12 12" /></svg>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {row.error && (
@@ -826,6 +1192,47 @@ export default function BulkNewProductsPage() {
           ));
         }}
       />
+
+      {/* 저장한 목록 불러오기 모달 · 이 페이지 (bulk-new) 임시저장만 필터 */}
+      {showDraftListModal && (
+        <div className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-4" onClick={() => setShowDraftListModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold text-gray-900">📂 저장한 목록 불러오기</h3>
+                <p className="text-[11px] text-gray-500 mt-0.5">이 페이지에서 임시저장한 목록만 표시돼요</p>
+              </div>
+              <button onClick={() => setShowDraftListModal(false)} className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100">
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M6 6l12 12M6 18L18 6" /></svg>
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-3">
+              {draftList.length === 0 ? (
+                <div className="text-center py-12 text-gray-400 text-sm">
+                  <p>임시저장한 목록이 없어요</p>
+                  <p className="text-[11px] mt-1">「💾 임시 저장」을 눌러 저장해두세요</p>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  {draftList.map((d) => (
+                    <button
+                      key={d.id}
+                      onClick={() => loadDraft(d.id)}
+                      className="w-full text-left p-3 bg-white border border-gray-200 rounded-lg hover:border-[var(--color-brand)] hover:bg-[var(--color-brand)]/5 transition"
+                    >
+                      <p className="text-sm font-semibold text-gray-900 truncate">{d.title}</p>
+                      <p className="text-[10px] text-gray-500 mt-0.5">저장 시각: {new Date(d.updatedAt).toLocaleString("ko-KR")}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-end">
+              <button onClick={() => setShowDraftListModal(false)} className="px-4 py-2 text-xs text-gray-600 hover:bg-gray-100 rounded-lg">닫기</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

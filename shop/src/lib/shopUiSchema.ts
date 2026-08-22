@@ -31,6 +31,10 @@ export interface ShopUiConfig {
     showBrandCategory: boolean;
     showDescription: boolean;
   };
+  mainTop: {
+    promoBarEnabled: boolean;
+    promoBarMessages: string[];
+  };
 }
 
 // ⚠ 원칙: 현재 shop 실제 화면의 값과 동일하게 유지 (adm/lib/shopUiSchema.ts와 동기화)
@@ -56,6 +60,10 @@ export const DEFAULT_CONFIG: ShopUiConfig = {
     thumbGap: 8,
     showBrandCategory: true,
     showDescription: false,
+  },
+  mainTop: {
+    promoBarEnabled: true,
+    promoBarMessages: ["2026 S/S NEW RELEASE", "2万円以上ご購入で送料無料", "2万円以上ご購入で通関保証無料"],
   },
 };
 

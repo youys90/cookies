@@ -36,6 +36,13 @@ export interface ShopUiConfig {
     showBrandCategory: boolean; // 카테고리 라벨 노출
     showDescription: boolean; // 설명 아코디언 자동 펼침
   };
+  /** 메인 상단 · 1단계 (슬림바 프로모 문구만) · 이후 히어로/혜택/메뉴/로고 등 순차 확장 */
+  mainTop: {
+    /** 최상단 슬라이드 프로모 문구 · 여러 개 · 무한 루프 */
+    promoBarMessages: string[];
+    /** 슬림바 노출 여부 */
+    promoBarEnabled: boolean;
+  };
 }
 
 // ⚠ 원칙: 현재 shop 실제 화면의 값과 동일하게 유지
@@ -73,6 +80,10 @@ export const DEFAULT_CONFIG: ShopUiConfig = {
     thumbGap: 8,
     showBrandCategory: true,
     showDescription: false,
+  },
+  mainTop: {
+    promoBarEnabled: true,
+    promoBarMessages: ["2026 S/S NEW RELEASE", "2万円以上ご購入で送料無料", "2万円以上ご購入で通関保証無料"],
   },
 };
 
@@ -118,44 +129,44 @@ export interface SectionMeta {
 export const SHOP_UI_SCHEMA: SectionMeta[] = [
   {
     key: "productList",
-    label: "상품 목록",
+    label: "상품 목록 꾸미기",
     icon: "📦",
-    hint: "상품 카드 크기 · 노출 정보 · 배치",
+    hint: "상품 크기 · 표시 정보 · 간격",
     fields: [
-      { key: "columnsDesktop", label: "한 줄에 몇 개?", type: "counter", min: 1, max: 20, suffix: "개", hint: "모바일은 자동 조정 · 원하는 숫자 직접 입력 가능" },
+      { key: "columnsDesktop", label: "한 줄에 표시할 상품 수", type: "counter", min: 1, max: 20, suffix: "개", hint: "원하는 상품 개수를 직접 입력할 수 있어요." },
       { key: "columnsMobile", label: "모바일 열 수 · 자동", type: "counter", hidden: true, min: 1, max: 20, suffix: "개" },
-      { key: "gap", label: "카드 사이 여백", type: "range", min: 0, max: 32, step: 2, suffix: "px" },
-      { key: "showName", label: "상품명 보이기", type: "boolean" },
-      { key: "showPrice", label: "가격 보이기", type: "boolean" },
-      { key: "showCategory", label: "카테고리 보이기", type: "boolean" },
+      { key: "gap", label: "상품 사이 간격", type: "range", min: 0, max: 32, step: 2, suffix: "px" },
+      { key: "showName", label: "상품명 표시", type: "boolean" },
+      { key: "showPrice", label: "가격 표시", type: "boolean" },
+      { key: "showCategory", label: "카테고리 표시", type: "boolean" },
       { key: "imageAspect", label: "사진 비율", type: "select", options: [
         { label: "정사각형 (1:1)", value: "square" },
-        { label: "세로 (4:5)", value: "portrait" },
-        { label: "가로 (4:3)", value: "landscape" },
+        { label: "세로형 (4:5)", value: "portrait" },
+        { label: "가로형 (4:3)", value: "landscape" },
       ]},
       { key: "imageBorderRadius", label: "사진 모서리 둥글기", type: "range", min: 0, max: 24, step: 2, suffix: "px" },
     ],
   },
   {
     key: "pagination",
-    label: "페이지 개수",
+    label: "한 페이지 상품 수",
     icon: "📄",
-    hint: "화면 하단 · 한 페이지에 몇 개 씩 볼지",
+    hint: "한 페이지에 보여줄 상품 개수를 설정할 수 있어요.",
     fields: [
-      { key: "options", label: "선택지 (3개)", type: "numberList", count: 3, min: 1, max: 500,
-        hint: "예) 25, 50, 100 또는 28, 70, 200 · 사장님이 원하는 숫자로" },
-      { key: "default", label: "기본값", type: "number", min: 1, max: 500 },
+      { key: "options", label: "선택할 개수", type: "numberList", count: 3, min: 1, max: 500,
+        hint: "예) 25, 50, 100처럼 원하는 개수를 설정할 수 있어요." },
+      { key: "default", label: "처음 표시할 개수", type: "number", min: 1, max: 500 },
     ],
   },
   {
     key: "categoryTabs",
-    label: "카테고리 탭",
+    label: "카테고리 메뉴",
     icon: "🗂️",
-    hint: "화면 상단의 카테고리 버튼 줄",
+    hint: "상품 위에 표시되는 카테고리 메뉴",
     fields: [
-      { key: "columnsDesktop", label: "한 줄에 몇 개?", type: "counter", min: 1, max: 20, suffix: "개", hint: "모바일은 자동 조정 · 원하는 숫자 직접 입력 가능" },
+      { key: "columnsDesktop", label: "한 줄에 표시할 메뉴 수", type: "counter", min: 1, max: 20, suffix: "개", hint: "원하는 메뉴 개수를 직접 입력할 수 있어요." },
       { key: "columnsMobile", label: "모바일 열 수 · 자동", type: "counter", hidden: true, min: 1, max: 20, suffix: "개" },
-      { key: "maxRows", label: "최대 줄 수", type: "counter", min: 1, max: 10, suffix: "줄" },
+      { key: "maxRows", label: "최대 표시 줄 수", type: "counter", min: 1, max: 10, suffix: "줄" },
     ],
   },
   {

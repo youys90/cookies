@@ -109,11 +109,11 @@ export default function CategoryFilter({ language, categories, selected, onChang
                   ? "bg-[var(--color-brand)] text-white shadow-md"
                   : "text-gray-500 hover:text-[var(--color-brand-dk)] hover:bg-[var(--color-brand)]/5"
               }`}
-              title={language === "ko" ? "모든 카테고리를 한 눈에 · 개수 적을 때 편리" : "全カテゴリー一覧 · 少ない時に便利"}
+              title="모든 카테고리를 한 눈에 · 개수 적을 때 편리"
               aria-pressed={view === "pill"}
             >
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 6h16M4 12h16M4 18h16" /></svg>
-              <span>{language === "ko" ? "간편" : "簡易"}</span>
+              <span>간편</span>
             </button>
             <button
               type="button"
@@ -123,11 +123,11 @@ export default function CategoryFilter({ language, categories, selected, onChang
                   ? "bg-[var(--color-brand)] text-white shadow-md"
                   : "text-gray-500 hover:text-[var(--color-brand-dk)] hover:bg-[var(--color-brand)]/5"
               }`}
-              title={language === "ko" ? "검색으로 빠르게 · 카테고리 많을 때 편리" : "検索で素早く · 多い時に便利"}
+              title="검색으로 빠르게 · 카테고리 많을 때 편리"
               aria-pressed={view === "dropdown"}
             >
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-              <span>{language === "ko" ? "검색" : "検索"}</span>
+              <span>검색</span>
             </button>
           </div>
         )}
@@ -172,7 +172,7 @@ export default function CategoryFilter({ language, categories, selected, onChang
                     type="text"
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    placeholder={language === "ko" ? "카테고리 검색..." : "カテゴリー検索..."}
+                    placeholder="카테고리 검색..."
                     className="w-full pl-9 pr-3 py-2 text-sm bg-white border border-gray-200 rounded-full focus:outline-none focus:ring-2 focus:ring-[var(--color-brand)]/40 focus:border-[var(--color-brand)] transition"
                   />
                 </div>

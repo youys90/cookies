@@ -368,11 +368,11 @@ export default function ProductsPage() {
     );
   };
 
-  // ── Excel 내보내기 · 「Excel로 일괄업로드」와 동일 양식 · 편집 후 재업로드 가능 ──
+  // ── Excel 내보내기 · 상품 목록 다운로드 ──
   const exportXlsx = async (rows: Product[]) => {
-    // 카테고리 트리 (상위 → 하위) · 종속 드롭다운용
-    const { data: catData } = await supabase.from("categories").select("id, name_ko, parent_id").order("id");
-    const list = (catData || []) as Array<{ id: number; name_ko: string | null; parent_id: number | null }>;
+    // 카테고리 트리 (상위 → 하위) · 종속 드롭다운용 · 일본어 → 한국어 매핑 테이블도 만들기
+    const { data: catData } = await supabase.from("categories").select("id, name_ja, name_ko, parent_id").order("id");
+    const list = (catData || []) as Array<{ id: number; name_ja: string | null; name_ko: string | null; parent_id: number | null }>;
     const tops = list.filter((c) => c.parent_id === null);
     const categoryTree = tops
       .filter((t) => t.name_ko)
@@ -380,37 +380,86 @@ export default function ProductsPage() {
         top: t.name_ko as string,
         subs: list.filter((c) => c.parent_id === t.id && c.name_ko).map((c) => c.name_ko as string),
       }));
-    const exportRows = rows.map((p) => ({
-      name_ko: p.name_ko || p.name || "",
-      price: typeof p.price === "number" ? p.price : Number(p.price) || null,
-      original_price: typeof p.original_price === "number" ? p.original_price : (p.original_price ? Number(p.original_price) : null),
-      category_ko: p.category_ko || "",
-      sub_category_ko: p.sub_category_ko || "",
-      description_ko: p.description_ko || "",
-      category: p.category || "",
-      sub_category: p.sub_category || "",
-    }));
+    // 일본어 → 한국어 매핑 (상위/하위 모두)
+    const jaToKo = new Map<string, string>();
+    list.forEach((c) => { if (c.name_ja && c.name_ko) jaToKo.set(c.name_ja, c.name_ko); });
+    // 옵션 batch 로드 · 상품 id 배열로 한 번에 · sort_order 순
+    const productIds = rows.map((p) => p.id);
+    const optionsByPid = new Map<number, Array<{ name: string; price: number }>>();
+    if (productIds.length > 0) {
+      // Supabase in-list · 1000개씩 나눠 조회
+      for (let s = 0; s < productIds.length; s += 1000) {
+        const slice = productIds.slice(s, s + 1000);
+        const { data: opts } = await supabase
+          .from("product_options")
+          .select("product_id, option_name, additional_price, sort_order")
+          .in("product_id", slice)
+          .order("sort_order", { ascending: true });
+        (opts || []).forEach((o) => {
+          const pid = o.product_id as number;
+          const arr = optionsByPid.get(pid) || [];
+          arr.push({ name: String(o.option_name || ""), price: Number(o.additional_price) || 0 });
+          optionsByPid.set(pid, arr);
+        });
+      }
+    }
+    const koCategory = (p: Product): string => {
+      if (p.category_ko && p.category_ko.trim()) return p.category_ko;
+      if (p.category && jaToKo.has(p.category)) return jaToKo.get(p.category) as string;
+      return p.category || "";
+    };
+    const koSubCategory = (p: Product): string => {
+      if (p.sub_category_ko && p.sub_category_ko.trim()) return p.sub_category_ko;
+      if (p.sub_category && jaToKo.has(p.sub_category)) return jaToKo.get(p.sub_category) as string;
+      return p.sub_category || "";
+    };
+    const exportRows = rows.map((p) => {
+      const opts = optionsByPid.get(p.id) || [];
+      const validOpts = opts.filter((o) => o.name.trim().length > 0);
+      return {
+        name_ko: p.name_ko || p.name || "",
+        price: typeof p.price === "number" ? p.price : Number(p.price) || null,
+        original_price: typeof p.original_price === "number" ? p.original_price : (p.original_price ? Number(p.original_price) : null),
+        category_ko: koCategory(p),
+        sub_category_ko: koSubCategory(p),
+        description_ko: p.description_ko || "",
+        option_names: validOpts.map((o) => o.name.trim()).join(","),
+        option_prices: validOpts.map((o) => String(o.price)).join(","),
+      };
+    });
     await exportProductsToXlsx(exportRows, { categoryTree });
   };
 
-  // 전체 Excel 내보내기 · 현재 필터/검색 조건 유지 · 페이지네이션 무시 · 전체 조회
+  // 전체 Excel 내보내기 · 현재 필터/검색 조건 유지 · 페이지네이션으로 개수 제한 없이 전체 조회
   const handleExportAll = async () => {
-    let query = supabase.from("products").select("*");
-    if (selectedCategory !== "전체") {
-      query = query.eq("category", selectedCategory);
-      if (selectedSubCategory) query = query.eq("sub_category", selectedSubCategory);
+    const buildQuery = () => {
+      let q = supabase.from("products").select("*");
+      if (selectedCategory !== "전체") {
+        q = q.eq("category", selectedCategory);
+        if (selectedSubCategory) q = q.eq("sub_category", selectedSubCategory);
+      }
+      if (searchKeyword) {
+        q = q.or("name.ilike.%" + searchKeyword + "%,name_ko.ilike.%" + searchKeyword + "%");
+      }
+      return q.order("created_at", { ascending: false });
+    };
+    // Supabase 기본 1000개 제한 우회 · 1000개씩 페이지네이션으로 전체 조회
+    const CHUNK = 1000;
+    const all: Product[] = [];
+    let from = 0;
+    // 안전 상한 · 백만 개 (사장님 요청 · 제한 풀기)
+    for (let i = 0; i < 1000; i++) {
+      const { data, error } = await buildQuery().range(from, from + CHUNK - 1);
+      if (error) {
+        alert("상품 목록 엑셀 다운로드가 실패했어요.\n오류 내용: " + error.message);
+        return;
+      }
+      const chunk = (data as Product[]) || [];
+      all.push(...chunk);
+      if (chunk.length < CHUNK) break;
+      from += CHUNK;
     }
-    if (searchKeyword) {
-      query = query.or(
-        "name.ilike.%" + searchKeyword + "%,name_ko.ilike.%" + searchKeyword + "%"
-      );
-    }
-    const { data, error } = await query.order("created_at", { ascending: false }).limit(5000);
-    if (error) {
-      alert("상품 목록 엑셀 다운로드가 실패했어요.\n오류 내용: " + error.message);
-      return;
-    }
-    await exportXlsx((data as Product[]) || []);
+    await exportXlsx(all);
   };
   const handleExportSelected = () =>
     exportXlsx(productList.filter((p) => selectedIds.has(p.id)));
@@ -474,18 +523,7 @@ export default function ProductsPage() {
             </svg>
             상품 목록 엑셀 다운로드
           </button>
-          {/* 일괄등록 · 완성 후 전 환경 노출 (관리자 실무 편의) */}
-          <Link
-            href="/products/excel-import"
-            className="px-3 py-2 text-sm text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition flex items-center gap-1.5"
-            title="엑셀 파일(xlsx, csv)로 여러 상품을 한꺼번에 등록해요 · 상품 이미지도 함께 연결할 수 있어요"
-          >
-            <svg viewBox="0 0 24 24" className="w-4 h-4" aria-hidden="true">
-              <rect x="2" y="4" width="20" height="16" rx="2" fill="#107C41" />
-              <path d="M7 8l3.2 4L7 16h2.2l2-2.7L13.2 16h2.2L12.2 12l3.2-4h-2.2l-2 2.7L9.2 8H7z" fill="#FFFFFF" />
-            </svg>
-            엑셀로 한꺼번에 등록
-          </Link>
+          {/* 엑셀로 한꺼번에 등록 · 「일괄 등록」 안 「📥 엑셀 업로드」 모달로 통합됨 · 상품관리 상단 버튼 제거 */}
           <Link
             href="/products/bulk-new"
             className="px-4 py-2 text-sm text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
@@ -508,7 +546,7 @@ export default function ProductsPage() {
           {/* 카테고리 필터 · 드롭다운 + 검색 (100+ 대응 · 크림디자인팀 v3) */}
           <CategoryFilter
             language={language}
-            categories={[{ id: 0, name_ja: "全体", name_ko: "전체", parent_id: null }, ...topCategories]}
+            categories={[{ id: 0, name_ja: "전체", name_ko: "전체", parent_id: null }, ...topCategories]}
             selected={selectedCategory}
             onChange={handleCategoryChange}
             label="카테고리"
@@ -554,10 +592,10 @@ export default function ProductsPage() {
             ))}
             {imageFilter === "missing" && (
               <Link
-                href="/products/excel-import"
+                href="/products/bulk-new"
                 className="ml-2 text-xs text-[var(--color-brand-dk)] hover:text-[var(--color-brand)] underline"
               >
-                → 엑셀 등록 화면에서 상품 이미지 연결하기
+                → 일괄 등록에서 상품 이미지 연결하기
               </Link>
             )}
           </div>

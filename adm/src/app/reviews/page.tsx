@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
+import { translateKoJa } from "@/lib/translate";
 import BulkActionBar from "@/components/BulkActionBar";
 import DeleteConfirmModal from "@/components/DeleteConfirmModal";
 import ProductPicker from "@/components/ProductPicker";
@@ -39,8 +40,31 @@ interface ProductThumb {
   name: string;
 }
 
+type ReviewViewMode = "compact" | "gallery";
+
 export default function ReviewsPage() {
   const [reviews, setReviews] = useState<Review[]>([]);
+  // 뷰 모드 · 상품관리 패턴 참고 · 사장님 취향 localStorage 저장
+  // - 목록형(compact): 테이블 · 대량 관리용
+  // - 갤러리(gallery): 큰 사진 카드 · 컬럼 수 조절 가능 · 1~2열이면 자동으로 「자세히」 가로 카드
+  const [viewMode, setViewMode] = useState<ReviewViewMode>("gallery");
+  const [galleryCols, setGalleryCols] = useState<number>(3);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const saved = localStorage.getItem("adm.reviewViewMode") as ReviewViewMode | null;
+    if (saved === "compact" || saved === "gallery") setViewMode(saved);
+    const savedCols = localStorage.getItem("adm.reviewGalleryCols");
+    if (savedCols) {
+      const n = Number(savedCols);
+      if (Number.isFinite(n) && n >= 1 && n <= 6) setGalleryCols(n);
+    }
+  }, []);
+  useEffect(() => {
+    if (typeof window !== "undefined") localStorage.setItem("adm.reviewViewMode", viewMode);
+  }, [viewMode]);
+  useEffect(() => {
+    if (typeof window !== "undefined") localStorage.setItem("adm.reviewGalleryCols", String(galleryCols));
+  }, [galleryCols]);
   // 리뷰에 붙일 관련 상품 썸네일 (id → {image, name})
   const [productMap, setProductMap] = useState<Map<number, ProductThumb>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -73,6 +97,19 @@ export default function ReviewsPage() {
     fetchReviews();
   };
 
+  // 개별 활성 토글 (인라인 · 상품관리 참고)
+  const toggleReviewActive = async (id: string, next: boolean) => {
+    const { error } = await supabase
+      .from("reviews")
+      .update({ is_active: next, updated_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) {
+      alert("상태 변경 실패: " + error.message);
+      return;
+    }
+    fetchReviews();
+  };
+
   // 승인 대기 벌크: 선택된 모두 승인
   const bulkApprove = async () => {
     if (selectedIds.size === 0) return;
@@ -100,8 +137,9 @@ export default function ReviewsPage() {
   const [showBulkDelete, setShowBulkDelete] = useState(false);
   const [pendingDeleteIds, setPendingDeleteIds] = useState<string[]>([]);
 
-  // AI 답변 초안
+  // AI 답변 초안 · 한국어 번역 별도 저장 (관리자용 · 뜻 이해)
   const [aiDrafts, setAiDrafts] = useState<{ tone: string; text: string }[]>([]);
+  const [aiDraftsKo, setAiDraftsKo] = useState<string[]>([]);
   const [loadingDrafts, setLoadingDrafts] = useState(false);
 
   const toggleReviewSelect = (id: string) => {
@@ -122,7 +160,7 @@ export default function ReviewsPage() {
     if (pendingDeleteIds.length === 0) return;
     const { error } = await supabase.from("reviews").delete().in("id", pendingDeleteIds);
     if (error) {
-      alert("일괄 삭제 실패: " + error.message);
+      alert((pendingDeleteIds.length <= 1 ? "삭제 실패: " : "일괄 삭제 실패: ") + error.message);
       return;
     }
     setShowBulkDelete(false);
@@ -148,6 +186,7 @@ export default function ReviewsPage() {
   const generateAiDrafts = async (review: Review) => {
     setLoadingDrafts(true);
     setAiDrafts([]);
+    setAiDraftsKo([]);
     try {
       const res = await fetch("/api/ai/review-reply-draft", {
         method: "POST",
@@ -159,7 +198,15 @@ export default function ReviewsPage() {
         }),
       });
       const json = await res.json();
-      if (json?.result?.drafts) setAiDrafts(json.result.drafts);
+      const drafts: Array<{ tone: string; text: string }> = json?.result?.drafts || [];
+      setAiDrafts(drafts);
+      // 관리자가 뜻 이해할 수 있게 · 각 초안 한국어 번역 병행 (백그라운드)
+      if (drafts.length > 0) {
+        const koArr = await Promise.all(
+          drafts.map((d) => translateKoJa(d.text, "ja", "ko").catch(() => ""))
+        );
+        setAiDraftsKo(koArr);
+      }
     } catch (e) {
       console.error("AI 초안 생성 실패:", e);
     }
@@ -272,10 +319,7 @@ export default function ReviewsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (formData.images.length === 0) {
-      alert("이미지를 업로드해주세요.");
-      return;
-    }
+    // 사진 · 사장님 요구로 필수값 아님 · 사진 없이도 리뷰 등록 가능
     if (!formData.author_name) {
       alert("작성자명을 입력해주세요.");
       return;
@@ -487,8 +531,8 @@ export default function ReviewsPage() {
 
   return (
     <div>
-      {/* Header */}
-      <div className="flex justify-between items-center mb-6">
+      {/* Header · 상품관리 스타일 참고 */}
+      <div className="flex justify-between items-center mb-6 flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-light tracking-wide text-gray-900">
             리뷰 관리
@@ -497,12 +541,82 @@ export default function ReviewsPage() {
             메인 페이지 리뷰 슬라이드 관리
           </p>
         </div>
-        <button
-          onClick={() => openModal()}
-          className="px-4 py-2 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-800"
-        >
-          + 리뷰 등록
-        </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <a
+            href="/reviews/bulk-new"
+            className="px-4 py-2 bg-white border-2 border-[var(--color-brand)] text-[var(--color-brand-dk)] text-sm font-semibold rounded-lg hover:bg-[var(--color-brand)]/10 transition"
+          >
+            ⭐ 리뷰 일괄 등록
+          </a>
+          <button
+            onClick={() => openModal()}
+            className="px-4 py-2 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-800"
+          >
+            + 리뷰 등록
+          </button>
+        </div>
+      </div>
+
+      {/* Filters · 상품관리 스타일 흰 카드 · pill 통일 */}
+      <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
+        <div className="flex flex-col gap-3">
+      {/* 뷰 모드 스위처 · 상품관리 스타일 참고 · localStorage 기억 */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <span className="text-xs font-medium text-gray-500 whitespace-nowrap">보기</span>
+        <div className="inline-flex items-center bg-white rounded-full p-0.5 border border-gray-200 shadow-sm" role="group" aria-label="리뷰 뷰 모드 전환">
+          <button
+            onClick={() => setViewMode("compact")}
+            className={`px-3 py-1 text-xs rounded-full transition-all font-medium ${
+              viewMode === "compact" ? "bg-[var(--color-brand)] text-white shadow-sm" : "text-gray-500 hover:text-[var(--color-brand-dk)]"
+            }`}
+            title="목록형 · 한 줄씩 컴팩트하게"
+          >
+            📋 목록형
+          </button>
+          <button
+            onClick={() => setViewMode("gallery")}
+            className={`px-3 py-1 text-xs rounded-full transition-all font-medium ${
+              viewMode === "gallery" ? "bg-[var(--color-brand)] text-white shadow-sm" : "text-gray-500 hover:text-[var(--color-brand-dk)]"
+            }`}
+            title="갤러리 · 큰 이미지 카드 (1~2열이면 자동 자세히)"
+          >
+            🖼 갤러리
+          </button>
+        </div>
+        {/* 갤러리 뷰 · 한 줄에 몇 개 (customize 스타일 · 숫자 스피너 + 슬라이더) */}
+        {viewMode === "gallery" && (
+          <div className="flex items-center gap-3 flex-wrap ml-2">
+            <span className="text-xs font-medium text-gray-500 whitespace-nowrap">한 줄에 몇 개?</span>
+            <div className="inline-flex items-center bg-white border border-gray-200 rounded-lg shadow-sm">
+              <button
+                onClick={() => setGalleryCols((n) => Math.max(1, n - 1))}
+                className="px-2 py-1 text-gray-500 hover:bg-gray-50 rounded-l-lg disabled:opacity-30"
+                disabled={galleryCols <= 1}
+              >▼</button>
+              <span className="px-3 py-1 text-sm font-bold text-gray-900 min-w-[30px] text-center">{galleryCols}</span>
+              <button
+                onClick={() => setGalleryCols((n) => Math.min(6, n + 1))}
+                className="px-2 py-1 text-gray-500 hover:bg-gray-50 rounded-r-lg disabled:opacity-30"
+                disabled={galleryCols >= 6}
+              >▲</button>
+              <span className="px-2 py-1 text-[10px] text-gray-400 border-l border-gray-200">개</span>
+            </div>
+            <input
+              type="range"
+              min={1}
+              max={6}
+              value={galleryCols}
+              onChange={(e) => setGalleryCols(Number(e.target.value))}
+              className="w-32 accent-[var(--color-brand)]"
+            />
+            <span className="text-[10px] text-gray-400">1 ~ 6</span>
+            {galleryCols <= 2 && (
+              <span className="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5 font-medium">
+                📝 자세히 모드
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* 필터 탭 */}
@@ -620,16 +734,138 @@ export default function ReviewsPage() {
           </button>
         ))}
       </div>
+        </div>
+      </div>
 
-      {/* 리뷰 목록 */}
+      {/* 리뷰 목록 · viewMode 반영 */}
       {loading ? (
         <div className="text-center py-20 text-gray-500">로딩 중...</div>
       ) : reviews.length === 0 ? (
         <div className="text-center py-20 text-gray-500">
           등록된 리뷰가 없습니다.
         </div>
+      ) : viewMode === "compact" ? (
+        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+          <table className="w-full">
+            <thead className="bg-gray-50 border-b border-gray-100">
+              <tr>
+                <th className="px-4 py-4 text-center w-12">
+                  <input
+                    type="checkbox"
+                    checked={(() => {
+                      const arr = reviews.filter((r) => {
+                        if (typeFilter === "admin" && r.type !== "admin" && r.type) return false;
+                        if (typeFilter === "user" && r.type !== "user") return false;
+                        if (typeFilter === "fake" && r.type !== "fake") return false;
+                        if (approvalFilter === "pending" && r.is_active) return false;
+                        if (approvalFilter === "approved" && !r.is_active) return false;
+                        if (ratingFilter !== null && r.rating !== ratingFilter) return false;
+                        return true;
+                      });
+                      return arr.length > 0 && arr.every((r) => selectedIds.has(r.id));
+                    })()}
+                    onChange={(e) => {
+                      const arr = reviews.filter((r) => {
+                        if (typeFilter === "admin" && r.type !== "admin" && r.type) return false;
+                        if (typeFilter === "user" && r.type !== "user") return false;
+                        if (typeFilter === "fake" && r.type !== "fake") return false;
+                        if (approvalFilter === "pending" && r.is_active) return false;
+                        if (approvalFilter === "approved" && !r.is_active) return false;
+                        if (ratingFilter !== null && r.rating !== ratingFilter) return false;
+                        return true;
+                      });
+                      if (e.target.checked) setSelectedIds(new Set([...selectedIds, ...arr.map((r) => r.id)]));
+                      else setSelectedIds(new Set(Array.from(selectedIds).filter((id) => !arr.some((r) => r.id === id))));
+                    }}
+                    className="w-4 h-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900 cursor-pointer"
+                  />
+                </th>
+                <th className="px-4 py-4 text-left text-xs font-medium text-gray-500 tracking-wider w-20">사진</th>
+                <th className="px-4 py-4 text-left text-xs font-medium text-gray-500 tracking-wider w-24">별점</th>
+                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 tracking-wider">내용</th>
+                <th className="px-4 py-4 text-left text-xs font-medium text-gray-500 tracking-wider">작성자</th>
+                <th className="px-4 py-4 text-left text-xs font-medium text-gray-500 tracking-wider">관련 상품</th>
+                <th className="px-4 py-4 text-left text-xs font-medium text-gray-500 tracking-wider">상태</th>
+                <th className="px-4 py-4 text-center text-xs font-medium text-gray-500 tracking-wider border-l border-gray-100">관리</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {reviews
+                .filter((review) => {
+                  if (typeFilter === "admin" && review.type !== "admin" && review.type) return false;
+                  if (typeFilter === "user" && review.type !== "user") return false;
+                  if (typeFilter === "fake" && review.type !== "fake") return false;
+                  if (approvalFilter === "pending" && review.is_active) return false;
+                  if (approvalFilter === "approved" && !review.is_active) return false;
+                  if (ratingFilter !== null && review.rating !== ratingFilter) return false;
+                  return true;
+                })
+                .map((review) => {
+                  const thumb = review.images?.[0] || review.image_url;
+                  const checked = selectedIds.has(review.id);
+                  return (
+                    <tr key={review.id} className={`hover:bg-gray-50 ${checked ? "bg-yellow-50 hover:bg-yellow-100" : ""} ${!review.is_active ? "opacity-60" : ""}`}>
+                      <td className="px-4 py-3 text-center">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleReviewSelect(review.id)}
+                          className="w-4 h-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900 cursor-pointer"
+                        />
+                      </td>
+                      <td className="px-4 py-3">
+                        {thumb ? (
+                          <div className="relative w-14 h-14 rounded overflow-hidden border border-gray-200">
+                            <Image src={thumb} alt="" fill unoptimized className="object-cover" />
+                          </div>
+                        ) : (
+                          <div className="w-14 h-14 bg-gray-100 rounded flex items-center justify-center text-gray-300 text-[10px]">없음</div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-amber-400 text-sm whitespace-nowrap font-semibold">{"★".repeat(review.rating)}<span className="text-gray-300">{"★".repeat(5 - review.rating)}</span></td>
+                      <td className="px-6 py-3 text-sm text-gray-700 max-w-md truncate">{review.content || <span className="text-gray-300">(내용 없음)</span>}</td>
+                      <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">{review.author_name}</td>
+                      <td className="px-4 py-3 text-xs text-gray-500">
+                        {Array.isArray(review.product_ids) && review.product_ids.length > 0 ? (
+                          <span>{review.product_ids.length}건</span>
+                        ) : review.product_id ? "1건" : <span className="text-gray-300">-</span>}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        {/* 상태 pill · 클릭 시 토글 (상품관리 참고) */}
+                        <button
+                          onClick={() => toggleReviewActive(review.id, !review.is_active)}
+                          className={`text-[10px] px-2 py-0.5 rounded-full font-medium transition hover:brightness-95 ${
+                            review.is_active
+                              ? "bg-green-100 text-green-700 hover:bg-green-200"
+                              : "bg-orange-100 text-orange-700 hover:bg-orange-200"
+                          }`}
+                          title={review.is_active ? "클릭 시 비노출" : "클릭 시 노출중으로"}
+                        >
+                          {review.is_active ? "✓ 노출중" : "⏳ 승인 대기"}
+                        </button>
+                      </td>
+                      <td className="px-4 py-3 text-center border-l border-gray-100 whitespace-nowrap">
+                        <div className="inline-flex items-center gap-1">
+                          <button onClick={() => openModal(review)} className="px-2 py-1 text-[10px] text-gray-700 border border-gray-200 rounded hover:bg-gray-50" title="수정">✎ 수정</button>
+                          <button
+                            onClick={() => openReplyModal(review)}
+                            className="px-2 py-1 text-[10px] text-purple-700 border border-purple-200 rounded hover:bg-purple-50"
+                            title="댓글 작성 (AI 답변 초안 포함)"
+                          >💬 답변</button>
+                          <button onClick={() => { setPendingDeleteIds([review.id]); setShowBulkDelete(true); }} className="px-2 py-1 text-[10px] text-red-500 border border-red-200 rounded hover:bg-red-50" title="이 리뷰 삭제">🗑</button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+            </tbody>
+          </table>
+        </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div
+          className="grid gap-6"
+          style={{ gridTemplateColumns: `repeat(${Math.max(1, Math.min(6, galleryCols))}, minmax(0, 1fr))` }}
+        >
           {reviews
             .filter((review) => {
               // 타입 필터
@@ -829,7 +1065,7 @@ export default function ReviewsPage() {
               {/* 이미지 업로드 (최대 3장) */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  리뷰 이미지 (최대 {MAX_IMAGES}장) <span className="text-red-500">*</span>
+                  리뷰 이미지 (최대 {MAX_IMAGES}장)
                 </label>
                 <input
                   type="file"
@@ -982,7 +1218,7 @@ export default function ReviewsPage() {
               {/* 작성자명 */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  작성자명 <span className="text-red-500">*</span>
+                  작성자명
                 </label>
                 <input
                   type="text"
@@ -1051,32 +1287,37 @@ export default function ReviewsPage() {
         </div>
       )}
 
-      {/* 벌크 액션 바 (승인 · 노출토글 · 삭제) */}
+      {/* 벌크 액션 바 · 상품관리 스타일 (노출/숨김 · 일괄 수정 · 삭제) */}
       {selectedIds.size > 0 && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-gray-900 text-white rounded-xl shadow-2xl border border-gray-800 flex items-center gap-1 px-3 py-2 max-w-[95vw] overflow-x-auto">
           <div className="flex items-center gap-2 pr-3 border-r border-gray-700">
             <span className="text-sm">
-              <span className="font-medium">{selectedIds.size}개</span> 선택
+              <span className="font-medium">{selectedIds.size}개</span> 선택됨
             </span>
           </div>
           <button
-            onClick={bulkApprove}
-            className="px-3 py-1.5 text-xs rounded bg-orange-500 hover:bg-orange-400 transition font-medium"
-            title="선택 항목을 승인(노출)"
-          >
-            ⏳→✓ 일괄 승인
-          </button>
-          <button
             onClick={() => handleBulkToggleActive(true)}
             className="px-3 py-1.5 text-xs rounded hover:bg-gray-800 transition"
+            title="선택 항목을 노출중(=승인)으로"
           >
-            노출↑
+            노출 ↑
           </button>
           <button
             onClick={() => handleBulkToggleActive(false)}
             className="px-3 py-1.5 text-xs rounded hover:bg-gray-800 transition"
+            title="선택 항목을 숨김으로"
           >
-            숨김↓
+            숨김 ↓
+          </button>
+          <button
+            onClick={() => {
+              const ids = Array.from(selectedIds).join(",");
+              window.location.href = `/reviews/bulk-edit?ids=${ids}`;
+            }}
+            className="px-3 py-1.5 text-xs rounded bg-amber-500 hover:bg-amber-600 transition font-medium"
+            title="선택 항목 일괄 수정"
+          >
+            ✏️ 일괄 수정
           </button>
           <button
             onClick={requestBulkDelete}
@@ -1107,7 +1348,7 @@ export default function ReviewsPage() {
           setPendingDeleteIds([]);
         }}
         onConfirm={confirmBulkDelete}
-        title="리뷰 일괄 삭제"
+        title={pendingDeleteIds.length <= 1 ? "리뷰 삭제" : `리뷰 ${pendingDeleteIds.length}건 일괄 삭제`}
       />
 
       {/* 관련 상품 선택 모달 */}
@@ -1173,10 +1414,19 @@ export default function ReviewsPage() {
                         className="w-full text-left px-3 py-2 text-xs bg-purple-50 hover:bg-purple-100 border border-purple-100 rounded-lg transition"
                         title="클릭해서 이 초안 사용"
                       >
-                        <span className="inline-block px-1.5 py-0.5 mr-1.5 text-[10px] bg-purple-600 text-white rounded uppercase">
-                          {d.tone}
-                        </span>
-                        <span className="text-gray-700">{d.text}</span>
+                        <div className="flex items-start gap-1.5">
+                          <span className="inline-block px-1.5 py-0.5 text-[10px] bg-purple-600 text-white rounded uppercase font-semibold flex-shrink-0">
+                            {d.tone}
+                          </span>
+                          <span className="text-gray-800 flex-1">{d.text}</span>
+                        </div>
+                        {/* 관리자용 한국어 뜻 · 클릭 시 사용될 원문(일본어) 아래 참고용 */}
+                        {aiDraftsKo[i] && (
+                          <div className="mt-1.5 pt-1.5 border-t border-purple-200/60 flex items-start gap-1.5">
+                            <span className="inline-block px-1.5 py-0.5 text-[10px] bg-gray-200 text-gray-700 rounded font-semibold flex-shrink-0">🇰🇷 KO</span>
+                            <span className="text-gray-600 flex-1 italic">{aiDraftsKo[i]}</span>
+                          </div>
+                        )}
                       </button>
                     ))}
                   </div>

@@ -22,12 +22,15 @@ interface Column {
 // 한국어만 입력 · 일본어는 등록 시 자동 번역/매핑
 // 재고 · 판매상태는 등록 후 개별 편집 (등록 시 = 판매중 · 재고 미관리)
 const COLUMNS: Column[] = [
+  { label: "No.", key: "row_no", width: 6, sample: 1, required: false, hint: "자동 순번 · 입력 안 하셔도 돼요" },
   { label: "상품명", key: "name_ko", width: 32, sample: "골드 체인 목걸이", required: true, hint: "필수 · 한국어로 입력 · 일본어는 자동 번역" },
   { label: "가격 (¥)", key: "price", width: 14, sample: 10000, required: true, hint: "숫자만 · 판매가" },
   { label: "정가 (¥)", key: "original_price", width: 14, sample: 12000, required: false, hint: "숫자 · 취소선 표시용" },
   { label: "카테고리", key: "category_ko", width: 22, sample: "액세서리", required: true, hint: "드롭다운 · 한국어 · 일본어는 자동 매핑" },
   { label: "하위 카테고리", key: "sub_category_ko", width: 22, sample: "목걸이", required: false, hint: "드롭다운 · 한국어 · 일본어는 자동 매핑" },
   { label: "상품 설명", key: "description_ko", width: 50, sample: "심플하고 고급스러운 골드 체인", required: false, hint: "한국어로 입력 · 일본어는 자동 번역" },
+  { label: "옵션명", key: "option_names", width: 30, sample: "골드,실버,로즈골드", required: false, hint: "선택 · 여러 개는 쉼표(,)로 구분 · 예: 골드,실버,로즈골드" },
+  { label: "옵션 추가금액", key: "option_prices", width: 24, sample: "0,1000,2000", required: false, hint: "선택 · 옵션 순서대로 · 쉼표(,)로 구분 · 예: 0,1000,2000" },
 ];
 
 export interface TemplateOptions {
@@ -309,6 +312,10 @@ export interface ExportRow {
   /** category_ko 없을 때 폴백 */
   category?: string | null;
   sub_category?: string | null;
+  /** 옵션 쉼표 구분 문자열 · 예: "골드,실버,로즈골드" */
+  option_names?: string | null;
+  /** 옵션 추가금액 쉼표 구분 · 예: "0,1000,2000" · option_names 순서 대응 */
+  option_prices?: string | null;
 }
 
 export async function exportProductsToXlsx(rows: ExportRow[], opts: TemplateOptions = {}): Promise<void> {
@@ -340,7 +347,7 @@ export async function exportProductsToXlsx(rows: ExportRow[], opts: TemplateOpti
   // ── 2행 · 서브타이틀 ────
   ws.mergeCells(2, 1, 2, COLUMNS.length);
   const subtitle = ws.getCell(2, 1);
-  subtitle.value = "이 파일을 편집해서 「엑셀로 한꺼번에 등록」에 다시 올릴 수 있어요 · 항목 순서는 그대로 두세요";
+  subtitle.value = "현재 상품 목록입니다 · 필터 조건에 맞는 상품만 포함되어 있어요";
   subtitle.font = { name: "맑은 고딕", size: 11, color: { argb: "FF6B7280" }, italic: true };
   subtitle.alignment = { vertical: "middle", horizontal: "center" };
   subtitle.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF9FAFB" } };
@@ -388,12 +395,15 @@ export async function exportProductsToXlsx(rows: ExportRow[], opts: TemplateOpti
     row.height = 22;
 
     const values: Record<string, string | number | null> = {
+      row_no: idx + 1,
       name_ko: rec.name_ko || "",
       price: rec.price ?? null,
       original_price: rec.original_price ?? null,
       category_ko: rec.category_ko || rec.category || "",
       sub_category_ko: rec.sub_category_ko || rec.sub_category || "",
       description_ko: rec.description_ko || "",
+      option_names: rec.option_names || "",
+      option_prices: rec.option_prices || "",
     };
 
     COLUMNS.forEach((c, i) => {
@@ -474,17 +484,18 @@ export async function parseXlsxToObjects(file: File): Promise<Record<string, str
   const ws = wb.worksheets[0];
   if (!ws) return [];
 
-  // 헤더 행 자동 탐지 · 부분 매칭 · "상품명", "가격", "카테고리" 중 하나라도 포함된 셀이 있으면 헤더 행
+  // 헤더 행 자동 탐지 · 「상품명」과 「가격」이 모두 있는 행만 헤더로 인정
+  // (안내문에 「카테고리」 · 「상품」 단어가 있어도 헤더로 오인식되지 않도록 강화)
   // (템플릿 규격: 5행 · 임의 xlsx: 1행 · CSV → xlsx 변환: 1행)
-  const HEADER_KEYWORDS = ["상품명", "가격", "카테고리"];
+  const REQUIRED_HEADER_KEYWORDS = ["상품명", "가격"];
   let headerRowIdx = -1;
   ws.eachRow((row, rowNumber) => {
     if (headerRowIdx > 0) return;
     const values = row.values as (string | number | undefined)[];
     if (!values) return;
     const strs = values.map((v) => String(v ?? "").trim());
-    // 셀 텍스트에 키워드가 포함되어 있으면 헤더 행으로 인식
-    if (HEADER_KEYWORDS.some((kw) => strs.some((s) => s.includes(kw)))) {
+    // 필수 키워드 모두 있는 행 · 안내문/제목 오인식 방지
+    if (REQUIRED_HEADER_KEYWORDS.every((kw) => strs.some((s) => s.includes(kw)))) {
       headerRowIdx = rowNumber;
     }
   });

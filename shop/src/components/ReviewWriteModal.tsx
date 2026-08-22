@@ -304,8 +304,7 @@ export default function ReviewWriteModal({ isOpen, onClose, onSuccess }: ReviewW
           {/* LINE NAME 입력 + 주문 조회 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              {t.lineNameLabel} <span className="text-red-500">*</span>
-            </label>
+              {t.lineNameLabel}            </label>
             <div className="flex gap-2">
               <input
                 type="text"
@@ -330,8 +329,7 @@ export default function ReviewWriteModal({ isOpen, onClose, onSuccess }: ReviewW
           {orderSearched && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                {t.productLabel} <span className="text-red-500">*</span>
-                {selectedProducts.length > 0 && (
+                {t.productLabel}                {selectedProducts.length > 0 && (
                   <span className="ml-2 text-xs text-blue-600">
                     ({selectedProducts.length}{t.selectedCount})
                   </span>
@@ -435,8 +433,7 @@ export default function ReviewWriteModal({ isOpen, onClose, onSuccess }: ReviewW
           {/* 비밀번호 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              {t.passwordLabel} <span className="text-red-500">*</span>
-            </label>
+              {t.passwordLabel}            </label>
             <input
               type="password"
               value={password}
@@ -450,8 +447,7 @@ export default function ReviewWriteModal({ isOpen, onClose, onSuccess }: ReviewW
           {/* 리뷰 내용 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              {t.contentLabel} <span className="text-red-500">*</span>
-            </label>
+              {t.contentLabel}            </label>
             <textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}

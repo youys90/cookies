@@ -112,6 +112,17 @@ export function deleteDraft(id: string): void {
   writeAll({ version: 1, drafts: drafts.filter((d) => d.id !== id) });
 }
 
+/** 여러 임시저장 · 일괄 삭제 */
+export function deleteManyDrafts(ids: string[]): number {
+  if (ids.length === 0) return 0;
+  const { drafts } = readAll();
+  const idSet = new Set(ids);
+  const remaining = drafts.filter((d) => !idSet.has(d.id));
+  const removed = drafts.length - remaining.length;
+  writeAll({ version: 1, drafts: remaining });
+  return removed;
+}
+
 export function clearAll(): void {
   writeAll({ version: 1, drafts: [] });
 }

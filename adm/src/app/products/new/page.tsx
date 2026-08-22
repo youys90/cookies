@@ -856,19 +856,7 @@ export default function NewProductPage() {
                         className="w-full text-sm px-2 py-1 border border-gray-200 rounded"
                       />
                     </div>
-                    <div>
-                      <label className="text-xs text-gray-500">재고</label>
-                      <input
-                        type="number"
-                        value={opt.stock}
-                        onChange={(e) => {
-                          const updated = [...tempOptions];
-                          updated[idx].stock = Number(e.target.value);
-                          setTempOptions(updated);
-                        }}
-                        className="w-full text-sm px-2 py-1 border border-gray-200 rounded"
-                      />
-                    </div>
+                    {/* 재고 필드 · 사장님 요청으로 UI 숨김 · 저장 시 기본값 유지 */}
                   </div>
                 </div>
               ))
@@ -886,21 +874,15 @@ export default function NewProductPage() {
                 onChange={(e) => setNewOption({ ...newOption, option_name: e.target.value })}
                 className="w-full text-sm px-3 py-2 border border-gray-200 rounded-lg"
               />
-              <div className="grid grid-cols-2 gap-2">
+              <div>
                 <input
                   type="number"
                   placeholder="추가금액"
                   value={newOption.additional_price || ''}
                   onChange={(e) => setNewOption({ ...newOption, additional_price: Number(e.target.value) })}
-                  className="text-sm px-3 py-2 border border-gray-200 rounded-lg"
+                  className="w-full text-sm px-3 py-2 border border-gray-200 rounded-lg"
                 />
-                <input
-                  type="number"
-                  placeholder="재고"
-                  value={newOption.stock || ''}
-                  onChange={(e) => setNewOption({ ...newOption, stock: Number(e.target.value) })}
-                  className="text-sm px-3 py-2 border border-gray-200 rounded-lg"
-                />
+                {/* 재고 필드 · 사장님 요청으로 UI 숨김 · 신규 옵션 stock 기본 99로 저장 */}
               </div>
               <button
                 type="button"

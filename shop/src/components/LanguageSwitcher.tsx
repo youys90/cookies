@@ -1,9 +1,12 @@
 "use client";
 
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useShopUi } from "@/contexts/ShopUiContext";
 
 export default function LanguageSwitcher() {
   const { language, setLanguage } = useLanguage();
+  const { isInnerFrame } = useShopUi();
+  if (isInnerFrame) return null;
 
   return (
     <div className="flex justify-center py-3 bg-white border-b border-gray-100">

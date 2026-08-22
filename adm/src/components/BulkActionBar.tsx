@@ -10,6 +10,9 @@ interface BulkActionBarProps {
   onExportCsv?: () => void;
   onBulkEdit?: () => void;
   onClear: () => void;
+  /** 활성 토글 버튼 라벨 커스터마이즈 · 기본 상품용 (판매중/판매중지) */
+  toggleActiveLabels?: { on: string; off: string };
+  toggleActiveTitles?: { on: string; off: string };
 }
 
 export default function BulkActionBar({
@@ -21,8 +24,14 @@ export default function BulkActionBar({
   onExportCsv,
   onBulkEdit,
   onClear,
+  toggleActiveLabels,
+  toggleActiveTitles,
 }: BulkActionBarProps) {
   if (count === 0) return null;
+  const onLabel = toggleActiveLabels?.on ?? "판매중 ↑";
+  const offLabel = toggleActiveLabels?.off ?? "판매중지 ↓";
+  const onTitle = toggleActiveTitles?.on ?? "선택 항목 판매중으로";
+  const offTitle = toggleActiveTitles?.off ?? "선택 항목 판매중지로";
 
   return (
     <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-gray-900 text-white rounded-xl shadow-2xl border border-gray-800 flex items-center gap-1 px-3 py-2 max-w-[95vw] overflow-x-auto">
@@ -35,16 +44,16 @@ export default function BulkActionBar({
       <button
         onClick={() => onToggleActive(true)}
         className="px-3 py-1.5 text-xs rounded hover:bg-gray-800 transition"
-        title="선택 항목 판매중으로"
+        title={onTitle}
       >
-        판매중 ↑
+        {onLabel}
       </button>
       <button
         onClick={() => onToggleActive(false)}
         className="px-3 py-1.5 text-xs rounded hover:bg-gray-800 transition"
-        title="선택 항목 판매중지로"
+        title={offTitle}
       >
-        판매중지 ↓
+        {offLabel}
       </button>
 
       {/* 카테고리 변경 · 실수 시 되돌리기 어려워 제거 · 개별 편집 or 일괄 수정에서만 가능 */}

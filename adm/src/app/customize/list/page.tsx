@@ -27,14 +27,23 @@ export default function PresetListPage() {
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
+    // 목록에 표시할 대상:
+    // - 사장님이 「이름 붙여 저장」한 프리셋 (description 마커 있음)
+    // - 그 외 사장님이 명시적으로 만든 이름 (name이 자동 이름 「관리자 저장 화면 · 」로 시작하지 않는 것)
+    // 자동 저장 (doSave)로 만들어진 「관리자 저장 화면 · ...」 이름 프리셋은 · 매장 반영용 · 목록에서 제외
     const { data, error } = await supabase
       .from("shop_ui_presets")
       .select("*")
       .is("deleted_at", null)
       .order("is_active", { ascending: false })
       .order("updated_at", { ascending: false });
-    if (error) setError(error.message);
-    else setRows((data as Preset[]) ?? []);
+    if (error) {
+      setError(error.message);
+    } else {
+      const all = (data as Preset[]) ?? [];
+      const shown = all.filter((p) => !p.name.startsWith("관리자 저장 화면 ·"));
+      setRows(shown);
+    }
     setLoading(false);
   }, []);
 

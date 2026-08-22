@@ -8,19 +8,19 @@ const DEV_PROJECT_ID = "eftuvzzadxxtxzpgfqom";
 export default function DevBanner() {
   const [isDev, setIsDev] = useState(false);
   const [isVisible, setIsVisible] = useState(true);
+  const [isInnerFrame, setIsInnerFrame] = useState(false);
 
   useEffect(() => {
-    // 환경변수에서 Supabase URL 확인
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-
-    // 개발 DB URL인지 확인
-    if (supabaseUrl.includes(DEV_PROJECT_ID)) {
-      setIsDev(true);
+    if (supabaseUrl.includes(DEV_PROJECT_ID)) setIsDev(true);
+    // 관리자 미리보기 iframe 감지 · 개발 배너/테두리 숨김
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("innerFrame") === "1") setIsInnerFrame(true);
     }
   }, []);
 
-  // 운영 환경이면 아무것도 표시 안 함
-  if (!isDev) return null;
+  if (!isDev || isInnerFrame) return null;
 
   return (
     <>

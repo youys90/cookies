@@ -14,8 +14,8 @@ function MobilePreviewInner() {
     preview: "draft",
     device: "mobile",
     c,
-    innerFrame: "1", // iframe 안에서 렌더링 중임을 shop 컨텍스트가 인식하도록
   });
+  // 「미리보기 (새 탭)」 은 실제 매장 그대로 보여야 함 · innerFrame 파라미터 안 붙임 (헤더/마키/공지 다 노출)
   const src = `${targetPath}?${inner.toString()}`;
 
   return (

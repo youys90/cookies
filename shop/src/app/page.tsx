@@ -96,7 +96,7 @@ function CategoryIcon({ name }: { name: string }) {
 
 export default function Home() {
   const { language, t } = useLanguage();
-  const { config: shopUi } = useShopUi();
+  const { config: shopUi, isInnerFrame, previewPage } = useShopUi();
   const pageSizeOptions = shopUi.pagination.options.length > 0 ? shopUi.pagination.options : DEFAULT_PAGE_SIZE_OPTIONS;
   const defaultPageSize = shopUi.pagination.default || pageSizeOptions[0] || 25;
   const searchParams = useSearchParams();
@@ -208,10 +208,11 @@ export default function Home() {
       return;
     }
     setLoading(true);
-    let query = supabase.from("products").select("*", { count: "exact" }).eq("is_active", true).neq("category", "Premium High-Quality");
+    // 관리자에서 「판매중」인 상품은 홈 목록에 노출 (사장님 원칙)
+    // ※ 하드코딩된 「Premium High-Quality」 제외 필터 삭제 · 특수 카테고리는 아래 locked special 로직으로만 제어
+    let query = supabase.from("products").select("*", { count: "exact" }).eq("is_active", true);
 
-    // 잠긴 특수 카테고리 상품 제외 · 튕김 방지 (사장님 요구)
-    // 사용자가 아직 잠금해제 안 한 특수 카테고리 → 목록에서 아예 안 보이게
+    // 잠긴 특수 (비밀) 카테고리 상품 제외 · 사장님 확인: 전체 목록에는 비밀 카테고리 안 보이는 게 맞음
     const lockedSpecialCatIds = dbCategories
       .filter((c) => c.is_special && !unlockedCatIds.has(c.id))
       .map((c) => c.id);
@@ -399,7 +400,8 @@ export default function Home() {
 
   return (
     <div className="bg-white text-[var(--color-text)]">
-      {/* ─── 히어로 (큰 비주얼 모자이크: BEST 3개 상품 활용) ─── */}
+      {/* ─── 히어로 (큰 비주얼 모자이크: BEST 3개 상품 활용) ─── · 미리보기 iframe에서는 「메인 상단」 편집 중일 때만 노출 */}
+      {(!isInnerFrame || previewPage === "mainTop") && (
       <section className="bg-white">
         <div className="max-w-[1400px] mx-auto px-4 lg:px-8 pt-6 lg:pt-8 pb-10 lg:pb-12">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 lg:gap-4 h-[420px] md:h-[560px] lg:h-[640px]">
@@ -471,8 +473,10 @@ export default function Home() {
           </div>
         </div>
       </section>
+      )}
 
-      {/* ─── 무료 혜택 강조 (슬림) ─── */}
+      {/* ─── 무료 혜택 강조 (슬림) ─── · 「메인 상단」 편집 중일 때만 노출 */}
+      {(!isInnerFrame || previewPage === "mainTop") && (
       <section className="bg-[var(--color-bg-cream)] border-y border-[var(--color-line-soft)]">
         <div className="max-w-[1400px] mx-auto px-4 lg:px-8 py-5 md:py-7">
           <div className="flex items-center justify-center gap-6 md:gap-16">
@@ -506,13 +510,19 @@ export default function Home() {
           </div>
         </div>
       </section>
+      )}
 
       {/* ─── 카테고리 8개 (슬림) ─── */}
       <section className="border-b border-[var(--color-line-soft)] bg-white">
         <div className="max-w-[1400px] mx-auto px-4 lg:px-8 py-7 lg:py-9">
           {/* dbCategories(adm 카테고리 관리)가 있으면 그것 우선 렌더, 없으면 하드코딩 fallback */}
+          {/* 그리드 폭: 실제 카테고리 개수가 사장님 설정한 「한 줄에 몇 개」보다 적으면 · 개수만큼 균등 (왼쪽 쏠림 방지) */}
           <div
-            className="shop-category-tabs grid gap-y-5 gap-x-2"
+            className="shop-category-tabs grid gap-y-5 gap-x-2 justify-center"
+            style={{
+              ["--shop-cat-cols-d" as string]: Math.max(1, Math.min(dbCategories.length > 0 ? dbCategories.length : MIGNON_CATEGORIES.length, shopUi.categoryTabs.columnsDesktop)),
+              ["--shop-cat-cols-m" as string]: Math.max(1, Math.min(dbCategories.length > 0 ? dbCategories.length : MIGNON_CATEGORIES.length, shopUi.categoryTabs.columnsMobile)),
+            }}
           >
             {dbCategories.length > 0 ? (
               dbCategories.map((cat) => {
@@ -609,6 +619,17 @@ export default function Home() {
       </section>
 
       {/* ─── 상품 그리드 (전체 or 선택 카테고리 or NEW IN) ─── */}
+      {/* 메인 상단 편집 중 · 상품 목록 이하 · placeholder (스크롤 최소화) */}
+      {isInnerFrame && previewPage === "mainTop" && (
+        <div className="max-w-[1600px] mx-auto px-4 md:px-6 lg:px-8 py-8">
+          <div className="bg-gray-100 border-2 border-dashed border-gray-300 rounded-2xl p-10 text-center">
+            <p className="text-3xl mb-2">📦</p>
+            <p className="text-sm font-bold text-gray-700 mb-1">상품 목록 영역 (편집 대상 아님)</p>
+            <p className="text-xs text-gray-500">현재 「메인 상단」을 꾸미고 있어요 · 상품 목록/카테고리는 별도 화면에서 편집</p>
+          </div>
+        </div>
+      )}
+      {(!isInnerFrame || previewPage !== "mainTop") && (
       <section id="products" className="max-w-[1600px] mx-auto px-4 md:px-6 lg:px-8 py-8 md:py-12 lg:py-14">
         <div className="text-center mb-7 lg:mb-9">
           <h2 className="text-[11px] tracking-[0.25em] text-[var(--color-text)]">
@@ -722,6 +743,7 @@ export default function Home() {
           </div>
         )}
       </section>
+      )}
 
       <StaffPasswordModal
         isOpen={showStaffModal}

@@ -29,6 +29,8 @@ interface Props {
   cancelHref?: string;
   cancelLabel?: string;
   onCancel?: () => void;
+  /** 취소 버튼 자체를 숨김 · 목록 진입 링크가 상단에 이미 있는 화면용 */
+  hideCancel?: boolean;
   /** 주 액션 (등록/저장) · 브랜드 컬러 · 가장 큰 버튼 */
   primary: ActionButton;
   /** 보조 액션 (임시저장 등) · 있으면 primary 왼쪽에 노출 */
@@ -43,6 +45,7 @@ export default function FormActionBar({
   cancelHref,
   cancelLabel = "취소",
   onCancel,
+  hideCancel = false,
   primary,
   secondary,
   status,
@@ -64,17 +67,21 @@ export default function FormActionBar({
       isDark ? "bg-gray-900/95 border-gray-800 text-white" : "bg-white/95 border-gray-200"
     } z-20`}>
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <button
-          type="button"
-          onClick={handleCancel}
-          className={`px-4 py-2 text-sm font-medium rounded-lg transition flex items-center gap-1.5 ${
-            isDark
-              ? "text-red-300 border border-red-900/60 bg-red-950/40 hover:bg-red-900/40"
-              : "text-red-600 border border-red-200 bg-white hover:bg-red-50"
-          }`}
-        >
-          ← {cancelLabel}
-        </button>
+        {hideCancel ? (
+          <div />
+        ) : (
+          <button
+            type="button"
+            onClick={handleCancel}
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition flex items-center gap-1.5 ${
+              isDark
+                ? "text-red-300 border border-red-900/60 bg-red-950/40 hover:bg-red-900/40"
+                : "text-red-600 border border-red-200 bg-white hover:bg-red-50"
+            }`}
+          >
+            ← {cancelLabel}
+          </button>
+        )}
 
         {status && (
           <div className={`text-xs flex-1 text-center ${isDark ? "text-gray-300" : "text-gray-500"}`}>

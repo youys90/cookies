@@ -848,20 +848,7 @@ export default function EditProductPage() {
                           className="w-full text-sm px-2 py-1 border border-gray-200 rounded"
                         />
                       </div>
-                      <div>
-                        <label className="text-xs text-gray-500">재고</label>
-                        <input
-                          type="number"
-                          value={opt.stock}
-                          onChange={(e) => {
-                            const updated = [...options];
-                            updated[idx].stock = Number(e.target.value);
-                            setOptions(updated);
-                          }}
-                          onBlur={() => handleUpdateOption(opt)}
-                          className="w-full text-sm px-2 py-1 border border-gray-200 rounded"
-                        />
-                      </div>
+                      {/* 재고 필드 · 사장님 요청으로 UI 숨김 · 저장 시 기존 값 유지 */}
                     </div>
                     <label className="flex items-center gap-2 text-xs text-gray-600">
                       <input

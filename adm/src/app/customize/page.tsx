@@ -11,7 +11,7 @@ import { SHOP_UI_SCHEMA, DEFAULT_CONFIG, mergeWithDefaults, deriveMobileValues, 
 import FormActionBar from "@/components/FormActionBar";
 import ShopPreview from "@/components/ShopPreview";
 import DraftSaveButton from "@/components/DraftSaveButton";
-import { getLatestDraft, upsertDraft, deleteDraft, listDrafts } from "@/lib/adminDrafts";
+import { upsertDraft, deleteDraft, listDrafts } from "@/lib/adminDrafts";
 import { useSearchParams } from "next/navigation";
 
 const PAGE_KEY = "customize";
@@ -96,74 +96,35 @@ export default function CustomizePage() {
 
   // 미리보기 기기 (PC / 모바일) · 화면 시각화용
   const [previewDevice, setPreviewDevice] = useState<"desktop" | "mobile">("desktop");
-  const [previewPage, setPreviewPage] = useState<"list" | "detail">("list");
+  const [previewPage, setPreviewPage] = useState<"list" | "detail" | "mainTop">("list");
 
-  // 임시저장 · 다음 메일 스타일 (여러 개 목록 + 만료)
-  const [restorePrompt, setRestorePrompt] = useState<{ data: ShopUiConfig; draftId: string } | null>(null);
-  const [autoSaveEnabled, setAutoSaveEnabled] = useState(false);
+  // 임시저장 · 사장님 명시 요청 시에만 저장/불러오기 (자동 감지 없음)
+  // 진입 시 · 항상 라이브(활성 프리셋) 값으로 시작 · 임시저장 목록 팝업 없음
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(null);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [savedTick, setSavedTick] = useState(0);
   const searchParams = useSearchParams();
   const requestedDraftId = searchParams.get("draft");
 
-  // 마운트 시 · draft 파라미터 있으면 그거로 · 아니면 최근 임시저장 감지
+  // 마운트 시 · URL에 ?draft={id} 있을 때만 명시적으로 이어서 편집
+  // 그 외에는 라이브 프리셋 값 그대로 (자동 감지 · 복원 팝업 없음)
   useEffect(() => {
-    if (loading || !active) return;
-    // URL로 특정 draft 이어서 편집
-    if (requestedDraftId) {
-      const all = listDrafts(PAGE_KEY);
-      const d = all.find((x) => x.id === requestedDraftId);
-      if (d) {
-        setConfig(mergeWithDefaults(d.data as unknown));
-        setCurrentDraftId(d.id);
-        setDirty(true);
-        setAutoSaveEnabled(true);
-        return;
-      }
-    }
-    // 자동 감지
-    const latest = getLatestDraft(PAGE_KEY);
-    if (latest && JSON.stringify(latest.data) !== JSON.stringify(config)) {
-      setRestorePrompt({ data: latest.data as ShopUiConfig, draftId: latest.id });
-    } else {
-      setAutoSaveEnabled(true);
+    if (loading || !active || !requestedDraftId) return;
+    const all = listDrafts(PAGE_KEY);
+    const d = all.find((x) => x.id === requestedDraftId);
+    if (d) {
+      setConfig(mergeWithDefaults(d.data as unknown));
+      setCurrentDraftId(d.id);
+      setDirty(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, active?.id, requestedDraftId]);
 
-  // config 자동 저장 (5초 debounce · 너무 잦으면 로컬 저장 부담)
-  useEffect(() => {
-    if (!autoSaveEnabled || saving) return;
-    const t = setTimeout(() => {
-      const d = upsertDraft({ id: currentDraftId || undefined, pageKey: PAGE_KEY, pageLabel: PAGE_LABEL, data: config });
-      if (!currentDraftId) setCurrentDraftId(d.id);
-      setLastSavedAt(new Date());
-    }, 5000);
-    return () => clearTimeout(t);
-  }, [config, autoSaveEnabled, saving, currentDraftId]);
-
   const manualSave = () => {
-    const title = prompt("이 임시저장에 이름을 붙여주세요 (비우면 자동)", "") || undefined;
-    const d = upsertDraft({ pageKey: PAGE_KEY, pageLabel: PAGE_LABEL, data: config, title });
+    const d = upsertDraft({ id: currentDraftId || undefined, pageKey: PAGE_KEY, pageLabel: PAGE_LABEL, data: config });
     setCurrentDraftId(d.id);
     setLastSavedAt(new Date());
     setSavedTick((n) => n + 1);
-  };
-
-  const doRestore = () => {
-    if (restorePrompt) {
-      setConfig(mergeWithDefaults(restorePrompt.data));
-      setCurrentDraftId(restorePrompt.draftId);
-      setDirty(true);
-    }
-    setRestorePrompt(null);
-    setAutoSaveEnabled(true);
-  };
-  const doDiscard = () => {
-    if (restorePrompt) deleteDraft(restorePrompt.draftId);
-    setRestorePrompt(null);
-    setAutoSaveEnabled(true);
   };
 
   // 부분 저장 · 지금 편집 중인 화면의 섹션만 · 나머지는 서버 원본 유지
@@ -187,6 +148,86 @@ export default function CustomizePage() {
     };
   };
 
+  // 「저장된 매장 화면 목록」 모달 · customize/list 페이지 대신 팝업으로
+  interface PresetRow { id: number; name: string; description: string | null; is_active: boolean; is_default: boolean; updated_at: string }
+  const [showPresetsModal, setShowPresetsModal] = useState(false);
+  const [presetList, setPresetList] = useState<PresetRow[]>([]);
+  const [presetLoading, setPresetLoading] = useState(false);
+  const [presetBusyId, setPresetBusyId] = useState<number | null>(null);
+  const loadPresets = async () => {
+    setPresetLoading(true);
+    const { data } = await supabase
+      .from("shop_ui_presets")
+      .select("id, name, description, is_active, is_default, updated_at")
+      .is("deleted_at", null)
+      .order("is_active", { ascending: false })
+      .order("updated_at", { ascending: false });
+    const all = ((data as PresetRow[]) || []);
+    // 자동 저장 (「관리자 저장 화면 · ...」) 제외 · 사장님 명시 저장만
+    setPresetList(all.filter((p) => !p.name.startsWith("관리자 저장 화면 ·")));
+    setPresetLoading(false);
+  };
+  const presetActivate = async (row: PresetRow) => {
+    if (!confirm(`「${row.name}」 화면을 불러옵니다.\n\n현재 수정 중인 내용은 불러온 화면의 설정으로 바뀝니다.\n계속하시겠어요?`)) return;
+    setPresetBusyId(row.id);
+    // 실제 매장에는 반영 안 함 · 저장한 프리셋의 config만 편집 상태로 로드
+    const { data, error } = await supabase.from("shop_ui_presets").select("config").eq("id", row.id).maybeSingle();
+    setPresetBusyId(null);
+    if (error || !data?.config) {
+      alert("화면을 불러오지 못했습니다.\n다시 시도해주세요.");
+      return;
+    }
+    const loaded = mergeWithDefaults(data.config);
+    setConfig(loaded);
+    setDirty(JSON.stringify(loaded) !== JSON.stringify(originalConfig));
+    setMsg(`「${row.name}」 화면을 불러왔습니다.`);
+    setShowPresetsModal(false);
+  };
+  const presetRename = async (row: PresetRow) => {
+    const name = prompt("새 이름을 입력해주세요", row.name);
+    if (!name || name === row.name) return;
+    setPresetBusyId(row.id);
+    const { error } = await supabase.from("shop_ui_presets").update({ name }).eq("id", row.id);
+    setPresetBusyId(null);
+    if (error) alert("변경 실패: " + error.message);
+    else { loadPresets(); if (active?.id === row.id) load(); }
+  };
+  const presetDelete = async (row: PresetRow) => {
+    if (row.is_default) return alert("기본 화면은 삭제할 수 없어요");
+    if (row.is_active) return alert("지금 매장에 반영된 화면은 삭제할 수 없어요.\n먼저 다른 화면을 활성화해주세요.");
+    if (!confirm(`「${row.name}」 을 휴지통으로 옮깁니다.\n\n20일 안에 되돌릴 수 있어요.\n\n계속하시겠어요?`)) return;
+    setPresetBusyId(row.id);
+    const { error } = await supabase.from("shop_ui_presets").update({ deleted_at: new Date().toISOString() }).eq("id", row.id);
+    setPresetBusyId(null);
+    if (error) alert("삭제 실패: " + error.message);
+    else loadPresets();
+  };
+
+  // 「마지막 운영 화면으로 복원」을 위해 · 직전 매장 반영 config를 로컬 저장
+  const PREV_LIVE_KEY = "adm.customize.prevLive.v1";
+  const savePrevLiveSnapshot = (id: number, cfg: ShopUiConfig, name: string) => {
+    try {
+      const now = Date.now();
+      window.localStorage.setItem(PREV_LIVE_KEY, JSON.stringify({ id, config: cfg, name, savedAt: now }));
+    } catch {}
+  };
+  const [prevLive, setPrevLive] = useState<{ id: number; config: ShopUiConfig; name: string; savedAt: number } | null>(null);
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(PREV_LIVE_KEY);
+      if (raw) setPrevLive(JSON.parse(raw));
+    } catch {}
+  }, []);
+
+  // 「현재 적용된 화면으로 돌아가기」 · 활성 프리셋 config를 편집 상태로 복구 · 실제 적용 상태는 그대로
+  const restoreLastLive = () => {
+    if (!active) return;
+    if (!confirm("현재 적용된 화면으로 돌아갈까요?\n\n지금까지 바꾼 내용은 사라지고, 현재 적용된 화면으로 돌아갑니다.")) return;
+    setConfig(active.config);
+    setDirty(false);
+    setMsg("↺ 현재 적용된 화면으로 돌아갔어요.");
+  };
+
   const doSave = async (scope: "current" | "all") => {
     if (!active) return;
     const finalConfig = buildScopedConfig(scope);
@@ -195,9 +236,25 @@ export default function CustomizePage() {
       : `이번 저장 · 「${previewPage === "list" ? "상품 목록" : "상품 상세"} 화면」만 변경 · 다른 화면 설정은 그대로 유지됩니다`;
     if (!confirm(`${scopeLabel}\n\n계속하시겠어요?`)) return;
     setSaving(true);
+    // 저장 전 · 현재 매장 반영 config를 이전 스냅샷으로 백업 · 「마지막 운영 화면으로 복원」 기능용
+    savePrevLiveSnapshot(active.id, active.config, active.name);
+    setPrevLive({ id: active.id, config: active.config, name: active.name, savedAt: Date.now() });
+    // 저장 config가 소스 오리지널(DEFAULT_CONFIG)과 완전히 같은지 판정
+    // - 같으면 · 「기본 화면」으로 인식 (사장님 논리 · 기본 화면 원복 → 저장 = 여전히 기본 화면)
+    // - 다르면 · 「관리자 저장 화면 · MM-DD HH:mm 저장」 자동 이름 갱신
+    // 「이름 붙여 저장」 마커 (description) 는 이 저장에서 리셋 (원래 이름과 다른 상태이므로)
+    const isReallyDefault = JSON.stringify(finalConfig) === JSON.stringify(mergeWithDefaults(DEFAULT_CONFIG));
+    const nowStr = new Date().toLocaleString("ko-KR", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+    const autoName = isReallyDefault ? "기본 화면" : `관리자 저장 화면 · ${nowStr} 저장`;
+    const updatePayload: { config: ShopUiConfig; name: string; description?: string | null; is_default?: boolean } = {
+      config: finalConfig,
+      name: autoName,
+      is_default: isReallyDefault,
+    };
+    if (active.description) updatePayload.description = null;
     const { error } = await supabase
       .from("shop_ui_presets")
-      .update({ config: finalConfig })
+      .update(updatePayload)
       .eq("id", active.id);
     setSaving(false);
     if (error) {
@@ -218,38 +275,33 @@ export default function CustomizePage() {
     const name = newName.trim();
     if (!name) return alert("이름을 입력해주세요");
     setSaving(true);
-    // 1) 기존 활성 프리셋 → 비활성화
-    await supabase.from("shop_ui_presets").update({ is_active: false }).eq("is_active", true).is("deleted_at", null);
-    // 2) 새 프리셋 · 활성 저장
+    // 「이름 붙여 저장」 = 스냅샷 저장만 · 매장 반영 X (사장님 요구)
+    // is_active: false 로 저장 · 매장은 기존 활성 프리셋 유지
+    // 목록에서 「이 화면으로 바꾸기」 눌러야 매장에 반영됨
     const { error } = await supabase.from("shop_ui_presets").insert({
       name,
+      description: "사장님이 이름 붙여 저장한 매장 화면",
       config,
-      is_active: true,
+      is_active: false,
     });
     setSaving(false);
     if (error) {
       setMsg("저장 실패: " + error.message);
     } else {
-      setMsg(`「${name}」 프리셋을 새로 만들어 활성화했습니다`);
+      setMsg(`💾 「${name}」 스냅샷으로 저장되었어요 (실제 매장에는 반영 안 됨 · 「저장된 매장 화면 목록」에서 「이 화면으로 바꾸기」를 눌러야 반영돼요)`);
       setShowSaveAs(false);
       setNewName("");
-      setDirty(false);
+      // dirty 유지 · 사장님이 편집한 값이 현재 매장 활성 프리셋과 여전히 다르므로
       load();
     }
   };
 
-  const resetToDefault = async () => {
-    if (!confirm("처음 만들었던 기본 화면으로 되돌립니다.\n\n현재 활성 프리셋의 내용이 기본값으로 바뀝니다.\n계속하시겠어요?")) return;
-    // 시스템 기본 config 조회
-    const { data } = await supabase
-      .from("shop_ui_presets")
-      .select("config")
-      .eq("is_default", true)
-      .maybeSingle();
-    const def = mergeWithDefaults(data?.config ?? DEFAULT_CONFIG);
+  const resetToDefault = () => {
+    if (!confirm("기본값으로 되돌릴까요?\n\n화면 꾸미기에서 변경한 설정이 처음 제공된 값으로 돌아갑니다.\n※ 저장 전이므로 아직 적용되지 않아요.")) return;
+    const def = mergeWithDefaults(DEFAULT_CONFIG);
     setConfig(def);
-    setDirty(true);
-    setMsg("기본 화면으로 되돌렸어요. 「저장」을 눌러 반영해주세요.");
+    setDirty(JSON.stringify(def) !== JSON.stringify(originalConfig));
+    setMsg("↺ 기본값으로 되돌렸어요. 저장을 눌러야 적용됩니다.");
   };
 
   const openPreview = () => {
@@ -293,9 +345,9 @@ export default function CustomizePage() {
       {/* 헤더 */}
       <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">🎨 매장 화면 관리</h1>
+          <h1 className="text-2xl font-bold text-gray-900">🎨 화면 꾸미기</h1>
           <p className="text-sm text-gray-500 mt-1">
-            매장(고객용) 화면의 배치 · 크기 · 노출 정보를 사장님이 직접 조정할 수 있어요
+            상품과 메뉴의 크기, 간격, 표시 방법을 직접 꾸밀 수 있어요.
           </p>
           <div className="mt-3">
             <DraftSaveButton
@@ -306,46 +358,38 @@ export default function CustomizePage() {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <Link href="/customize/list" className="px-3 py-1.5 text-xs text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">
-            📚 저장된 화면 목록
-          </Link>
+          <button
+            type="button"
+            onClick={() => { setShowPresetsModal(true); loadPresets(); }}
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-[var(--color-brand-dk)] bg-white border-2 border-[var(--color-brand)] rounded-full hover:bg-[var(--color-brand)]/10 shadow-sm transition"
+            title="이전에 저장해둔 매장 화면들을 모아봅니다"
+          >
+            📚 저장한 화면 불러오기
+          </button>
           <Link href="/customize/trash" className="px-3 py-1.5 text-xs text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50">
             🗑 휴지통
           </Link>
         </div>
       </div>
 
-      {/* 임시저장 복원 팝업 · 메일 스타일 */}
-      {restorePrompt && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl">
-            <div className="flex items-start gap-3 mb-4">
-              <div className="w-11 h-11 rounded-full bg-amber-100 flex items-center justify-center text-2xl flex-shrink-0">💾</div>
-              <div>
-                <h3 className="text-lg font-bold text-gray-900">이전에 편집 중이던 화면이 있어요</h3>
-                <p className="text-sm text-gray-500 mt-1">
-                  저장하지 않은 편집 내용이 남아있어요. 이어서 편집하시겠어요?
-                </p>
-              </div>
+      {/* 활성 정보 · 실제 매장에 반영된 값 · 편집 값과 다를 수 있음 명시 */}
+      {active && (() => {
+        // 활성 프리셋 config가 소스 기본값과 실제로 같은지 판정 · name과 무관
+        const isReallyDefault = JSON.stringify(originalConfig) === JSON.stringify(mergeWithDefaults(DEFAULT_CONFIG));
+        const shownLabel = isReallyDefault ? "처음 설정 화면 (아직 저장 안 함)" : active.name;
+        return (
+          <div className="mb-4 p-3 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-between flex-wrap gap-2">
+            <div className="text-sm text-emerald-800 flex items-center gap-2 flex-wrap">
+              <span>🟢 현재 적용된 화면:</span>
+              <b>{shownLabel}</b>
+              {dirty && <span className="text-[10px] px-2 py-0.5 bg-amber-500 text-white rounded-full font-semibold animate-pulse">꾸미는 중 · 저장 안 함</span>}
             </div>
-            <div className="flex items-center justify-end gap-2 mt-6">
-              <button onClick={doDiscard} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">🗑 새로 시작</button>
-              <button onClick={doRestore} className="px-5 py-2 text-sm bg-[var(--color-brand)] text-white rounded-lg hover:bg-[var(--color-brand-dk)] font-semibold">✎ 불러오기</button>
+            <div className="text-[11px] text-emerald-700">
+              마지막 변경: <span className="font-mono">{new Date(active.updated_at).toLocaleString("ko-KR")}</span>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* 활성 정보 */}
-      {active && (
-        <div className="mb-4 p-3 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-between flex-wrap gap-2">
-          <div className="text-sm text-emerald-800">
-            🟢 지금 매장에 반영된 화면: <b>{active.name}</b>
-            {active.is_default && <span className="ml-2 text-[10px] px-1.5 py-0.5 bg-emerald-500 text-white rounded-full">기본</span>}
-          </div>
-          <div className="text-[11px] text-emerald-700">마지막 저장: {new Date(active.updated_at).toLocaleString("ko-KR")}</div>
-        </div>
-      )}
+        );
+      })()}
 
       {loading ? (
         <div className="text-center py-16 text-gray-400 text-sm">불러오는 중...</div>
@@ -365,8 +409,21 @@ export default function CustomizePage() {
             <div className="grid grid-cols-1 md:grid-cols-2">
               {/* 좌측 · 어느 화면 편집 · 큰 세로 탭 2개 */}
               <div className="p-3 bg-gradient-to-br from-gray-50 to-white border-b md:border-b-0 md:border-r border-gray-200">
-                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 pl-1">📝 어느 화면을 편집할까요?</p>
-                <div className="grid grid-cols-2 gap-2">
+                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 pl-1">📝 꾸밀 화면을 선택해주세요</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <button
+                    onClick={() => setPreviewPage("mainTop")}
+                    className={`px-3 py-3 rounded-lg border-2 transition text-left ${previewPage === "mainTop" ? "border-[var(--color-brand)] bg-[var(--color-brand)]/8 shadow-sm" : "border-gray-200 bg-white hover:bg-gray-50"}`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">🎁</span>
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-gray-900">메인 상단</p>
+                        <p className="text-[10px] text-gray-500">히어로 · 공지 배너 · 상단 영역</p>
+                      </div>
+                      {previewPage === "mainTop" && <span className="ml-auto text-[10px] font-semibold text-[var(--color-brand-dk)]">● 꾸미는 중</span>}
+                    </div>
+                  </button>
                   <button
                     onClick={() => setPreviewPage("list")}
                     className={`px-3 py-3 rounded-lg border-2 transition text-left ${previewPage === "list" ? "border-[var(--color-brand)] bg-[var(--color-brand)]/8 shadow-sm" : "border-gray-200 bg-white hover:bg-gray-50"}`}
@@ -374,10 +431,10 @@ export default function CustomizePage() {
                     <div className="flex items-center gap-2">
                       <span className="text-xl">🛍</span>
                       <div className="min-w-0">
-                        <p className="text-sm font-bold text-gray-900">상품 목록 화면</p>
-                        <p className="text-[10px] text-gray-500">홈 · 카테고리 · 상품 그리드</p>
+                        <p className="text-sm font-bold text-gray-900">상품 목록</p>
+                        <p className="text-[10px] text-gray-500">상품을 둘러보는 화면</p>
                       </div>
-                      {previewPage === "list" && <span className="ml-auto text-[10px] font-semibold text-[var(--color-brand-dk)]">● 편집 중</span>}
+                      {previewPage === "list" && <span className="ml-auto text-[10px] font-semibold text-[var(--color-brand-dk)]">● 꾸미는 중</span>}
                     </div>
                   </button>
                   <button
@@ -387,17 +444,17 @@ export default function CustomizePage() {
                     <div className="flex items-center gap-2">
                       <span className="text-xl">📦</span>
                       <div className="min-w-0">
-                        <p className="text-sm font-bold text-gray-900">상품 상세 화면</p>
-                        <p className="text-[10px] text-gray-500">상품 클릭 시 나오는 페이지</p>
+                        <p className="text-sm font-bold text-gray-900">상품 상세</p>
+                        <p className="text-[10px] text-gray-500">상품을 눌렀을 때 보이는 화면</p>
                       </div>
-                      {previewPage === "detail" && <span className="ml-auto text-[10px] font-semibold text-[var(--color-brand-dk)]">● 편집 중</span>}
+                      {previewPage === "detail" && <span className="ml-auto text-[10px] font-semibold text-[var(--color-brand-dk)]">● 꾸미는 중</span>}
                     </div>
                   </button>
                 </div>
               </div>
               {/* 우측 · 어느 기기 미리보기 · PC/모바일 */}
               <div className="p-3">
-                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 pl-1">👁 미리보기 · 어떤 기기로?</p>
+                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 pl-1">👁 미리보기 화면</p>
                 <div className="grid grid-cols-2 gap-2 mb-2">
                   <button
                     onClick={() => setPreviewDevice("desktop")}
@@ -407,7 +464,7 @@ export default function CustomizePage() {
                       <span className="text-xl">🖥</span>
                       <div>
                         <p className="text-sm font-bold">PC</p>
-                        <p className={`text-[10px] ${previewDevice === "desktop" ? "text-gray-300" : "text-gray-500"}`}>큰 화면</p>
+                        <p className={`text-[10px] ${previewDevice === "desktop" ? "text-gray-300" : "text-gray-500"}`}>PC 화면</p>
                       </div>
                     </div>
                   </button>
@@ -419,20 +476,40 @@ export default function CustomizePage() {
                       <span className="text-xl">📱</span>
                       <div>
                         <p className="text-sm font-bold">모바일</p>
-                        <p className={`text-[10px] ${previewDevice === "mobile" ? "text-gray-300" : "text-gray-500"}`}>휴대폰 화면</p>
+                        <p className={`text-[10px] ${previewDevice === "mobile" ? "text-gray-300" : "text-gray-500"}`}>모바일 화면</p>
                       </div>
                     </div>
                   </button>
                 </div>
-                <label className="flex items-center gap-2 cursor-pointer select-none pl-1 pt-1">
-                  <input
-                    type="checkbox"
-                    checked={config.linkMobileToDesktop}
-                    onChange={toggleLink}
-                    className="w-3.5 h-3.5 accent-[var(--color-brand)]"
-                  />
-                  <span className="text-[11px] text-gray-600">모바일 값 · PC 조정 시 자동으로 함께 조정</span>
-                </label>
+                {/* PC ↔ 모바일 링크 토글 · 사장님 친화 큰 토글 스위치 (상품관리 스타일 참고) */}
+                <button
+                  type="button"
+                  onClick={toggleLink}
+                  className={`mt-2 w-full p-3 rounded-xl border-2 transition text-left shadow-sm hover:shadow-md ${
+                    config.linkMobileToDesktop
+                      ? "bg-emerald-50 border-emerald-400 hover:bg-emerald-100"
+                      : "bg-white border-gray-300 hover:bg-gray-50"
+                  }`}
+                  title="PC와 모바일 값을 함께 조정할지 · 따로 조정할지"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl leading-none">{config.linkMobileToDesktop ? "🔗" : "🔓"}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-bold ${config.linkMobileToDesktop ? "text-emerald-800" : "text-gray-700"}`}>
+                        {config.linkMobileToDesktop ? "PC · 모바일 함께 설정" : "PC · 모바일 따로 설정"}
+                      </p>
+                      <p className={`text-[11px] mt-0.5 ${config.linkMobileToDesktop ? "text-emerald-700" : "text-gray-500"}`}>
+                        {config.linkMobileToDesktop
+                          ? "PC에서 설정하면 모바일 화면에 맞게 자동으로 조정돼요."
+                          : "각 화면을 따로 설정할 수 있어요."}
+                      </p>
+                    </div>
+                    {/* 토글 스위치 UI (iOS 스타일) */}
+                    <div className={`w-12 h-7 rounded-full relative transition flex-shrink-0 ${config.linkMobileToDesktop ? "bg-emerald-500" : "bg-gray-300"}`}>
+                      <div className={`w-6 h-6 bg-white rounded-full absolute top-0.5 shadow-md transition-all ${config.linkMobileToDesktop ? "left-[calc(100%-1.625rem)]" : "left-0.5"}`}></div>
+                    </div>
+                  </div>
+                </button>
               </div>
             </div>
           </div>
@@ -441,10 +518,78 @@ export default function CustomizePage() {
           <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-6">
             {/* 편집 폼 · 선택된 화면에 해당하는 섹션만 노출 */}
             <div className="space-y-4">
+              {previewPage === "mainTop" && (
+                <>
+                  <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl">📢</span>
+                        <div>
+                          <h3 className="text-sm font-bold text-gray-900">최상단 프로모 슬림바</h3>
+                          <p className="text-[11px] text-gray-500">여러 개 문구가 슬라이드로 반복 노출돼요</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="p-4 space-y-3">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={config.mainTop.promoBarEnabled}
+                          onChange={(e) => updateField("mainTop", "promoBarEnabled", e.target.checked)}
+                          className="w-4 h-4 accent-[var(--color-brand)]"
+                        />
+                        <span className="text-sm text-gray-700 font-medium">슬림바 표시</span>
+                      </label>
+                      {config.mainTop.promoBarEnabled && (
+                        <div>
+                          <p className="text-xs text-gray-500 mb-2">프로모 문구 · {config.mainTop.promoBarMessages.length}개</p>
+                          <div className="space-y-1.5">
+                            {config.mainTop.promoBarMessages.map((msg, i) => (
+                              <div key={i} className="flex items-center gap-2">
+                                <input
+                                  type="text"
+                                  value={msg}
+                                  onChange={(e) => {
+                                    const next = [...config.mainTop.promoBarMessages];
+                                    next[i] = e.target.value;
+                                    updateField("mainTop", "promoBarMessages", next);
+                                  }}
+                                  className="flex-1 px-2.5 py-1.5 text-sm border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-[var(--color-brand)]"
+                                />
+                                <button
+                                  onClick={() => {
+                                    const next = config.mainTop.promoBarMessages.filter((_, idx) => idx !== i);
+                                    updateField("mainTop", "promoBarMessages", next);
+                                  }}
+                                  className="p-1.5 text-red-500 hover:bg-red-50 rounded"
+                                  title="이 문구 삭제"
+                                >
+                                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 6l12 12M6 18L18 6" /></svg>
+                                </button>
+                              </div>
+                            ))}
+                            <button
+                              onClick={() => updateField("mainTop", "promoBarMessages", [...config.mainTop.promoBarMessages, ""])}
+                              className="w-full mt-1 py-2 text-xs border-2 border-dashed border-gray-300 rounded text-gray-500 hover:border-[var(--color-brand)] hover:text-[var(--color-brand-dk)]"
+                            >
+                              + 문구 추가
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-[11px] text-amber-800">
+                    ℹ 히어로 · 공지 배너 · 혜택 · 헤더 메뉴 · 로고 편집은 순차 추가 예정
+                  </div>
+                </>
+              )}
               {SHOP_UI_SCHEMA
                 .filter((sec) => {
                   // 상품 목록 화면 편집 중 → productList + pagination + categoryTabs 만
                   // 상품 상세 화면 편집 중 → productDetail 만
+                  // 메인 상단 편집 중 → 아직 스키마 필드 없음 (안내만 노출)
+                  if (previewPage === "mainTop") return false;
                   if (previewPage === "list") return sec.key !== "productDetail";
                   return sec.key === "productDetail";
                 })
@@ -483,37 +628,52 @@ export default function CustomizePage() {
               <div className="sticky top-6 space-y-3">
                 <div className="flex items-center justify-between bg-white rounded-xl border border-gray-200 px-3 py-2">
                   <div className="text-xs font-semibold text-gray-700">
-                    🔴 실시간 미리보기 · {previewPage === "list" ? "🛍 상품 목록" : "📦 상품 상세"} · {previewDevice === "desktop" ? "🖥 PC" : "📱 모바일"}
+                    🔴 {previewPage === "list" ? "상품 목록" : "상품 상세"} 미리보기 · {previewDevice === "desktop" ? "PC" : "모바일"}
                   </div>
-                  <div className="text-[10px] text-gray-400">위 탭에서 전환</div>
+                  <div className="text-[10px] text-gray-400">위에서 화면 선택</div>
                 </div>
-                <ShopPreview config={config} device={previewDevice} page={previewPage} />
+                <ShopPreview config={config} device={previewDevice} page={previewPage} sampleProductId={sampleProductId} />
               </div>
             </div>
           </div>
 
           <FormActionBar
-            cancelHref="/customize/list"
-            cancelLabel="목록으로"
-            status={
-              msg ? <span className="text-emerald-700 font-medium">{msg}</span>
-              : dirty ? (
-                <span className="text-amber-700">
+            hideCancel
+            status={(() => {
+              if (msg) return <span className="text-emerald-700 font-medium">{msg}</span>;
+              if (!dirty) return <span>변경사항 없음</span>;
+              // 화면별 실제 dirty 여부 · 상품 목록/상품 상세 각각 판정
+              const listDirty =
+                JSON.stringify(config.productList) !== JSON.stringify(originalConfig.productList) ||
+                JSON.stringify(config.pagination) !== JSON.stringify(originalConfig.pagination) ||
+                JSON.stringify(config.categoryTabs) !== JSON.stringify(originalConfig.categoryTabs);
+              const detailDirty =
+                JSON.stringify(config.productDetail) !== JSON.stringify(originalConfig.productDetail);
+              return (
+                <span className="text-amber-700 inline-flex items-center gap-2 flex-wrap">
                   🔸 저장하지 않은 변경사항이 있어요
-                  <span className="ml-2 text-[10px] text-gray-500">
-                    「이 화면만」 = {previewPage === "list" ? "🛍 상품 목록만" : "📦 상품 상세만"} · 다른 화면 설정은 그대로 유지
-                  </span>
+                  {listDirty && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-100 border border-amber-200 rounded-full text-[11px] font-medium text-amber-800">
+                      🛍 상품 목록
+                    </span>
+                  )}
+                  {detailDirty && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-100 border border-amber-200 rounded-full text-[11px] font-medium text-amber-800">
+                      📦 상품 상세
+                    </span>
+                  )}
                 </span>
-              ) : <span>변경사항 없음</span>
-            }
+              );
+            })()}
             secondary={[
-              { label: "↺ 기본 화면으로", onClick: resetToDefault },
+              { label: "⏱ 현재 적용된 화면으로 돌아가기", onClick: restoreLastLive, disabled: !dirty },
+              { label: "↺ 기본값으로 되돌리기", onClick: resetToDefault },
               { label: "👁 미리보기 (새 탭)", onClick: openPreview },
-              { label: "💾 이름 붙여 저장", onClick: () => setShowSaveAs(true), disabled: saving },
-              { label: "📦 전체 저장", onClick: saveAll, disabled: saving || !dirty },
+              { label: "💾 다른 이름으로 저장", onClick: () => setShowSaveAs(true), disabled: saving },
+              { label: "📦 모든 화면 저장", onClick: saveAll, disabled: saving || !dirty },
             ]}
             primary={{
-              label: saving ? "저장 중..." : `✓ 이 화면만 저장 (${previewPage === "list" ? "상품 목록" : "상품 상세"})`,
+              label: saving ? "저장 중..." : "✓ 현재 화면만 저장",
               onClick: saveOverwrite,
               disabled: saving || !dirty,
             }}
@@ -525,9 +685,9 @@ export default function CustomizePage() {
       {showSaveAs && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => setShowSaveAs(false)}>
           <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-bold text-gray-900 mb-2">💾 이 화면에 이름을 붙여주세요</h3>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">💾 다른 이름으로 저장</h3>
             <p className="text-xs text-gray-500 mb-4">
-              나중에 다른 화면으로 바꿨다가도 · 목록에서 이 이름을 선택해 다시 불러올 수 있어요
+              나중에 「저장한 화면 불러오기」 목록에서 이 이름을 선택해 다시 불러올 수 있어요.
             </p>
             <input
               type="text"
@@ -541,8 +701,64 @@ export default function CustomizePage() {
             <div className="flex items-center justify-end gap-2 mt-4">
               <button onClick={() => setShowSaveAs(false)} className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 rounded-lg">취소</button>
               <button onClick={saveAsNew} disabled={saving || !newName.trim()} className="px-4 py-1.5 text-sm bg-[var(--color-brand)] text-white rounded-lg hover:bg-[var(--color-brand-dk)] disabled:opacity-50">
-                {saving ? "저장 중..." : "저장하기"}
+                {saving ? "저장 중..." : "저장"}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 저장된 매장 화면 목록 모달 · 사장님 요청: 별도 페이지 대신 팝업 */}
+      {showPresetsModal && (
+        <div className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-4" onClick={() => setShowPresetsModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">📚 저장한 화면 불러오기</h3>
+                <p className="text-xs text-gray-500 mt-0.5">저장한 화면을 불러와 다시 수정할 수 있어요.</p>
+              </div>
+              <button onClick={() => setShowPresetsModal(false)} className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100">
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M6 6l12 12M6 18L18 6" /></svg>
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              {presetLoading ? (
+                <div className="text-center py-16 text-gray-400 text-sm">불러오는 중...</div>
+              ) : presetList.length === 0 ? (
+                <div className="text-center py-16 text-gray-400 text-sm">
+                  <p>저장된 화면이 없어요</p>
+                  <p className="text-[11px] mt-1">「💾 다른 이름으로 저장」을 눌러 지금 꾸민 화면을 저장해보세요.</p>
+                </div>
+              ) : (
+                <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                  {presetList.map((r, idx) => (
+                    <div key={r.id} className={`p-3 flex items-center gap-3 flex-wrap ${idx > 0 ? "border-t border-gray-100" : ""} ${r.is_active ? "bg-emerald-50/40" : ""}`}>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-semibold text-gray-900">{r.name}</p>
+                          {r.is_active && <span className="text-[10px] px-1.5 py-0.5 bg-emerald-500 text-white rounded-full">🟢 현재 적용 중</span>}
+                          {r.is_default && <span className="text-[10px] px-1.5 py-0.5 bg-gray-500 text-white rounded-full">기본</span>}
+                        </div>
+                        <p className="text-[10px] text-gray-400 mt-0.5">저장 날짜: {new Date(r.updated_at).toLocaleString("ko-KR")}</p>
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {!r.is_active && (
+                          <button onClick={() => presetActivate(r)} disabled={presetBusyId === r.id} className="px-3 py-1.5 text-xs bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 font-medium disabled:opacity-40">✓ 불러오기</button>
+                        )}
+                        {!r.is_default && (
+                          <button onClick={() => presetRename(r)} disabled={presetBusyId === r.id} className="px-3 py-1.5 text-xs text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50">이름 바꾸기</button>
+                        )}
+                        {!r.is_default && !r.is_active && (
+                          <button onClick={() => presetDelete(r)} disabled={presetBusyId === r.id} className="px-3 py-1.5 text-xs text-red-500 border border-red-200 rounded-lg hover:bg-red-50">🗑 삭제</button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="px-6 py-3 border-t border-gray-100 flex items-center justify-end">
+              <button onClick={() => setShowPresetsModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">닫기</button>
             </div>
           </div>
         </div>
@@ -573,7 +789,7 @@ function FieldControl({ field, value, onChange }: { field: FieldMeta; value: unk
           }`}
         >
           <span className={`inline-block w-4 h-4 rounded-full ${on ? "bg-emerald-500" : "bg-gray-300"}`}></span>
-          <span>{on ? "보이기 · ON" : "숨김 · OFF"}</span>
+          <span>{on ? "표시" : "숨김"}</span>
         </button>
       </div>
     );

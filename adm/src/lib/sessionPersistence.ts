@@ -12,6 +12,8 @@ export const SESSION_KEYS = {
   // 엑셀 일괄 등록 (excel-import) · 파싱된 행 + 매핑된 사진 URL + 옵션
   EXCEL_IMPORT_ROWS: "adm.session.excelImportRows",
   EXCEL_IMPORT_FILENAME: "adm.session.excelImportFileName",
+  // 리뷰 일괄 등록 · 세션 사진 풀 (여러 리뷰 카드에서 재사용)
+  REVIEW_IMAGE_POOL: "adm.session.reviewImagePool",
 } as const;
 
 export function loadSession<T>(key: string, fallback: T): T {
