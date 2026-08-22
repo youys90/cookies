@@ -3,11 +3,12 @@
 // 각 행: 이미지 드래그&드롭 + 상품명 + 카테고리 + 가격 + 재고
 // [일괄 등록] 버튼 → 각 행 순차 저장 + 성공/실패 리포트
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { translateKoJa } from "@/lib/translate";
 
 const categoriesJa = [
   "アクセサリー",
@@ -36,11 +37,13 @@ interface Row {
   nameJa: string;
   nameKo: string;
   categoryJa: string;
+  subCategoryJa: string;
   price: string;
   originalPrice: string;
   stock: string;
   descriptionJa: string;
   descriptionKo: string;
+  isActive: boolean;
   status?: "pending" | "uploading" | "ok" | "error";
   error?: string;
 }
@@ -54,11 +57,13 @@ function makeRow(key: number): Row {
     nameJa: "",
     nameKo: "",
     categoryJa: categoriesJa[0],
+    subCategoryJa: "",
     price: "",
     originalPrice: "",
     stock: "",
     descriptionJa: "",
     descriptionKo: "",
+    isActive: true,
     status: "pending",
   };
 }
@@ -70,8 +75,70 @@ export default function BulkNewProductsPage() {
   const nextKeyRef = useRef(INITIAL_ROWS);
   const [dragOverKey, setDragOverKey] = useState<number | null>(null);
 
+  // 카테고리 실시간 로드 (라이브 데이터) · 최상위 + 하위 모두
+  const [liveCategories, setLiveCategories] = useState<Array<{ id: number; name_ja: string; name_ko: string; parent_id: number | null }>>([]);
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("categories")
+        .select("id, name_ja, name_ko, parent_id, sort_order")
+        .eq("is_active", true)
+        .order("sort_order");
+      setLiveCategories(((data as Array<{ id: number; name_ja: string; name_ko: string | null; parent_id: number | null }> ) || []).map((c) => ({
+        id: c.id,
+        name_ja: c.name_ja,
+        name_ko: c.name_ko || c.name_ja,
+        parent_id: c.parent_id,
+      })));
+    })();
+  }, []);
+  const topCats = useMemo(() => liveCategories.filter((c) => c.parent_id === null), [liveCategories]);
+  const subCatsFor = (parentJa: string) => {
+    const parent = liveCategories.find((c) => c.parent_id === null && c.name_ja === parentJa);
+    if (!parent) return [];
+    return liveCategories.filter((c) => c.parent_id === parent.id);
+  };
+
   const addRow = () => {
     setRows((prev) => [...prev, makeRow(nextKeyRef.current++)]);
+  };
+
+  // 일괄 자동 번역 · JP → KO or KO → JP · 빈 필드만 채움
+  const [translating, setTranslating] = useState(false);
+  const [translateMsg, setTranslateMsg] = useState<string>("");
+  const bulkTranslate = async () => {
+    if (translating) return;
+    setTranslating(true);
+    setTranslateMsg("");
+    let done = 0;
+    let skipped = 0;
+    const targets = rows.filter((r) => (r.nameJa && !r.nameKo) || (r.nameKo && !r.nameJa) || (r.descriptionJa && !r.descriptionKo) || (r.descriptionKo && !r.descriptionJa));
+    if (targets.length === 0) {
+      setTranslating(false);
+      setTranslateMsg("번역할 항목이 없습니다 (양쪽 다 입력됐거나 · 둘 다 비어있음)");
+      setTimeout(() => setTranslateMsg(""), 3000);
+      return;
+    }
+    for (const r of targets) {
+      try {
+        const patch: Partial<Row> = {};
+        if (r.nameJa && !r.nameKo) patch.nameKo = await translateKoJa(r.nameJa, "ja", "ko");
+        else if (r.nameKo && !r.nameJa) patch.nameJa = await translateKoJa(r.nameKo, "ko", "ja");
+        if (r.descriptionJa && !r.descriptionKo) patch.descriptionKo = await translateKoJa(r.descriptionJa, "ja", "ko");
+        else if (r.descriptionKo && !r.descriptionJa) patch.descriptionJa = await translateKoJa(r.descriptionKo, "ko", "ja");
+        if (Object.keys(patch).length > 0) {
+          updateRow(r.key, patch);
+          done++;
+        } else {
+          skipped++;
+        }
+      } catch {
+        skipped++;
+      }
+    }
+    setTranslating(false);
+    setTranslateMsg(`번역 완료 · 성공 ${done}건${skipped ? ` · 스킵 ${skipped}건` : ""}`);
+    setTimeout(() => setTranslateMsg(""), 4000);
   };
 
   const removeRow = (key: number) => {
@@ -178,12 +245,13 @@ export default function BulkNewProductsPage() {
         category: row.categoryJa,
         category_ja: row.categoryJa,
         category_ko: catKo,
+        sub_category: row.subCategoryJa || null,
         image: urls[0],
         images: urls,
         description: row.descriptionJa || row.descriptionKo || null,
         description_ja: row.descriptionJa || null,
         description_ko: row.descriptionKo || null,
-        is_active: true,
+        is_active: !!row.isActive,
       });
 
       if (error) {
@@ -214,7 +282,18 @@ export default function BulkNewProductsPage() {
             여러 상품을 한 번에 등록합니다. 각 행에 이미지를 드래그&드롭 하세요.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {translateMsg && (
+            <span className="text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-3 py-1 font-medium">{translateMsg}</span>
+          )}
+          <button
+            onClick={bulkTranslate}
+            disabled={translating || uploading}
+            className="px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg font-medium disabled:opacity-50 shadow-sm transition"
+            title="비어있는 반대 언어 필드 자동 채움 (상품명 · 상품설명)"
+          >
+            {translating ? "🌐 번역 중..." : "🌐 일괄 자동번역"}
+          </button>
           <Link
             href="/products"
             className="px-4 py-2 text-sm text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50"
@@ -224,9 +303,9 @@ export default function BulkNewProductsPage() {
           <button
             onClick={handleSubmit}
             disabled={uploading}
-            className="px-4 py-2 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-800 disabled:opacity-50"
+            className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50 shadow-sm transition"
           >
-            {uploading ? "등록 중..." : `일괄 등록 (${validRows().length}건)`}
+            {uploading ? "등록 중..." : `🆕 일괄 등록 (${validRows().length}건)`}
           </button>
         </div>
       </div>
@@ -246,9 +325,13 @@ export default function BulkNewProductsPage() {
             }`}
           >
             <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr_auto] gap-4 items-start">
-              {/* 이미지 드롭 영역 */}
+              {/* 이미지 드롭 영역 · 카드 순서 변경 드래그와 파일 drop 명확 구분 */}
               <div
                 onDragOver={(e) => {
+                  // 카드 순서 변경 중이면 외부 drop 인디케이터 안 띄움
+                  if (rowDrag.from !== null) return;
+                  // 실제 파일 drag만 감지
+                  if (!e.dataTransfer.types.includes("Files")) return;
                   e.preventDefault();
                   setDragOverKey(row.key);
                 }}
@@ -256,6 +339,10 @@ export default function BulkNewProductsPage() {
                 onDrop={(e) => {
                   e.preventDefault();
                   setDragOverKey(null);
+                  // 카드 순서 변경 중이면 파일 추가 안 함 (중복 방지)
+                  if (rowDrag.from !== null) return;
+                  // 실제 파일이 아닌 drag는 무시 (브라우저의 이미지 요소 기본 dragging 등)
+                  if (!e.dataTransfer.types.includes("Files")) return;
                   if (e.dataTransfer.files.length > 0) addImagesToRow(row.key, e.dataTransfer.files);
                 }}
                 className={`border-2 border-dashed rounded-lg p-3 min-h-[120px] cursor-pointer transition ${
@@ -355,15 +442,16 @@ export default function BulkNewProductsPage() {
                   />
                 </div>
                 <div className="col-span-6 sm:col-span-2">
-                  <label className="text-[10px] text-gray-500 uppercase tracking-wider">카테고리</label>
+                  <label className="text-[10px] text-gray-500 uppercase tracking-wider">카테고리 · 실시간</label>
                   <select
                     value={row.categoryJa}
-                    onChange={(e) => updateRow(row.key, { categoryJa: e.target.value })}
-                    className="mt-1 w-full px-2 py-1.5 text-sm border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-gray-900"
+                    onChange={(e) => updateRow(row.key, { categoryJa: e.target.value, subCategoryJa: "" })}
+                    className="mt-1 w-full px-2 py-1.5 text-sm border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
                   >
-                    {categoriesJa.map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
+                    {(topCats.length > 0 ? topCats.map(c => c.name_ja) : categoriesJa).map((cJa) => {
+                      const cat = topCats.find(c => c.name_ja === cJa);
+                      return <option key={cJa} value={cJa}>{cat ? `${cat.name_ko} / ${cat.name_ja}` : cJa}</option>;
+                    })}
                   </select>
                 </div>
                 <div className="col-span-6 sm:col-span-2">
@@ -396,6 +484,60 @@ export default function BulkNewProductsPage() {
                     className="mt-1 w-full px-2.5 py-1.5 text-sm border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-gray-900"
                   />
                 </div>
+
+                {/* 하위 카테고리 · 라이브 · 상위 선택 시 그 하위만 · 판매상태 드롭다운 */}
+                <div className="col-span-6 sm:col-span-3">
+                  <label className="text-[10px] text-gray-500 uppercase tracking-wider">
+                    하위 카테고리 · 실시간 ({subCatsFor(row.categoryJa).length}건)
+                  </label>
+                  <select
+                    value={row.subCategoryJa}
+                    onChange={(e) => updateRow(row.key, { subCategoryJa: e.target.value })}
+                    className="mt-1 w-full px-2 py-1.5 text-sm border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white disabled:bg-gray-100"
+                    disabled={subCatsFor(row.categoryJa).length === 0}
+                  >
+                    <option value="">— 선택 안 함 —</option>
+                    {subCatsFor(row.categoryJa).map((s) => (
+                      <option key={s.id} value={s.name_ja}>{s.name_ko} / {s.name_ja}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="col-span-6 sm:col-span-3">
+                  <label className="text-[10px] text-gray-500 uppercase tracking-wider">판매 상태</label>
+                  <select
+                    value={row.isActive ? "on" : "off"}
+                    onChange={(e) => updateRow(row.key, { isActive: e.target.value === "on" })}
+                    className={`mt-1 w-full px-2 py-1.5 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-blue-500 font-medium ${
+                      row.isActive ? "bg-green-50 border-green-300 text-green-800" : "bg-gray-100 border-gray-300 text-gray-600"
+                    }`}
+                  >
+                    <option value="on">✓ 판매중 (shop 노출)</option>
+                    <option value="off">숨김 (shop 미노출)</option>
+                  </select>
+                </div>
+
+                {/* 상품설명 JP / KO */}
+                <div className="col-span-6 sm:col-span-3">
+                  <label className="text-[10px] text-gray-500 uppercase tracking-wider">상품설명 (일본어)</label>
+                  <textarea
+                    value={row.descriptionJa}
+                    onChange={(e) => updateRow(row.key, { descriptionJa: e.target.value })}
+                    placeholder="商品説明 (일본어)"
+                    rows={2}
+                    className="mt-1 w-full px-2.5 py-1.5 text-sm border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-gray-900 resize-y"
+                  />
+                </div>
+                <div className="col-span-6 sm:col-span-3">
+                  <label className="text-[10px] text-gray-500 uppercase tracking-wider">상품설명 (한국어)</label>
+                  <textarea
+                    value={row.descriptionKo}
+                    onChange={(e) => updateRow(row.key, { descriptionKo: e.target.value })}
+                    placeholder="상품 설명 (한국어)"
+                    rows={2}
+                    className="mt-1 w-full px-2.5 py-1.5 text-sm border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-gray-900 resize-y"
+                  />
+                </div>
+
                 {row.error && (
                   <div className="col-span-6 text-[11px] text-red-600 bg-red-50 px-2 py-1 rounded">
                     ⚠ {row.error}

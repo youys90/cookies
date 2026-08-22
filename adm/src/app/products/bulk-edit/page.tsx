@@ -35,7 +35,7 @@ function BulkEditInner() {
   const { pickName, pickCategory, language } = useAdmLanguage();
 
   const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<Array<{ name_ja: string; name_ko: string }>>([]);
+  const [categories, setCategories] = useState<Array<{ id: number; name_ja: string; name_ko: string; parent_id: number | null }>>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -54,12 +54,16 @@ function BulkEditInner() {
         .in("id", ids);
       const { data: cats } = await supabase
         .from("categories")
-        .select("name_ja, name_ko, sort_order")
-        .is("parent_id", null)
+        .select("id, name_ja, name_ko, parent_id, sort_order")
         .eq("is_active", true)
         .order("sort_order");
       setProducts((prods || []) as Product[]);
-      setCategories((cats || []).map((c) => ({ name_ja: c.name_ja || "", name_ko: c.name_ko || c.name_ja || "" })));
+      setCategories(((cats as Array<{ id: number; name_ja: string; name_ko: string | null; parent_id: number | null }>) || []).map((c) => ({
+        id: c.id,
+        name_ja: c.name_ja || "",
+        name_ko: c.name_ko || c.name_ja || "",
+        parent_id: c.parent_id,
+      })));
       setLoading(false);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -201,36 +205,51 @@ function BulkEditInner() {
                   />
                 </div>
                 <div className="col-span-2">
-                  <label className="text-[10px] text-gray-500 uppercase tracking-wider">카테고리</label>
+                  <label className="text-[10px] text-gray-500 uppercase tracking-wider">카테고리 · 실시간</label>
                   <select
                     value={p.category}
-                    onChange={(e) => updateField(p.id, "category", e.target.value)}
+                    onChange={(e) => { updateField(p.id, "category", e.target.value); updateField(p.id, "sub_category", ""); }}
                     className="mt-1 w-full px-2 py-1 text-sm border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-[var(--color-brand)] bg-white"
                   >
-                    {categories.map((c) => (
-                      <option key={c.name_ja} value={c.name_ja}>{language === "ko" ? c.name_ko : c.name_ja}</option>
+                    {categories.filter((c) => c.parent_id === null).map((c) => (
+                      <option key={c.id} value={c.name_ja}>{c.name_ko} / {c.name_ja}</option>
                     ))}
                   </select>
                 </div>
                 <div className="col-span-2 md:col-span-1">
-                  <label className="text-[10px] text-gray-500 uppercase tracking-wider">하위 카테고리</label>
-                  <input
-                    type="text"
-                    value={p.sub_category || ""}
-                    onChange={(e) => updateField(p.id, "sub_category", e.target.value)}
-                    className="mt-1 w-full px-2 py-1 text-sm border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-[var(--color-brand)]"
-                  />
+                  {(() => {
+                    const parent = categories.find((c) => c.parent_id === null && c.name_ja === p.category);
+                    const subs = parent ? categories.filter((c) => c.parent_id === parent.id) : [];
+                    return (
+                      <>
+                        <label className="text-[10px] text-gray-500 uppercase tracking-wider">하위 ({subs.length})</label>
+                        <select
+                          value={p.sub_category || ""}
+                          onChange={(e) => updateField(p.id, "sub_category", e.target.value)}
+                          className="mt-1 w-full px-2 py-1 text-sm border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-[var(--color-brand)] bg-white disabled:bg-gray-100"
+                          disabled={subs.length === 0}
+                        >
+                          <option value="">— 없음 —</option>
+                          {subs.map((s) => (
+                            <option key={s.id} value={s.name_ja}>{s.name_ko} / {s.name_ja}</option>
+                          ))}
+                        </select>
+                      </>
+                    );
+                  })()}
                 </div>
-                <div className="col-span-2 md:col-span-1 flex items-end">
-                  <label className="flex items-center gap-1.5 text-sm cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={!!p.is_active}
-                      onChange={(e) => updateField(p.id, "is_active", e.target.checked)}
-                      className="w-4 h-4 accent-[var(--color-brand)]"
-                    />
-                    <span className="text-xs font-medium">판매중</span>
-                  </label>
+                <div className="col-span-2 md:col-span-1">
+                  <label className="text-[10px] text-gray-500 uppercase tracking-wider">판매 상태</label>
+                  <select
+                    value={p.is_active ? "on" : "off"}
+                    onChange={(e) => updateField(p.id, "is_active", e.target.value === "on")}
+                    className={`mt-1 w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-[var(--color-brand)] font-medium ${
+                      p.is_active ? "bg-green-50 border-green-300 text-green-800" : "bg-gray-100 border-gray-300 text-gray-600"
+                    }`}
+                  >
+                    <option value="on">✓ 판매중</option>
+                    <option value="off">숨김</option>
+                  </select>
                 </div>
               </div>
 
