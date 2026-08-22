@@ -524,20 +524,22 @@ export default function ProductsPage() {
           <div className="flex items-start gap-2">
             <span className="text-sm text-gray-500 whitespace-nowrap pt-1.5 flex-shrink-0">카테고리</span>
             <div className="flex flex-wrap gap-1.5 flex-1">
-              {[{ id: 0, name_ja: "전체", name_ko: "전체", parent_id: null }, ...topCategories].map((cat) => {
+              {[{ id: 0, name_ja: language === "ko" ? "전체" : "全体", name_ko: "전체", parent_id: null }, ...topCategories].map((cat) => {
                 const active = selectedCategory === cat.name_ja;
+                const label = language === "ko" ? (cat.name_ko || cat.name_ja) : (cat.name_ja || cat.name_ko);
+                const tooltip = language === "ko" ? cat.name_ja : cat.name_ko;
                 return (
                   <button
-                    key={cat.name_ja}
+                    key={cat.id || "all"}
                     onClick={() => handleCategoryChange(cat.name_ja)}
                     className={`px-3 py-1 text-sm rounded-full transition-colors whitespace-nowrap ${
                       active
                         ? "bg-gray-900 text-white shadow-sm"
                         : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                     }`}
-                    title={cat.name_ja !== cat.name_ko ? cat.name_ja : undefined}
+                    title={tooltip !== label ? tooltip : undefined}
                   >
-                    {cat.name_ko}
+                    {label}
                   </button>
                 );
               })}
@@ -547,7 +549,7 @@ export default function ProductsPage() {
           {/* 하위 카테고리 필터 · 최상위 선택 시 그 하위만 노출 */}
           {subCategoriesOfSelected.length > 0 && (
             <div className="flex items-start gap-2 pl-4 border-l-2 border-gray-200">
-              <span className="text-xs text-gray-400 whitespace-nowrap pt-1.5 flex-shrink-0">└ 하위</span>
+              <span className="text-xs text-gray-400 whitespace-nowrap pt-1.5 flex-shrink-0">{language === "ko" ? "└ 하위" : "└ サブ"}</span>
               <div className="flex flex-wrap gap-1.5 flex-1">
                 <button
                   onClick={() => handleSubCategoryChange("")}
@@ -557,10 +559,12 @@ export default function ProductsPage() {
                       : "bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200"
                   }`}
                 >
-                  전체
+                  {language === "ko" ? "전체" : "全体"}
                 </button>
                 {subCategoriesOfSelected.map((sub) => {
                   const active = selectedSubCategory === sub.name_ja;
+                  const label = language === "ko" ? (sub.name_ko || sub.name_ja) : (sub.name_ja || sub.name_ko);
+                  const tooltip = language === "ko" ? sub.name_ja : sub.name_ko;
                   return (
                     <button
                       key={sub.id}
@@ -570,9 +574,9 @@ export default function ProductsPage() {
                           ? "bg-gray-700 text-white"
                           : "bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200"
                       }`}
-                      title={sub.name_ja !== sub.name_ko ? sub.name_ja : undefined}
+                      title={tooltip !== label ? tooltip : undefined}
                     >
-                      {sub.name_ko}
+                      {label}
                     </button>
                   );
                 })}

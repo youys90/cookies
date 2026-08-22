@@ -70,28 +70,44 @@ export default function Sidebar() {
             </button>
           </div>
 
-          {/* 언어 스위처 · 한국인 관리자 · 기본 KO · 일본인 고객 응대 시 JP */}
-          <div className="mt-3 flex items-center bg-gray-800 rounded-lg p-0.5" role="group" aria-label="언어 전환">
-            <button
-              type="button"
-              onClick={() => setLanguage("ko")}
-              className={`flex-1 py-1.5 text-xs font-medium rounded-md transition ${
-                language === "ko" ? "bg-white text-gray-900 shadow" : "text-gray-400 hover:text-white"
-              }`}
-              aria-pressed={language === "ko"}
-            >
-              🇰🇷 한국어
-            </button>
-            <button
-              type="button"
-              onClick={() => setLanguage("ja")}
-              className={`flex-1 py-1.5 text-xs font-medium rounded-md transition ${
-                language === "ja" ? "bg-white text-gray-900 shadow" : "text-gray-400 hover:text-white"
-              }`}
-              aria-pressed={language === "ja"}
-            >
-              🇯🇵 日本語
-            </button>
+          {/* 언어 스위처 · 한국인 관리자 · 기본 KO · 일본인 고객 응대 시 JP · 크림디자인팀 v2 */}
+          <div className="mt-4 relative" role="group" aria-label="언어 전환">
+            <div className="text-[9px] font-semibold tracking-[0.2em] text-gray-500 uppercase mb-1.5 flex items-center gap-1.5">
+              <span>Language</span>
+              <span className="flex-1 h-px bg-gray-700/60"></span>
+            </div>
+            <div className="flex items-stretch gap-1 bg-gray-800/60 rounded-xl p-1 border border-gray-700/60 shadow-inner">
+              <button
+                type="button"
+                onClick={() => setLanguage("ko")}
+                className={`relative flex-1 flex flex-col items-center py-2 rounded-lg transition-all duration-200 ${
+                  language === "ko"
+                    ? "bg-gradient-to-b from-white to-amber-50 text-gray-900 shadow-md ring-1 ring-[var(--color-brand)]/40"
+                    : "text-gray-400 hover:text-white hover:bg-gray-700/40"
+                }`}
+                aria-pressed={language === "ko"}
+                aria-label="한국어로 전환"
+              >
+                <span className="text-lg leading-none">🇰🇷</span>
+                <span className={`text-[10px] tracking-[0.15em] mt-1 ${language === "ko" ? "font-bold" : "font-medium"}`}>한국어</span>
+                {language === "ko" && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-[var(--color-brand)] rounded-full ring-2 ring-gray-900"></span>}
+              </button>
+              <button
+                type="button"
+                onClick={() => setLanguage("ja")}
+                className={`relative flex-1 flex flex-col items-center py-2 rounded-lg transition-all duration-200 ${
+                  language === "ja"
+                    ? "bg-gradient-to-b from-white to-amber-50 text-gray-900 shadow-md ring-1 ring-[var(--color-brand)]/40"
+                    : "text-gray-400 hover:text-white hover:bg-gray-700/40"
+                }`}
+                aria-pressed={language === "ja"}
+                aria-label="日本語に切替"
+              >
+                <span className="text-lg leading-none">🇯🇵</span>
+                <span className={`text-[10px] tracking-[0.15em] mt-1 ${language === "ja" ? "font-bold" : "font-medium"}`}>日本語</span>
+                {language === "ja" && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-[var(--color-brand)] rounded-full ring-2 ring-gray-900"></span>}
+              </button>
+            </div>
           </div>
         </div>
 

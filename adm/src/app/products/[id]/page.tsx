@@ -220,12 +220,21 @@ export default function EditProductPage() {
     });
   };
 
-  // 드래그로 순서 변경 (HTML5 native drag/drop · 라이브러리 무의존)
+  // 드래그로 순서 변경 (HTML5 native · 크림디자인팀 v2 · 시각 피드백 강화)
   const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const onDragStart = (i: number) => setDragIndex(i);
-  const onDragOver = (e: React.DragEvent) => e.preventDefault();
+  const onDragOver = (e: React.DragEvent, i: number) => {
+    e.preventDefault();
+    if (dragIndex !== null && dragIndex !== i && dragOverIndex !== i) setDragOverIndex(i);
+  };
+  const onDragLeave = () => setDragOverIndex(null);
   const onDrop = (targetIndex: number) => {
-    if (dragIndex === null || dragIndex === targetIndex) return;
+    if (dragIndex === null || dragIndex === targetIndex) {
+      setDragIndex(null);
+      setDragOverIndex(null);
+      return;
+    }
     setImages((prev) => {
       const a = [...prev];
       const [moved] = a.splice(dragIndex, 1);
@@ -233,8 +242,9 @@ export default function EditProductPage() {
       return a;
     });
     setDragIndex(null);
+    setDragOverIndex(null);
   };
-  const onDragEnd = () => setDragIndex(null);
+  const onDragEnd = () => { setDragIndex(null); setDragOverIndex(null); };
 
   const uploadImage = async (file: File): Promise<string> => {
     // 2026-08-03 fix: null 반환 대신 throw로 상위에서 명시적 실패 처리
@@ -469,20 +479,34 @@ export default function EditProductPage() {
 
               {images.length > 0 && (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mb-4">
-                  {images.map((img, index) => (
+                  {images.map((img, index) => {
+                    const isDragging = dragIndex === index;
+                    const isOver = dragOverIndex === index && dragIndex !== null && dragIndex !== index;
+                    return (
                     <div
                       key={index}
-                      className={`relative group ${dragIndex === index ? "opacity-40" : ""}`}
+                      className={`relative group transition-transform duration-150 ${isDragging ? "opacity-30 scale-95" : ""} ${isOver ? "scale-105" : ""}`}
                       draggable
                       onDragStart={() => onDragStart(index)}
-                      onDragOver={onDragOver}
+                      onDragOver={(e) => onDragOver(e, index)}
+                      onDragLeave={onDragLeave}
                       onDrop={() => onDrop(index)}
                       onDragEnd={onDragEnd}
                     >
-                      <div className={`relative aspect-square rounded-lg overflow-hidden border-2 cursor-move ${index === 0 ? "border-blue-500" : "border-gray-200"} hover:border-blue-400`}>
+                      {/* 드롭 위치 힌트 · 좌측에 파란 세로 바 */}
+                      {isOver && <div className="absolute -left-2 top-0 bottom-0 w-1 bg-blue-500 rounded-full shadow-lg z-20"></div>}
+                      <div className={`relative aspect-square rounded-lg overflow-hidden border-2 cursor-move transition-all ${
+                        isOver ? "border-blue-500 ring-4 ring-blue-200 shadow-xl" :
+                        index === 0 ? "border-blue-500" : "border-gray-200 hover:border-blue-400"
+                      }`}>
                         <Image src={img.preview} alt={`이미지 ${index + 1}`} fill className="object-cover" unoptimized />
+                        {/* 순번 배지 · 우상단 · 원형 · 어두운 배경 · 순서 즉시 파악 */}
+                        <div className="absolute top-1.5 right-1.5 w-7 h-7 bg-gray-900/85 text-white text-xs font-bold rounded-full flex items-center justify-center shadow-lg backdrop-blur-sm ring-2 ring-white/20">
+                          {index + 1}
+                        </div>
+                        {/* 메인 배지 · 좌상단 */}
                         {index === 0 && (
-                          <div className="absolute top-1 left-1 bg-blue-500 text-white text-xs px-1.5 py-0.5 rounded">메인</div>
+                          <div className="absolute top-1.5 left-1.5 bg-blue-500 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-md tracking-wider">MAIN</div>
                         )}
                       </div>
                       <div className="absolute top-1 right-1 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -496,7 +520,8 @@ export default function EditProductPage() {
                         <button type="button" onClick={() => moveImageDown(index)} disabled={index === images.length - 1} className="w-6 h-6 bg-gray-700 text-white rounded text-xs flex items-center justify-center hover:bg-gray-800 disabled:opacity-30" title="뒤로">→</button>
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
 
