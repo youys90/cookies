@@ -20,15 +20,40 @@ interface Props {
   indent?: boolean;
 }
 
-const PILL_THRESHOLD = 12;
+type ViewMode = "pill" | "dropdown";
+const STORAGE_KEY = "adm.categoryFilterView";
 
 export default function CategoryFilter({ language, categories, selected, onChange, label, allLabel, indent }: Props) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [view, setView] = useState<ViewMode>("pill"); // 기본 pill
   const boxRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const useDropdown = categories.length > PILL_THRESHOLD;
+  // localStorage에서 선호 뷰 로드 + 다른 인스턴스 변경 실시간 sync
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved === "dropdown" || saved === "pill") setView(saved);
+    } catch {}
+    // custom event로 같은 탭 내 여러 CategoryFilter 인스턴스 sync
+    const onSync = (e: Event) => {
+      const detail = (e as CustomEvent<ViewMode>).detail;
+      if (detail === "pill" || detail === "dropdown") setView(detail);
+    };
+    window.addEventListener("adm:category-view-change", onSync as EventListener);
+    return () => window.removeEventListener("adm:category-view-change", onSync as EventListener);
+  }, []);
+
+  const changeView = (v: ViewMode) => {
+    setView(v);
+    try { localStorage.setItem(STORAGE_KEY, v); } catch {}
+    if (v === "pill") setOpen(false);
+    // 같은 페이지의 다른 CategoryFilter들도 동시 스왑
+    window.dispatchEvent(new CustomEvent("adm:category-view-change", { detail: v }));
+  };
+
+  const useDropdown = view === "dropdown";
 
   const pick = (c: Cat) => (language === "ko" ? (c.name_ko || c.name_ja) : (c.name_ja || c.name_ko));
   const tooltip = (c: Cat) => (language === "ko" ? c.name_ja : c.name_ko);
@@ -71,7 +96,32 @@ export default function CategoryFilter({ language, categories, selected, onChang
 
   return (
     <div className={`flex items-start gap-2 ${indent ? "pl-4 border-l-2 border-gray-200" : ""}`}>
-      <span className={`whitespace-nowrap pt-1.5 flex-shrink-0 ${indent ? "text-xs text-gray-400" : "text-sm text-gray-500"}`}>{label}</span>
+      <div className="flex items-center gap-1.5 pt-1 flex-shrink-0">
+        <span className={`whitespace-nowrap ${indent ? "text-xs text-gray-400" : "text-sm text-gray-500"}`}>{label}</span>
+        {/* 뷰 전환 토글 · 최상위(!indent)만 노출 · 하위는 최상위 설정 따라감 */}
+        {!indent && (
+          <div className="inline-flex items-center bg-gray-100 rounded-md p-0.5 ml-1" role="group" aria-label={language === "ko" ? "보기 방식" : "表示方式"}>
+            <button
+              type="button"
+              onClick={() => changeView("pill")}
+              className={`p-1 rounded transition ${view === "pill" ? "bg-white text-gray-900 shadow-sm" : "text-gray-400 hover:text-gray-700"}`}
+              title={language === "ko" ? "펼쳐보기 (기본)" : "展開表示"}
+              aria-pressed={view === "pill"}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h10M4 14h16M4 18h8" /></svg>
+            </button>
+            <button
+              type="button"
+              onClick={() => changeView("dropdown")}
+              className={`p-1 rounded transition ${view === "dropdown" ? "bg-white text-gray-900 shadow-sm" : "text-gray-400 hover:text-gray-700"}`}
+              title={language === "ko" ? "드롭다운 (많을 때)" : "ドロップダウン"}
+              aria-pressed={view === "dropdown"}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l4-4 4 4m0 6l-4 4-4-4" /></svg>
+            </button>
+          </div>
+        )}
+      </div>
 
       {useDropdown ? (
         // ─── 드롭다운 방식 (카테고리 13개 이상) ─────────────────
