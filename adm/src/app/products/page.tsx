@@ -71,10 +71,11 @@ export default function ProductsPage() {
   const searchParams = useSearchParams();
   const [productList, setProductList] = useState<Product[]>([]);
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get("cat") || "전체");
+  const [selectedSubCategory, setSelectedSubCategory] = useState(searchParams.get("sub") || "");
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   // 관리자 = 한국인 · 한국어 표시. 필터링은 name_ja 문자열 기준 (products.category와 일치)
-  const [categories, setCategories] = useState<Array<{ name_ja: string; name_ko: string }>>([]);
+  const [categories, setCategories] = useState<Array<{ id: number; name_ja: string; name_ko: string; parent_id: number | null }>>([]);
 
   // 페이지네이션
   const [currentPage, setCurrentPage] = useState(Number(searchParams.get("page")) || 1);
@@ -127,11 +128,13 @@ export default function ProductsPage() {
     const page = Number(searchParams.get("page")) || 1;
     const size = Number(searchParams.get("size")) || 50;
     const cat = searchParams.get("cat") || "전체";
+    const sub = searchParams.get("sub") || "";
     const search = searchParams.get("search") || "";
 
     setCurrentPage(page);
     setPageSize(size);
     setSelectedCategory(cat);
+    setSelectedSubCategory(sub);
     setSearchKeyword(search);
     setSearchInput(search);
   }, [searchParams]);
@@ -141,25 +144,25 @@ export default function ProductsPage() {
     if (currentPage !== 1) params.set("page", String(currentPage));
     if (pageSize !== 50) params.set("size", String(pageSize));
     if (selectedCategory !== "전체") params.set("cat", selectedCategory);
+    if (selectedSubCategory) params.set("sub", selectedSubCategory);
     if (searchKeyword) params.set("search", searchKeyword);
 
     const newUrl = params.toString() ? "/products?" + params.toString() : "/products";
     if (window.location.pathname + window.location.search !== newUrl) {
       window.history.replaceState(null, "", newUrl);
     }
-  }, [currentPage, pageSize, selectedCategory, searchKeyword]);
+  }, [currentPage, pageSize, selectedCategory, selectedSubCategory, searchKeyword]);
 
   useEffect(() => {
     fetchProducts();
-  }, [selectedCategory, currentPage, pageSize, searchKeyword]);
+  }, [selectedCategory, selectedSubCategory, currentPage, pageSize, searchKeyword]);
 
-  // 카테고리 DB 조회 · 최상위만 · 한국어 표시 (필터 값은 name_ja)
+  // 카테고리 DB 조회 · 최상위 + 하위 전부 · 한국어 표시 (필터 값은 name_ja)
   useEffect(() => {
     const fetchCategories = async () => {
       const { data, error } = await supabase
         .from("categories")
-        .select("name_ja, name_ko, sort_order")
-        .is("parent_id", null)
+        .select("id, name_ja, name_ko, parent_id, sort_order")
         .eq("is_active", true)
         .order("sort_order", { ascending: true });
       if (error) {
@@ -167,12 +170,22 @@ export default function ProductsPage() {
         return;
       }
       const list = (data || [])
-        .filter((c): c is { name_ja: string; name_ko: string; sort_order: number } => !!c.name_ja)
-        .map((c) => ({ name_ja: c.name_ja, name_ko: c.name_ko || c.name_ja }));
+        .filter((c): c is { id: number; name_ja: string; name_ko: string; parent_id: number | null; sort_order: number } => !!c.name_ja)
+        .map((c) => ({ id: c.id, name_ja: c.name_ja, name_ko: c.name_ko || c.name_ja, parent_id: c.parent_id }));
       setCategories(list);
     };
     fetchCategories();
   }, []);
+
+  // 최상위 카테고리만 (첫 줄에 노출)
+  const topCategories = useMemo(() => categories.filter((c) => c.parent_id === null), [categories]);
+  // 현재 선택된 최상위의 하위 카테고리 (두 번째 줄)
+  const subCategoriesOfSelected = useMemo(() => {
+    if (selectedCategory === "전체") return [];
+    const parent = categories.find((c) => c.parent_id === null && c.name_ja === selectedCategory);
+    if (!parent) return [];
+    return categories.filter((c) => c.parent_id === parent.id);
+  }, [categories, selectedCategory]);
 
   const fetchProducts = async () => {
     setLoading(true);
@@ -182,6 +195,9 @@ export default function ProductsPage() {
 
     if (selectedCategory !== "전체") {
       query = query.eq("category", selectedCategory);
+      if (selectedSubCategory) {
+        query = query.eq("sub_category", selectedSubCategory);
+      }
     }
 
     if (searchKeyword) {
@@ -425,9 +441,15 @@ export default function ProductsPage() {
 
   const handleCategoryChange = (cat: string) => {
     setSelectedCategory(cat);
+    setSelectedSubCategory(""); // 최상위 변경 시 하위 초기화
     setCurrentPage(1);
     setSearchKeyword("");
     setSearchInput("");
+  };
+
+  const handleSubCategoryChange = (sub: string) => {
+    setSelectedSubCategory(sub);
+    setCurrentPage(1);
   };
 
   const handlePageSizeChange = (size: number) => {
@@ -496,11 +518,11 @@ export default function ProductsPage() {
       {/* Filters */}
       <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
         <div className="flex flex-col gap-3">
-          {/* 카테고리 필터 · 한국어 · flex-wrap · 여러 줄 자연스럽게 */}
+          {/* 카테고리 필터 · 한국어 · 최상위 · flex-wrap */}
           <div className="flex items-start gap-2">
             <span className="text-sm text-gray-500 whitespace-nowrap pt-1.5 flex-shrink-0">카테고리</span>
             <div className="flex flex-wrap gap-1.5 flex-1">
-              {[{ name_ja: "전체", name_ko: "전체" }, ...categories].map((cat) => {
+              {[{ id: 0, name_ja: "전체", name_ko: "전체", parent_id: null }, ...topCategories].map((cat) => {
                 const active = selectedCategory === cat.name_ja;
                 return (
                   <button
@@ -519,6 +541,42 @@ export default function ProductsPage() {
               })}
             </div>
           </div>
+
+          {/* 하위 카테고리 필터 · 최상위 선택 시 그 하위만 노출 */}
+          {subCategoriesOfSelected.length > 0 && (
+            <div className="flex items-start gap-2 pl-4 border-l-2 border-gray-200">
+              <span className="text-xs text-gray-400 whitespace-nowrap pt-1.5 flex-shrink-0">└ 하위</span>
+              <div className="flex flex-wrap gap-1.5 flex-1">
+                <button
+                  onClick={() => handleSubCategoryChange("")}
+                  className={`px-2.5 py-0.5 text-xs rounded-full transition-colors whitespace-nowrap ${
+                    !selectedSubCategory
+                      ? "bg-gray-700 text-white"
+                      : "bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200"
+                  }`}
+                >
+                  전체
+                </button>
+                {subCategoriesOfSelected.map((sub) => {
+                  const active = selectedSubCategory === sub.name_ja;
+                  return (
+                    <button
+                      key={sub.id}
+                      onClick={() => handleSubCategoryChange(sub.name_ja)}
+                      className={`px-2.5 py-0.5 text-xs rounded-full transition-colors whitespace-nowrap ${
+                        active
+                          ? "bg-gray-700 text-white"
+                          : "bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200"
+                      }`}
+                      title={sub.name_ja !== sub.name_ko ? sub.name_ja : undefined}
+                    >
+                      {sub.name_ko}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <div className="flex flex-wrap items-center gap-4">
             <div className="flex items-center space-x-2">
@@ -824,7 +882,7 @@ export default function ProductsPage() {
       {/* ── 벌크 액션 바 ──────────────────────────── */}
       <BulkActionBar
         count={selectedIds.size}
-        categories={categories.map(c => c.name_ja)}
+        categories={topCategories.map(c => c.name_ja)}
         onDelete={handleBulkDelete}
         onToggleActive={handleBulkActive}
         onChangeCategory={handleBulkCategory}
