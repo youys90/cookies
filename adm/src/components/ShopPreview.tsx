@@ -9,11 +9,17 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ShopUiConfig } from "@/lib/shopUiSchema";
 
+type MainSection = "promoBar" | "header" | "hero" | "benefits" | "categories" | "footer";
+
 interface Props {
   config: ShopUiConfig;
   device: "desktop" | "mobile";
   page: "list" | "detail" | "mainTop";
   sampleProductId?: number | null;
+  /** 메인 편집 시 스포트라이트 대상 · 부모가 관리 · shop iframe에도 postMessage로 전달 */
+  section?: MainSection | null;
+  /** shop iframe 안에서 사장님이 섹션 클릭 시 · 부모에 알림 */
+  onSectionClick?: (s: MainSection) => void;
 }
 
 const SHOP_URL = process.env.NEXT_PUBLIC_SHOP_URL || "http://localhost:3001";
@@ -34,7 +40,7 @@ function encodeConfig(config: ShopUiConfig): string {
   }
 }
 
-export default function ShopPreview({ config, device, page, sampleProductId }: Props) {
+export default function ShopPreview({ config, device, page, sampleProductId, section, onSectionClick }: Props) {
   const isMobile = device === "mobile";
   const [debouncedConfig, setDebouncedConfig] = useState<ShopUiConfig>(config);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -56,8 +62,32 @@ export default function ShopPreview({ config, device, page, sampleProductId }: P
     });
     // 메인 편집 미리보기 · 관리자가 편집한 한국어 원본 그대로 검수하도록 강제 한국어
     if (page === "mainTop") params.set("forceLang", "ko");
+    if (section) params.set("previewSection", section);
     return `${SHOP_URL}${path}?${params.toString()}`;
-  }, [debouncedConfig, device, page, sampleProductId]);
+  }, [debouncedConfig, device, page, sampleProductId, section]);
+
+  // iframe · shop에서 섹션 클릭 시 postMessage 수신 · 부모 콜백 호출
+  useEffect(() => {
+    if (!onSectionClick) return;
+    const onMsg = (e: MessageEvent) => {
+      if (!e.data || typeof e.data !== "object") return;
+      if (e.data.type === "shop-section-click" && typeof e.data.section === "string") {
+        const s = e.data.section as MainSection;
+        onSectionClick(s);
+      }
+    };
+    window.addEventListener("message", onMsg);
+    return () => window.removeEventListener("message", onMsg);
+  }, [onSectionClick]);
+
+  // 부모의 section이 바뀔 때 · iframe 안 shop에도 실시간 통보 (URL 재로드 없이)
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  useEffect(() => {
+    if (!iframeRef.current) return;
+    try {
+      iframeRef.current.contentWindow?.postMessage({ type: "shop-set-section", section }, "*");
+    } catch {}
+  }, [section]);
 
   // PC 모드에서 · wrapper 폭 감지해 scale 자동 계산
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -86,6 +116,7 @@ export default function ShopPreview({ config, device, page, sampleProductId }: P
           <div className="text-[9px] text-gray-400">📱 390px</div>
         </div>
         <iframe
+          ref={iframeRef}
           key={src}
           src={src}
           width={MOBILE_VIEWPORT_WIDTH}
@@ -117,6 +148,7 @@ export default function ShopPreview({ config, device, page, sampleProductId }: P
         style={{ height: displayedHeight, overflow: "hidden", position: "relative", width: "100%" }}
       >
         <iframe
+          ref={iframeRef}
           key={src}
           src={src}
           width={PC_VIEWPORT_WIDTH}

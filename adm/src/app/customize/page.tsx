@@ -99,6 +99,9 @@ export default function CustomizePage() {
   // 미리보기 기기 (PC / 모바일) · 화면 시각화용
   const [previewDevice, setPreviewDevice] = useState<"desktop" | "mobile">("desktop");
   const [previewPage, setPreviewPage] = useState<"list" | "detail" | "mainTop">("mainTop");
+  // 메인 화면 · 2뎁스 세부 영역 선택 · 사장님 요구 (스포트라이트 UX)
+  type MainSection = "promoBar" | "header" | "hero" | "benefits" | "categories" | "footer";
+  const [mainSection, setMainSection] = useState<MainSection>("hero");
 
   // 임시저장 · 사장님 명시 요청 시에만 저장/불러오기 (자동 감지 없음)
   // 진입 시 · 항상 라이브(활성 프리셋) 값으로 시작 · 임시저장 목록 팝업 없음
@@ -575,6 +578,51 @@ export default function CustomizePage() {
             <div className="space-y-4">
               {previewPage === "mainTop" && (
                 <>
+                  {/* ─── 2뎁스 · 세부 영역 선택 · 사장님 요구 (스포트라이트 UX) ─── */}
+                  <div className="bg-white rounded-2xl border-2 border-[var(--color-brand)]/30 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-[var(--color-brand)]/5 to-transparent">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">🎯</span>
+                        <div>
+                          <h3 className="text-sm font-bold text-gray-900">메인 화면 · 세부 영역 선택</h3>
+                          <p className="text-[11px] text-gray-500">고칠 영역을 고르면 · 미리보기에서 그 부분만 밝게 표시돼요</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="p-3">
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {[
+                          { key: "promoBar" as MainSection, icon: "📣", label: "슬림바", desc: "최상단 슬라이드" },
+                          { key: "header" as MainSection, icon: "🅲", label: "헤더", desc: "로고 · 메뉴" },
+                          { key: "hero" as MainSection, icon: "🖼", label: "히어로", desc: "큰 배너 · 공지" },
+                          { key: "benefits" as MainSection, icon: "🎁", label: "혜택", desc: "무료 배송 등" },
+                          { key: "categories" as MainSection, icon: "🗂", label: "카테고리", desc: "메뉴 탭" },
+                          { key: "footer" as MainSection, icon: "🦶", label: "푸터", desc: "하단 정보" },
+                        ].map((s) => (
+                          <button
+                            key={s.key}
+                            onClick={() => setMainSection(s.key)}
+                            className={`px-2 py-2 rounded-lg border-2 transition text-left ${
+                              mainSection === s.key
+                                ? "border-[var(--color-brand)] bg-[var(--color-brand)]/10 shadow-sm"
+                                : "border-gray-200 bg-white hover:bg-gray-50"
+                            }`}
+                          >
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-base">{s.icon}</span>
+                              <div className="flex-1 min-w-0">
+                                <p className={`text-xs font-bold ${mainSection === s.key ? "text-[var(--color-brand-dk)]" : "text-gray-900"} truncate`}>{s.label}</p>
+                                <p className="text-[9px] text-gray-500 truncate">{s.desc}</p>
+                              </div>
+                              {mainSection === s.key && <span className="text-[9px] text-[var(--color-brand-dk)] font-semibold">●</span>}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {mainSection === "promoBar" && (
                   <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
                     <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
                       <div className="flex items-center gap-2">
@@ -652,7 +700,9 @@ export default function CustomizePage() {
                       )}
                     </div>
                   </div>
-                  {/* ─── 히어로 · 큰 배너 · 텍스트 3필드 (Word 스타일 인라인 서식) ─── */}
+                  )}
+
+                  {mainSection === "hero" && (
                   <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
                     <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
                       <div className="flex items-center gap-2">
@@ -981,8 +1031,9 @@ export default function CustomizePage() {
                       </div>
                     </div>
                   </div>
+                  )}
 
-                  {/* ─── 혜택 강조 · 슬림 배너 항목 ─── */}
+                  {mainSection === "benefits" && (
                   <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
                     <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
                       <div className="flex items-center gap-2">
@@ -1051,15 +1102,16 @@ export default function CustomizePage() {
                       </button>
                     </div>
                   </div>
+                  )}
 
-                  {/* ─── 로고 · 브랜드명 (영문 고정) + 태그라인 (한/일) ─── */}
+                  {mainSection === "header" && (
                   <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
                     <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
                       <div className="flex items-center gap-2">
                         <span className="text-xl">🅲</span>
                         <div>
-                          <h3 className="text-sm font-bold text-gray-900">로고 · 브랜드</h3>
-                          <p className="text-[11px] text-gray-500">헤더 좌측 로고 · 브랜드 워드마크 + 옆의 짧은 태그라인</p>
+                          <h3 className="text-sm font-bold text-gray-900">헤더 · 로고 & 브랜드</h3>
+                          <p className="text-[11px] text-gray-500">상단 로고 · 브랜드 워드마크 + 짧은 태그라인 (메뉴는 카테고리 관리에서)</p>
                         </div>
                       </div>
                     </div>
@@ -1092,10 +1144,43 @@ export default function CustomizePage() {
                       </div>
                     </div>
                   </div>
+                  )}
 
-                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-[11px] text-amber-800">
-                    ℹ 헤더 메뉴 (SHOP · REVIEW · BRAND) 는 카테고리 관리에서 통합 편집 예정
-                  </div>
+                  {mainSection === "categories" && (
+                    <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                      <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl">🗂</span>
+                          <div>
+                            <h3 className="text-sm font-bold text-gray-900">카테고리 탭</h3>
+                            <p className="text-[11px] text-gray-500">상단 메뉴 · 카테고리 이름/순서는 「카테고리 관리」에서 · 여기서는 개수/줄 수만</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="p-4 text-[11px] text-gray-600 bg-amber-50 border-t border-amber-200 rounded-b-2xl">
+                        💡 카테고리 이름·아이콘·순서 관리는 <a href="/categories" className="underline text-[var(--color-brand-dk)] font-semibold">카테고리 관리</a>에서.<br />
+                        여기서 조절할 크기/개수 설정은 <b>「상품 목록」 화면</b> 편집으로 이동해서 해주세요.
+                      </div>
+                    </div>
+                  )}
+
+                  {mainSection === "footer" && (
+                    <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                      <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl">🦶</span>
+                          <div>
+                            <h3 className="text-sm font-bold text-gray-900">푸터 · 하단 정보</h3>
+                            <p className="text-[11px] text-gray-500">회사 소개 · 이용약관 · 문의 · 저작권 (편집 기능 · 순차 추가 예정)</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="p-4 text-[11px] text-gray-600 bg-blue-50 border-t border-blue-200 rounded-b-2xl">
+                        🚧 푸터 편집 기능은 · 카테고리/헤더 메뉴와 함께 다음 배치에서 붙여드릴게요.<br />
+                        지금은 · 회사 소개 · 이용약관 · 문의 · 저작권 4가지 항목이 shop에 하드코딩 상태입니다.
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
               {SHOP_UI_SCHEMA
@@ -1146,7 +1231,14 @@ export default function CustomizePage() {
                   </div>
                   <div className="text-[10px] text-gray-400">위에서 화면 선택</div>
                 </div>
-                <ShopPreview config={config} device={previewDevice} page={previewPage} sampleProductId={sampleProductId} />
+                <ShopPreview
+                  config={config}
+                  device={previewDevice}
+                  page={previewPage}
+                  sampleProductId={sampleProductId}
+                  section={previewPage === "mainTop" ? mainSection : null}
+                  onSectionClick={(s) => { setPreviewPage("mainTop"); setMainSection(s); }}
+                />
               </div>
             </div>
           </div>

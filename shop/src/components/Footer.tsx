@@ -2,12 +2,15 @@
 // 셀렉트샵 패턴 푸터 (정보 위주 - 회사정보 / 고객센터 / SNS / 사업자정보)
 import Link from "next/link";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useShopUi } from "@/contexts/ShopUiContext";
 
 export default function Footer() {
+  const { isInnerFrame, previewSection } = useShopUi();
+  const spotlight = !isInnerFrame || !previewSection ? "" : previewSection === "footer" ? "relative z-30 outline outline-4 outline-[var(--color-brand)] outline-offset-[-4px]" : "opacity-30";
   const { language, t } = useLanguage();
 
   return (
-    <footer className="bg-[var(--color-bg-soft)] border-t border-[var(--color-line)] mt-20">
+    <footer data-section="footer" className={`bg-[var(--color-bg-soft)] border-t border-[var(--color-line)] mt-20 transition ${spotlight} ${isInnerFrame ? "cursor-pointer" : ""}`}>
       <div className="max-w-[1400px] mx-auto px-4 lg:px-8 py-12 lg:py-16">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8 lg:gap-12">
           {/* 1. 회사 정보 */}

@@ -12,7 +12,12 @@ import { renderInlineFormat } from "@/lib/inlineFormat";
 export default function Header() {
   const { totalItems } = useCart();
   const { t, language } = useLanguage();
-  const { isInnerFrame, previewPage, config: shopUi } = useShopUi();
+  const { isInnerFrame, previewPage, previewSection, config: shopUi } = useShopUi();
+  // 스포트라이트 · 현재 선택된 섹션만 밝음 · 나머지는 어둡게 (내가 만지지 않는 곳도 인지)
+  const spotlightClass = (sec: "promoBar" | "header") => {
+    if (!isInnerFrame || !previewSection) return "";
+    return previewSection === sec ? "relative z-30 outline outline-4 outline-[var(--color-brand)] outline-offset-[-4px]" : "opacity-30";
+  };
   const pathname = usePathname();
   const sp = useSearchParams();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -48,7 +53,7 @@ export default function Header() {
     <header className="sticky top-0 z-50 bg-white">
       {/* ─── 상단 슬림바 (텍스트 무한 루프) · 사장님 설정에 따라 표시/숨김 ─── */}
       {promoBarEnabled && (
-        <div className="bg-[var(--color-text)] text-white text-[11px] tracking-widest h-8 flex items-center overflow-hidden">
+        <div data-section="promoBar" className={`bg-[var(--color-text)] text-white text-[11px] tracking-widest h-8 flex items-center overflow-hidden transition ${spotlightClass("promoBar")} ${isInnerFrame ? "cursor-pointer" : ""}`}>
           <div className="marquee-track">
             {Array.from({ length: 2 }).flatMap((_, dup) =>
               promoMsgs.map((m, i) => (
@@ -60,7 +65,7 @@ export default function Header() {
       )}
 
       {/* ─── 메인 헤더 ─── */}
-      <div className="border-b border-[var(--color-line)]">
+      <div data-section="header" className={`border-b border-[var(--color-line)] transition ${spotlightClass("header")} ${isInnerFrame ? "cursor-pointer" : ""}`}>
         <div className="max-w-[1400px] mx-auto px-4 lg:px-8 h-16 lg:h-[72px] grid grid-cols-[1fr_auto_1fr] items-center gap-6">
           {/* 좌: 로고 + 모바일 햄버거 */}
           <div className="flex items-center gap-2">
