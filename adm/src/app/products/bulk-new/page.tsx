@@ -529,8 +529,8 @@ export default function BulkNewProductsPage() {
                       </button>
                     )}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
 
               {/* 입력 필드들 */}
               <div className="grid grid-cols-6 gap-2">
