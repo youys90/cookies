@@ -12,6 +12,7 @@ import { supabase } from "@/lib/supabase";
 import FormActionBar from "@/components/FormActionBar";
 import ProductPicker from "@/components/ProductPicker";
 import DraftSaveButton from "@/components/DraftSaveButton";
+import DraftListButton from "@/components/DraftListButton";
 import ImageLibraryPicker from "@/components/ImageLibraryPicker";
 import { upsertDraft, listDrafts } from "@/lib/adminDrafts";
 import { SESSION_KEYS, loadSession, saveSession } from "@/lib/sessionPersistence";
@@ -174,8 +175,16 @@ function BulkEditReviewsInner() {
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, products: r.products.filter((p) => p.id !== pid) } : r)));
   };
 
+  const loadDraftData = (data: unknown, draftId: string) => {
+    const obj = data as { ids?: unknown; rows?: unknown } | undefined;
+    if (obj) {
+      if (obj.rows) setRows(obj.rows as never);
+      setCurrentDraftId(draftId);
+    }
+  };
   const manualSave = () => {
     const d = upsertDraft({ id: currentDraftId || undefined, pageKey: PAGE_KEY, pageLabel: PAGE_LABEL, data: { ids, rows } });
+    if (!d) { alert("임시 저장 실패 · 브라우저 저장 공간 부족 또는 프라이빗 모드"); return; }
     setCurrentDraftId(d.id);
     setLastSavedAt(new Date());
     setSavedTick((n) => n + 1);
@@ -254,6 +263,7 @@ function BulkEditReviewsInner() {
           <p className="text-sm text-gray-500 mt-1">선택하신 리뷰들을 한 화면에서 확인하고 수정합니다.</p>
           <div className="mt-3">
             <DraftSaveButton onSave={manualSave} lastSavedAt={lastSavedAt} savedTick={savedTick} />
+            <DraftListButton pageKey={PAGE_KEY} onLoad={loadDraftData} />
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">

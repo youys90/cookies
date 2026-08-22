@@ -20,6 +20,7 @@ import { parseCsvToObjects } from "@/lib/csv";
 import { CSV_HEADER_MAP } from "../page";
 import FormActionBar from "@/components/FormActionBar";
 import DraftSaveButton from "@/components/DraftSaveButton";
+import DraftListButton from "@/components/DraftListButton";
 import { upsertDraft, listDrafts } from "@/lib/adminDrafts";
 
 const PAGE_KEY = "excel-import";
@@ -99,9 +100,19 @@ function ExcelImportInner() {
       pageLabel: PAGE_LABEL,
       data: { pool, rows, fileName, picked: Array.from(picked) },
     });
+    if (!d) { alert("임시 저장 실패 · 브라우저 저장 공간 부족 또는 프라이빗 모드"); return; }
     setCurrentDraftId(d.id);
     setLastSavedAt(new Date());
     setSavedTick((n) => n + 1);
+  };
+  const loadDraftData = (data: unknown, draftId: string) => {
+    const obj = data as { pool?: unknown; rows?: unknown; fileName?: unknown; picked?: unknown } | undefined;
+    if (!obj) return;
+    if (Array.isArray(obj.pool)) setPool(obj.pool as never);
+    if (Array.isArray(obj.rows)) setRows(obj.rows as never);
+    if (typeof obj.fileName === "string") setFileName(obj.fileName);
+    if (Array.isArray(obj.picked)) setPicked(new Set(obj.picked as number[]));
+    setCurrentDraftId(draftId);
   };
 
   useEffect(() => {
@@ -420,6 +431,7 @@ function ExcelImportInner() {
           </p>
           <div className="mt-3">
             <DraftSaveButton onSave={manualSave} lastSavedAt={lastSavedAt} savedTick={savedTick} />
+            <DraftListButton pageKey={PAGE_KEY} onLoad={loadDraftData} />
           </div>
         </div>
         {phase && <div className="text-xs text-gray-600 self-center">{phase}</div>}

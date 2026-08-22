@@ -12,6 +12,7 @@ import { translateKoJa } from "@/lib/translate";
 import FormActionBar from "@/components/FormActionBar";
 import ShopPreview from "@/components/ShopPreview";
 import DraftSaveButton from "@/components/DraftSaveButton";
+import DraftListButton from "@/components/DraftListButton";
 import InlineFormatInput from "@/components/InlineFormatInput";
 import { getShopUrl } from "@/lib/shopUrl";
 import { upsertDraft, deleteDraft, listDrafts } from "@/lib/adminDrafts";
@@ -103,6 +104,8 @@ export default function CustomizePage() {
   // 메인 화면 · 2뎁스 세부 영역 선택 · 사장님 요구 (스포트라이트 UX)
   type MainSection = "promoBar" | "header" | "hero" | "benefits" | "categories" | "footer";
   const [mainSection, setMainSection] = useState<MainSection>("promoBar");
+  // 편집 모드 · "split" = 좌측 설정창 + 우측 미리보기 (현재)  |  "preview" = 큰 미리보기 + 클릭 시 설정 팝업
+  const [editorMode, setEditorMode] = useState<"split" | "preview">("split");
 
   // 임시저장 · 사장님 명시 요청 시에만 저장/불러오기 (자동 감지 없음)
   // 진입 시 · 항상 라이브(활성 프리셋) 값으로 시작 · 임시저장 목록 팝업 없음
@@ -128,9 +131,21 @@ export default function CustomizePage() {
 
   const manualSave = () => {
     const d = upsertDraft({ id: currentDraftId || undefined, pageKey: PAGE_KEY, pageLabel: PAGE_LABEL, data: config });
+    if (!d) {
+      alert("임시 저장 실패\n\n브라우저 저장 공간이 부족하거나 프라이빗 모드일 수 있어요.\n(저장한 목록에서 오래된 항목을 삭제하면 공간이 확보됩니다.)");
+      return;
+    }
     setCurrentDraftId(d.id);
     setLastSavedAt(new Date());
     setSavedTick((n) => n + 1);
+  };
+  const loadDraftData = (data: unknown, draftId: string) => {
+    if (data && typeof data === "object") {
+      setConfig(mergeWithDefaults(data));
+      setCurrentDraftId(draftId);
+      setDirty(true);
+      setMsg("불러왔어요. 저장을 눌러야 매장에 반영됩니다.");
+    }
   };
 
   // 부분 저장 · 지금 편집 중인 화면의 섹션만 · 나머지는 서버 원본 유지
@@ -408,12 +423,13 @@ export default function CustomizePage() {
           <p className="text-sm text-gray-500 mt-1">
             상품과 메뉴의 크기, 간격, 표시 방법을 직접 꾸밀 수 있어요.
           </p>
-          <div className="mt-3">
+          <div className="mt-3 flex items-center gap-1.5 flex-wrap">
             <DraftSaveButton
               onSave={manualSave}
               lastSavedAt={lastSavedAt}
               savedTick={savedTick}
             />
+            <DraftListButton pageKey={PAGE_KEY} onLoad={loadDraftData} />
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -547,24 +563,24 @@ export default function CustomizePage() {
                   className={`mt-2 w-full p-3 rounded-xl border-2 transition text-left shadow-sm hover:shadow-md ${
                     config.linkMobileToDesktop
                       ? "bg-emerald-50 border-emerald-400 hover:bg-emerald-100"
-                      : "bg-white border-gray-300 hover:bg-gray-50"
+                      : "bg-amber-50 border-amber-400 hover:bg-amber-100 ring-2 ring-amber-200 animate-pulse-slow"
                   }`}
                   title="PC와 모바일 값을 함께 조정할지 · 따로 조정할지"
                 >
                   <div className="flex items-center gap-3">
                     <span className="text-2xl leading-none">{config.linkMobileToDesktop ? "🔗" : "🔓"}</span>
                     <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-bold ${config.linkMobileToDesktop ? "text-emerald-800" : "text-gray-700"}`}>
-                        {config.linkMobileToDesktop ? "PC · 모바일 함께 설정" : "PC · 모바일 따로 설정"}
+                      <p className={`text-sm font-bold ${config.linkMobileToDesktop ? "text-emerald-800" : "text-amber-900"}`}>
+                        {config.linkMobileToDesktop ? "PC · 모바일 함께 설정" : "⚡ PC · 모바일 따로 설정 중"}
                       </p>
-                      <p className={`text-[11px] mt-0.5 ${config.linkMobileToDesktop ? "text-emerald-700" : "text-gray-500"}`}>
+                      <p className={`text-[11px] mt-0.5 ${config.linkMobileToDesktop ? "text-emerald-700" : "text-amber-800"}`}>
                         {config.linkMobileToDesktop
                           ? "PC에서 설정하면 모바일 화면에 맞게 자동으로 조정돼요."
-                          : "각 화면을 따로 설정할 수 있어요."}
+                          : "노란색으로 표시된 「📱 모바일」 필드를 별도로 조절해주세요."}
                       </p>
                     </div>
                     {/* 토글 스위치 UI (iOS 스타일) */}
-                    <div className={`w-12 h-7 rounded-full relative transition flex-shrink-0 ${config.linkMobileToDesktop ? "bg-emerald-500" : "bg-gray-300"}`}>
+                    <div className={`w-12 h-7 rounded-full relative transition flex-shrink-0 ${config.linkMobileToDesktop ? "bg-emerald-500" : "bg-amber-500"}`}>
                       <div className={`w-6 h-6 bg-white rounded-full absolute top-0.5 shadow-md transition-all ${config.linkMobileToDesktop ? "left-[calc(100%-1.625rem)]" : "left-0.5"}`}></div>
                     </div>
                   </div>
@@ -1210,14 +1226,25 @@ export default function CustomizePage() {
                         if (f.hidden && config.linkMobileToDesktop) return false;
                         return true;
                       })
-                      .map((field) => (
-                        <FieldControl
-                          key={field.key}
-                          field={field}
-                          value={(config[sec.key as keyof ShopUiConfig] as Record<string, unknown>)[field.key]}
-                          onChange={(v) => updateField(sec.key, field.key, v)}
-                        />
-                      ))}
+                      .map((field) => {
+                        // 「따로 설정」 상태 · 모바일 전용 필드는 앰버 강조 (시각 인지)
+                        const isMobileOnly = field.key === "columnsMobile" && !config.linkMobileToDesktop;
+                        return (
+                          <div key={field.key} className={isMobileOnly ? "p-2 -m-2 rounded-lg bg-amber-50 border border-amber-200 shadow-sm" : ""}>
+                            <FieldControl
+                              field={field}
+                              value={(config[sec.key as keyof ShopUiConfig] as Record<string, unknown>)[field.key]}
+                              onChange={(v) => updateField(sec.key, field.key, v)}
+                            />
+                            {isMobileOnly && (
+                              <p className="text-[10px] text-amber-800 font-semibold mt-1 flex items-center gap-1">
+                                <span>⚡</span>
+                                <span>이 값은 모바일에서만 적용돼요 · PC는 위에서 별도로</span>
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })}
                   </div>
                 </div>
               ))}

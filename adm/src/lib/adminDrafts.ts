@@ -43,12 +43,17 @@ function readAll(): DraftsFile {
   }
 }
 
-function writeAll(file: DraftsFile): void {
-  if (typeof window === "undefined") return;
+function writeAll(file: DraftsFile): boolean {
+  if (typeof window === "undefined") return false;
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(file));
+    const json = JSON.stringify(file);
+    window.localStorage.setItem(STORAGE_KEY, json);
+    // 실제로 저장됐는지 검증 (용량 초과/사파리 프라이빗 등)
+    const verify = window.localStorage.getItem(STORAGE_KEY);
+    return verify === json;
   } catch (e) {
     console.warn("[adminDrafts] save failed:", e);
+    return false;
   }
 }
 
@@ -74,14 +79,14 @@ export function getLatestDraft(pageKey: string): Draft | null {
   return listDrafts(pageKey)[0] ?? null;
 }
 
-/** 저장 · id 없으면 새로 생성 · 있으면 업데이트 */
+/** 저장 · id 없으면 새로 생성 · 있으면 업데이트 · null 반환 = 실패 (용량 초과 등) */
 export function upsertDraft(input: {
   id?: string;
   pageKey: string;
   pageLabel: string;
   title?: string;
   data: unknown;
-}): Draft {
+}): Draft | null {
   const now = Date.now();
   const { drafts } = readAll();
   let target: Draft | undefined = input.id ? drafts.find((d) => d.id === input.id) : undefined;
@@ -89,8 +94,8 @@ export function upsertDraft(input: {
     target = { ...target, data: input.data, updatedAt: now, expiresAt: now + RETENTION_MS };
     if (input.title) target.title = input.title;
     const next = drafts.map((d) => (d.id === target!.id ? target! : d));
-    writeAll({ version: 1, drafts: next });
-    return target;
+    const ok = writeAll({ version: 1, drafts: next });
+    return ok ? target : null;
   }
   const auto = new Date(now).toLocaleString("ko-KR", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
   target = {
@@ -103,8 +108,8 @@ export function upsertDraft(input: {
     updatedAt: now,
     expiresAt: now + RETENTION_MS,
   };
-  writeAll({ version: 1, drafts: [target, ...drafts] });
-  return target;
+  const ok = writeAll({ version: 1, drafts: [target, ...drafts] });
+  return ok ? target : null;
 }
 
 export function deleteDraft(id: string): void {

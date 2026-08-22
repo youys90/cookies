@@ -13,6 +13,7 @@ import { supabase } from "@/lib/supabase";
 import FormActionBar from "@/components/FormActionBar";
 import ProductPicker from "@/components/ProductPicker";
 import DraftSaveButton from "@/components/DraftSaveButton";
+import DraftListButton from "@/components/DraftListButton";
 import ImageLibraryPicker from "@/components/ImageLibraryPicker";
 import { upsertDraft, listDrafts, deleteDraft } from "@/lib/adminDrafts";
 import { SESSION_KEYS, loadSession, saveSession } from "@/lib/sessionPersistence";
@@ -109,9 +110,17 @@ function BulkNewReviewsInner() {
       pageLabel: PAGE_LABEL,
       data: { rows },
     });
+    if (!d) { alert("임시 저장 실패 · 브라우저 저장 공간 부족 또는 프라이빗 모드"); return; }
     setCurrentDraftId(d.id);
     setLastSavedAt(new Date());
     setSavedTick((n) => n + 1);
+  };
+  const loadDraftData = (data: unknown, draftId: string) => {
+    const obj = data as { rows?: ReviewRow[] } | undefined;
+    if (obj?.rows && Array.isArray(obj.rows)) {
+      setRows(obj.rows);
+      setCurrentDraftId(draftId);
+    }
   };
 
   const addRow = () => {
@@ -223,6 +232,7 @@ function BulkNewReviewsInner() {
           </p>
           <div className="mt-3">
             <DraftSaveButton onSave={manualSave} lastSavedAt={lastSavedAt} savedTick={savedTick} />
+            <DraftListButton pageKey={PAGE_KEY} onLoad={loadDraftData} />
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">

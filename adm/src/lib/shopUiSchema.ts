@@ -226,7 +226,7 @@ export const SHOP_UI_SCHEMA: SectionMeta[] = [
     hint: "상품 크기 · 표시 정보 · 간격",
     fields: [
       { key: "columnsDesktop", label: "한 줄에 표시할 상품 수", type: "counter", min: 1, max: 20, suffix: "개", hint: "원하는 상품 개수를 직접 입력할 수 있어요." },
-      { key: "columnsMobile", label: "모바일 열 수 · 자동", type: "counter", hidden: true, min: 1, max: 20, suffix: "개" },
+      { key: "columnsMobile", label: "📱 모바일 · 한 줄에 표시할 상품 수", type: "counter", hidden: true, min: 1, max: 20, suffix: "개", hint: "따로 설정 중 · 원하는 값 직접 입력" },
       { key: "gap", label: "상품 사이 간격", type: "range", min: 0, max: 32, step: 2, suffix: "px" },
       { key: "showName", label: "상품명 표시", type: "boolean" },
       { key: "showPrice", label: "가격 표시", type: "boolean" },
@@ -257,7 +257,7 @@ export const SHOP_UI_SCHEMA: SectionMeta[] = [
     hint: "상품 위에 표시되는 카테고리 메뉴",
     fields: [
       { key: "columnsDesktop", label: "한 줄에 표시할 메뉴 수", type: "counter", min: 1, max: 20, suffix: "개", hint: "원하는 메뉴 개수를 직접 입력할 수 있어요." },
-      { key: "columnsMobile", label: "모바일 열 수 · 자동", type: "counter", hidden: true, min: 1, max: 20, suffix: "개" },
+      { key: "columnsMobile", label: "📱 모바일 · 한 줄에 표시할 메뉴 수", type: "counter", hidden: true, min: 1, max: 20, suffix: "개", hint: "따로 설정 중 · 원하는 값 직접 입력" },
       { key: "maxRows", label: "최대 표시 줄 수", type: "counter", min: 1, max: 10, suffix: "줄" },
     ],
   },

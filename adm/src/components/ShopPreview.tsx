@@ -91,17 +91,19 @@ export default function ShopPreview({ config, device, page, sampleProductId, sec
   }, [section]);
 
   // PC 모드에서 · wrapper 폭 감지해 scale 자동 계산
-  const wrapperRef = useRef<HTMLDivElement>(null);
+  // 콜백 ref · device 전환 시 wrapper가 언마운트/재마운트되어도 · 새 DOM에 옵저버 재부착됨
+  const [wrapperEl, setWrapperEl] = useState<HTMLDivElement | null>(null);
   const [wrapperWidth, setWrapperWidth] = useState(800);
   useEffect(() => {
-    const el = wrapperRef.current;
-    if (!el) return;
+    if (!wrapperEl) return;
+    // 즉시 폭 측정 (옵저버 첫 콜백 전에도 값 세팅)
+    setWrapperWidth(wrapperEl.getBoundingClientRect().width);
     const ro = new ResizeObserver((entries) => {
       for (const e of entries) setWrapperWidth(e.contentRect.width);
     });
-    ro.observe(el);
+    ro.observe(wrapperEl);
     return () => ro.disconnect();
-  }, []);
+  }, [wrapperEl]);
 
   if (isMobile) {
     // 모바일 · 실제 폰 뷰포트 그대로 (축소 없음 · 폭 390px 고정)

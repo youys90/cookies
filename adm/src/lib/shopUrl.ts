@@ -14,7 +14,7 @@
 const DEFAULT_LOCAL_SHOP = "http://localhost:3001";
 
 export function getShopUrl(): string {
-  // 1) 명시적 env 최우선
+  // 1) 명시적 env 최우선 (사장님이 Vercel 대시보드에서 NEXT_PUBLIC_SHOP_URL 설정 가능)
   if (process.env.NEXT_PUBLIC_SHOP_URL) return process.env.NEXT_PUBLIC_SHOP_URL;
   // 2) 서버 렌더 시 · 로컬 폴백
   if (typeof window === "undefined") return DEFAULT_LOCAL_SHOP;
@@ -28,6 +28,22 @@ export function getShopUrl(): string {
   if (host.includes("-adm.")) return origin.replace("-adm.", ".");
   // 하이픈 접미 (admin) · foo-admin.vercel.app → foo.vercel.app
   if (host.includes("-admin.")) return origin.replace("-admin.", ".");
-  // 폴백 · 같은 origin (안전 · 최소한 열림)
+  // Cookies 패턴 (사장님 프로젝트) · cookiesadm.vercel.app → cookiesshop.vercel.app
+  // 일반화 · 첫 라벨이 "adm"으로 끝나면 → "shop"으로 치환
+  const firstDot = host.indexOf(".");
+  if (firstDot > 0) {
+    const firstLabel = host.slice(0, firstDot);
+    const rest = host.slice(firstDot);
+    if (firstLabel.endsWith("adm") && firstLabel.length > 3) {
+      const newFirst = firstLabel.slice(0, -3) + "shop";
+      return `${window.location.protocol}//${newFirst}${rest}`;
+    }
+    if (firstLabel.endsWith("admin") && firstLabel.length > 5) {
+      const newFirst = firstLabel.slice(0, -5) + "shop";
+      return `${window.location.protocol}//${newFirst}${rest}`;
+    }
+  }
+  // 폴백 · 안전 · 최소한 뭔가는 열리도록 · 같은 origin (관리자 자기 자신)
+  // ⚠ 이 경우 · Vercel 대시보드에서 NEXT_PUBLIC_SHOP_URL 설정 권장
   return origin;
 }
