@@ -10,6 +10,9 @@ import { supabase } from "@/lib/supabase";
 import { SHOP_UI_SCHEMA, DEFAULT_CONFIG, mergeWithDefaults, deriveMobileValues, type ShopUiConfig, type FieldMeta } from "@/lib/shopUiSchema";
 import FormActionBar from "@/components/FormActionBar";
 import ShopPreview from "@/components/ShopPreview";
+import { loadSession, saveSession, clearSession } from "@/lib/sessionPersistence";
+
+const DRAFT_KEY = "adm.session.customizeDraft";
 
 interface Preset {
   id: number;
@@ -81,6 +84,59 @@ export default function CustomizePage() {
   const [previewDevice, setPreviewDevice] = useState<"desktop" | "mobile">("desktop");
   const [previewPage, setPreviewPage] = useState<"list" | "detail">("list");
 
+  // 임시저장 · 메일 스타일 팝업 + 자동 저장 + 수동 임시저장
+  const [restorePrompt, setRestorePrompt] = useState<ShopUiConfig | null>(null);
+  const [autoSaveEnabled, setAutoSaveEnabled] = useState(false);
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const [savedTick, setSavedTick] = useState(0);
+
+  // 활성 프리셋 로드 완료 후 · 임시저장된 것 있으면 팝업
+  useEffect(() => {
+    if (loading || !active) return;
+    const draft = loadSession<ShopUiConfig | null>(DRAFT_KEY, null);
+    if (draft && draft.version) {
+      // 활성 config와 다른 경우만 팝업
+      if (JSON.stringify(draft) !== JSON.stringify(config)) {
+        setRestorePrompt(draft);
+      } else {
+        setAutoSaveEnabled(true);
+      }
+    } else {
+      setAutoSaveEnabled(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, active?.id]);
+
+  // rows(config) 자동 저장 · 500ms debounce
+  useEffect(() => {
+    if (!autoSaveEnabled || saving) return;
+    const t = setTimeout(() => {
+      saveSession(DRAFT_KEY, config);
+      setLastSavedAt(new Date());
+    }, 500);
+    return () => clearTimeout(t);
+  }, [config, autoSaveEnabled, saving]);
+
+  const manualSave = () => {
+    saveSession(DRAFT_KEY, config);
+    setLastSavedAt(new Date());
+    setSavedTick((n) => n + 1);
+  };
+
+  const doRestore = () => {
+    if (restorePrompt) {
+      setConfig(mergeWithDefaults(restorePrompt));
+      setDirty(true);
+    }
+    setRestorePrompt(null);
+    setAutoSaveEnabled(true);
+  };
+  const doDiscard = () => {
+    clearSession(DRAFT_KEY);
+    setRestorePrompt(null);
+    setAutoSaveEnabled(true);
+  };
+
   const saveOverwrite = async () => {
     if (!active) return;
     if (!confirm("현재 활성 프리셋을 이 내용으로 덮어씁니다.\n\n계속하시겠어요?")) return;
@@ -95,6 +151,9 @@ export default function CustomizePage() {
     } else {
       setMsg("저장 완료 · 매장에 반영되었습니다");
       setDirty(false);
+      // 정식 저장 완료 시 · 임시저장은 정리
+      clearSession(DRAFT_KEY);
+      setLastSavedAt(null);
       load();
     }
   };
@@ -163,6 +222,20 @@ export default function CustomizePage() {
           <p className="text-sm text-gray-500 mt-1">
             매장(고객용) 화면의 배치 · 크기 · 노출 정보를 사장님이 직접 조정할 수 있어요
           </p>
+          <div className="flex items-center gap-2 mt-1.5 text-[11px]">
+            <button
+              onClick={manualSave}
+              className="px-2 py-0.5 bg-white border border-gray-200 text-gray-600 rounded-md hover:bg-gray-50 flex items-center gap-1"
+              title="현재 편집 상태를 즉시 임시저장"
+            >
+              💾 임시저장
+            </button>
+            <span key={savedTick} className={`text-gray-400 ${savedTick > 0 ? "animate-fade-in" : ""}`}>
+              {lastSavedAt
+                ? `방금 저장됨 · ${lastSavedAt.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`
+                : "자동 임시저장 · 페이지 이동해도 유지"}
+            </span>
+          </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <Link href="/customize/list" className="px-3 py-1.5 text-xs text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">
@@ -173,6 +246,27 @@ export default function CustomizePage() {
           </Link>
         </div>
       </div>
+
+      {/* 임시저장 복원 팝업 · 메일 스타일 */}
+      {restorePrompt && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-11 h-11 rounded-full bg-amber-100 flex items-center justify-center text-2xl flex-shrink-0">💾</div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">이전에 편집 중이던 화면이 있어요</h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  저장하지 않은 편집 내용이 남아있어요. 이어서 편집하시겠어요?
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 mt-6">
+              <button onClick={doDiscard} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">🗑 새로 시작</button>
+              <button onClick={doRestore} className="px-5 py-2 text-sm bg-[var(--color-brand)] text-white rounded-lg hover:bg-[var(--color-brand-dk)] font-semibold">✎ 불러오기</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 활성 정보 */}
       {active && (
@@ -198,45 +292,95 @@ export default function CustomizePage() {
         </div>
       ) : (
         <>
-          {/* PC ↔ 모바일 링크 · 기기 미리보기 */}
-          <div className="mb-4 p-4 rounded-2xl bg-white border border-gray-200 flex items-center justify-between gap-3 flex-wrap">
-            <label className="flex items-center gap-2 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={config.linkMobileToDesktop}
-                onChange={toggleLink}
-                className="w-4 h-4 accent-[var(--color-brand)]"
-              />
-              <span className="text-sm text-gray-800">
-                <b>모바일도 자동으로 맞춰주기</b>
-                <span className="ml-2 text-[11px] text-gray-500">
-                  {config.linkMobileToDesktop ? "PC 값 조정 시 · 모바일도 자동" : "PC와 모바일을 따로 편집"}
-                </span>
-              </span>
-            </label>
-            <div className="inline-flex bg-gray-100 rounded-lg p-0.5">
-              <button
-                onClick={() => setPreviewDevice("desktop")}
-                className={`px-3 py-1 text-xs rounded-md font-medium ${previewDevice === "desktop" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"}`}
-                title="PC 미리보기"
-              >
-                🖥 PC
-              </button>
-              <button
-                onClick={() => setPreviewDevice("mobile")}
-                className={`px-3 py-1 text-xs rounded-md font-medium ${previewDevice === "mobile" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"}`}
-                title="모바일 미리보기"
-              >
-                📱 모바일
-              </button>
+          {/* ── 상단 큰 탭 · 편집 대상 (화면) + 미리보기 기기 ─── */}
+          <div className="mb-4 bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
+            <div className="grid grid-cols-1 md:grid-cols-2">
+              {/* 좌측 · 어느 화면 편집 · 큰 세로 탭 2개 */}
+              <div className="p-3 bg-gradient-to-br from-gray-50 to-white border-b md:border-b-0 md:border-r border-gray-200">
+                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 pl-1">📝 어느 화면을 편집할까요?</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setPreviewPage("list")}
+                    className={`px-3 py-3 rounded-lg border-2 transition text-left ${previewPage === "list" ? "border-[var(--color-brand)] bg-[var(--color-brand)]/8 shadow-sm" : "border-gray-200 bg-white hover:bg-gray-50"}`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">🛍</span>
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-gray-900">상품 목록 화면</p>
+                        <p className="text-[10px] text-gray-500">홈 · 카테고리 · 상품 그리드</p>
+                      </div>
+                      {previewPage === "list" && <span className="ml-auto text-[10px] font-semibold text-[var(--color-brand-dk)]">● 편집 중</span>}
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => setPreviewPage("detail")}
+                    className={`px-3 py-3 rounded-lg border-2 transition text-left ${previewPage === "detail" ? "border-[var(--color-brand)] bg-[var(--color-brand)]/8 shadow-sm" : "border-gray-200 bg-white hover:bg-gray-50"}`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">📦</span>
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-gray-900">상품 상세 화면</p>
+                        <p className="text-[10px] text-gray-500">상품 클릭 시 나오는 페이지</p>
+                      </div>
+                      {previewPage === "detail" && <span className="ml-auto text-[10px] font-semibold text-[var(--color-brand-dk)]">● 편집 중</span>}
+                    </div>
+                  </button>
+                </div>
+              </div>
+              {/* 우측 · 어느 기기 미리보기 · PC/모바일 */}
+              <div className="p-3">
+                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 pl-1">👁 미리보기 · 어떤 기기로?</p>
+                <div className="grid grid-cols-2 gap-2 mb-2">
+                  <button
+                    onClick={() => setPreviewDevice("desktop")}
+                    className={`px-3 py-3 rounded-lg border-2 transition text-left ${previewDevice === "desktop" ? "border-gray-900 bg-gray-900 text-white shadow" : "border-gray-200 bg-white hover:bg-gray-50"}`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">🖥</span>
+                      <div>
+                        <p className="text-sm font-bold">PC</p>
+                        <p className={`text-[10px] ${previewDevice === "desktop" ? "text-gray-300" : "text-gray-500"}`}>큰 화면</p>
+                      </div>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => setPreviewDevice("mobile")}
+                    className={`px-3 py-3 rounded-lg border-2 transition text-left ${previewDevice === "mobile" ? "border-gray-900 bg-gray-900 text-white shadow" : "border-gray-200 bg-white hover:bg-gray-50"}`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">📱</span>
+                      <div>
+                        <p className="text-sm font-bold">모바일</p>
+                        <p className={`text-[10px] ${previewDevice === "mobile" ? "text-gray-300" : "text-gray-500"}`}>휴대폰 화면</p>
+                      </div>
+                    </div>
+                  </button>
+                </div>
+                <label className="flex items-center gap-2 cursor-pointer select-none pl-1 pt-1">
+                  <input
+                    type="checkbox"
+                    checked={config.linkMobileToDesktop}
+                    onChange={toggleLink}
+                    className="w-3.5 h-3.5 accent-[var(--color-brand)]"
+                  />
+                  <span className="text-[11px] text-gray-600">모바일 값 · PC 조정 시 자동으로 함께 조정</span>
+                </label>
+              </div>
             </div>
           </div>
 
-          {/* 좌: 편집 폼 · 우: 실시간 미리보기 · 사장님 확인용 */}
+          {/* 좌: 편집 폼 (해당 화면 관련 섹션만) · 우: 실시간 미리보기 */}
           <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-6">
-            {/* 편집 폼 · 스키마에서 자동 생성 */}
+            {/* 편집 폼 · 선택된 화면에 해당하는 섹션만 노출 */}
             <div className="space-y-4">
-              {SHOP_UI_SCHEMA.map((sec) => (
+              {SHOP_UI_SCHEMA
+                .filter((sec) => {
+                  // 상품 목록 화면 편집 중 → productList + pagination + categoryTabs 만
+                  // 상품 상세 화면 편집 중 → productDetail 만
+                  if (previewPage === "list") return sec.key !== "productDetail";
+                  return sec.key === "productDetail";
+                })
+                .map((sec) => (
                 <div key={sec.key} className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
                   <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
                     <div className="flex items-center gap-2">
@@ -266,25 +410,14 @@ export default function CustomizePage() {
               ))}
             </div>
 
-            {/* 우 · 실시간 미리보기 · sticky */}
+            {/* 우 · 실시간 미리보기 · sticky · 선택된 화면 렌더 */}
             <div className="hidden xl:block">
               <div className="sticky top-6 space-y-3">
-                <div className="flex items-center justify-between bg-white rounded-xl border border-gray-200 p-2">
-                  <div className="text-xs text-gray-500 pl-2">🔴 실시간 미리보기</div>
-                  <div className="inline-flex bg-gray-100 rounded-lg p-0.5">
-                    <button
-                      onClick={() => setPreviewPage("list")}
-                      className={`px-3 py-1 text-xs rounded-md font-medium ${previewPage === "list" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"}`}
-                    >
-                      🛍 상품 목록
-                    </button>
-                    <button
-                      onClick={() => setPreviewPage("detail")}
-                      className={`px-3 py-1 text-xs rounded-md font-medium ${previewPage === "detail" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"}`}
-                    >
-                      📦 상품 상세
-                    </button>
+                <div className="flex items-center justify-between bg-white rounded-xl border border-gray-200 px-3 py-2">
+                  <div className="text-xs font-semibold text-gray-700">
+                    🔴 실시간 미리보기 · {previewPage === "list" ? "🛍 상품 목록" : "📦 상품 상세"} · {previewDevice === "desktop" ? "🖥 PC" : "📱 모바일"}
                   </div>
+                  <div className="text-[10px] text-gray-400">위 탭에서 전환</div>
                 </div>
                 <ShopPreview config={config} device={previewDevice} page={previewPage} />
               </div>
