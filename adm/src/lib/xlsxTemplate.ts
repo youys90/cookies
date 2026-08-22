@@ -20,22 +20,28 @@ interface Column {
 }
 
 // 한국어만 입력 · 일본어는 등록 시 자동 번역/매핑
+// 재고 · 판매상태는 등록 후 개별 편집 (등록 시 = 판매중 · 재고 미관리)
 const COLUMNS: Column[] = [
-  { label: "상품명", key: "name_ko", width: 30, sample: "골드 체인 목걸이", required: true, hint: "필수 · 한국어로 입력 · 일본어는 자동 번역" },
-  { label: "가격 (¥)", key: "price", width: 12, sample: 10000, required: true, hint: "숫자만 · 판매가" },
-  { label: "정가 (¥)", key: "original_price", width: 12, sample: 12000, required: false, hint: "숫자 · 취소선 표시용" },
-  { label: "카테고리", key: "category_ko", width: 20, sample: "액세서리", required: true, hint: "드롭다운 · 한국어 · 일본어는 자동 매핑" },
-  { label: "하위 카테고리", key: "sub_category_ko", width: 20, sample: "목걸이", required: false, hint: "드롭다운 · 한국어 · 일본어는 자동 매핑" },
-  { label: "상품 설명", key: "description_ko", width: 44, sample: "심플하고 고급스러운 골드 체인", required: false, hint: "한국어로 입력 · 일본어는 자동 번역" },
-  { label: "재고", key: "stock", width: 10, sample: 10, required: false, hint: "숫자 · 공란=미관리" },
-  { label: "판매상태", key: "is_active", width: 12, sample: "판매중", required: false, hint: "드롭다운 · 판매중 / 숨김" },
+  { label: "상품명", key: "name_ko", width: 32, sample: "골드 체인 목걸이", required: true, hint: "필수 · 한국어로 입력 · 일본어는 자동 번역" },
+  { label: "가격 (¥)", key: "price", width: 14, sample: 10000, required: true, hint: "숫자만 · 판매가" },
+  { label: "정가 (¥)", key: "original_price", width: 14, sample: 12000, required: false, hint: "숫자 · 취소선 표시용" },
+  { label: "카테고리", key: "category_ko", width: 22, sample: "액세서리", required: true, hint: "드롭다운 · 한국어 · 일본어는 자동 매핑" },
+  { label: "하위 카테고리", key: "sub_category_ko", width: 22, sample: "목걸이", required: false, hint: "드롭다운 · 한국어 · 일본어는 자동 매핑" },
+  { label: "상품 설명", key: "description_ko", width: 50, sample: "심플하고 고급스러운 골드 체인", required: false, hint: "한국어로 입력 · 일본어는 자동 번역" },
 ];
 
 export interface TemplateOptions {
-  /** 최상위 카테고리 일본어 명칭 · 「카테고리」 컬럼 드롭다운 */
+  /** 최상위 카테고리 명칭 · 「카테고리」 컬럼 드롭다운 (호환용 · categoryTree 있으면 무시) */
   topCategories?: string[];
-  /** 하위 카테고리 일본어 명칭 · 「하위 카테고리」 컬럼 드롭다운 */
+  /** 하위 카테고리 명칭 · 「하위 카테고리」 컬럼 드롭다운 (호환용) */
   subCategories?: string[];
+  /** 카테고리 트리 · 상위 선택 시 하위 자동 필터링 (종속 드롭다운) */
+  categoryTree?: { top: string; subs: string[] }[];
+}
+
+// 엑셀 정의 이름(named range)에 유효한 문자만 유지 · 공백/특수문자 → 밑줄
+function sanitizeExcelName(s: string): string {
+  return s.replace(/[^A-Za-z0-9가-힣]/g, "_");
 }
 
 export async function downloadProductTemplate(opts: TemplateOptions = {}): Promise<void> {
@@ -43,8 +49,11 @@ export async function downloadProductTemplate(opts: TemplateOptions = {}): Promi
   wb.creator = "CREAM Admin";
   wb.created = new Date();
 
-  const topCats = (opts.topCategories ?? []).filter((s) => s && s.trim().length > 0);
-  const subCats = (opts.subCategories ?? []).filter((s) => s && s.trim().length > 0);
+  // 트리 우선 · 없으면 flat 리스트로 fallback
+  const tree = opts.categoryTree && opts.categoryTree.length > 0
+    ? opts.categoryTree
+    : (opts.topCategories ?? []).map((t) => ({ top: t, subs: opts.subCategories ?? [] }));
+  const topCats = tree.map((t) => t.top).filter((s) => s && s.trim().length > 0);
 
   const ws = wb.addWorksheet("상품 일괄 등록", {
     views: [{ state: "frozen", ySplit: 5, xSplit: 0 }],
@@ -56,7 +65,7 @@ export async function downloadProductTemplate(opts: TemplateOptions = {}): Promi
   // ── 1행 · 타이틀 배너 (풀 폭 병합) ─────────────────────────────
   ws.mergeCells(1, 1, 1, COLUMNS.length);
   const title = ws.getCell(1, 1);
-  title.value = "🛍️  CREAM  상품 일괄 등록 템플릿";
+  title.value = "🛍️  CREAM  상품 일괄 등록 양식";
   title.font = { name: "맑은 고딕", size: 18, bold: true, color: { argb: HEADER_FONT } };
   title.alignment = { vertical: "middle", horizontal: "center" };
   title.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND } };
@@ -65,7 +74,7 @@ export async function downloadProductTemplate(opts: TemplateOptions = {}): Promi
   // ── 2행 · 서브타이틀 ───────────────────────────────────────
   ws.mergeCells(2, 1, 2, COLUMNS.length);
   const subtitle = ws.getCell(2, 1);
-  subtitle.value = "6행부터 실제 데이터를 입력하세요 · 4행 예시는 자동 제외됩니다 (그대로 두거나 삭제 무관)";
+  subtitle.value = "6행부터 상품 정보를 입력해주세요 · 4행의 노란색 예시는 자동으로 빠지니 지우지 않으셔도 돼요";
   subtitle.font = { name: "맑은 고딕", size: 11, color: { argb: "FF6B7280" }, italic: true };
   subtitle.alignment = { vertical: "middle", horizontal: "center" };
   subtitle.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF9FAFB" } };
@@ -74,7 +83,7 @@ export async function downloadProductTemplate(opts: TemplateOptions = {}): Promi
   // ── 3행 · 안내 배너 ───────────────────────────────────────
   ws.mergeCells(3, 1, 3, COLUMNS.length);
   const note = ws.getCell(3, 1);
-  note.value = "⚠  이미지는 이 파일로 등록되지 않습니다 · 등록 후 상품 목록에서 「이미지 라이브러리」로 첨부";
+  note.value = "⚠  상품 이미지는 이 파일로 등록되지 않아요 · 관리자 화면에서 이미지를 올려 상품에 연결해주세요";
   note.font = { name: "맑은 고딕", size: 10, color: { argb: "FF92400E" }, bold: true };
   note.alignment = { vertical: "middle", horizontal: "center" };
   note.fill = { type: "pattern", pattern: "solid", fgColor: { argb: INSTRUCTION_BG } };
@@ -150,28 +159,38 @@ export async function downloadProductTemplate(opts: TemplateOptions = {}): Promi
     });
   }
 
-  // ── 숨김 「선택지」 시트 · 드롭다운 소스 (255자 인라인 제약 회피) ──
+  // ── 숨김 「_lookup」 시트 · 상위 컬럼 A · 각 상위의 하위는 별도 컬럼 ──
+  // Row 1: 헤더 (A: 카테고리, B~: 각 상위 카테고리명)
+  // Row 2+: A열에 상위 목록 · B+열에 해당 상위의 하위 목록
   const lookup = wb.addWorksheet("_lookup", { state: "hidden" });
-  lookup.getCell("A1").value = "카테고리";
-  lookup.getCell("B1").value = "하위카테고리";
-  lookup.getCell("C1").value = "판매상태";
+  lookup.getCell(1, 1).value = "카테고리";
   topCats.forEach((v, i) => { lookup.getCell(i + 2, 1).value = v; });
-  subCats.forEach((v, i) => { lookup.getCell(i + 2, 2).value = v; });
-  ["판매중", "숨김"].forEach((v, i) => { lookup.getCell(i + 2, 3).value = v; });
 
-  const lookupRange = (col: string, count: number) =>
-    count > 0 ? `_lookup!$${col}$2:$${col}$${count + 1}` : null;
+  // 각 상위 카테고리별로 별도 컬럼에 하위 목록 · 정의된 이름 등록 (INDIRECT 참조용)
+  tree.forEach((entry, idx) => {
+    const colIdx = idx + 2; // B, C, D, ...
+    const colLetter = colIdx <= 26 ? String.fromCharCode(64 + colIdx) : `A${String.fromCharCode(64 + colIdx - 26)}`;
+    lookup.getCell(1, colIdx).value = entry.top;
+    entry.subs.forEach((s, si) => { lookup.getCell(si + 2, colIdx).value = s; });
+    if (entry.subs.length > 0) {
+      const sanitized = "_sub_" + sanitizeExcelName(entry.top);
+      const range = `_lookup!$${colLetter}$2:$${colLetter}$${entry.subs.length + 1}`;
+      try {
+        wb.definedNames.add(range, sanitized);
+      } catch (e) {
+        console.warn("definedName 등록 실패:", entry.top, e);
+      }
+    }
+  });
 
-  const topRange = lookupRange("A", topCats.length);
-  const subRange = lookupRange("B", subCats.length);
+  const topRange = topCats.length > 0 ? `_lookup!$A$2:$A$${topCats.length + 1}` : null;
 
   // ── 데이터 검증 · 카테고리 드롭다운 ────────────────────────
   const categoryCol = COLUMNS.findIndex((c) => c.key === "category_ko") + 1;
   const subCategoryCol = COLUMNS.findIndex((c) => c.key === "sub_category_ko") + 1;
-  const isActiveCol = COLUMNS.findIndex((c) => c.key === "is_active") + 1;
+  const categoryColLetter = String.fromCharCode(64 + categoryCol);
 
   for (let r = 6; r < 6 + INPUT_ROWS; r++) {
-    // 카테고리 · DB에서 받은 목록 (없으면 스킵)
     if (topRange) {
       ws.getCell(r, categoryCol).dataValidation = {
         type: "list",
@@ -180,37 +199,24 @@ export async function downloadProductTemplate(opts: TemplateOptions = {}): Promi
         showErrorMessage: true,
         errorStyle: "stop",
         errorTitle: "카테고리 선택",
-        error: "「카테고리 관리」에 등록된 일본어 명칭만 사용 가능합니다",
+        error: "「카테고리 관리」에 등록된 명칭만 사용 가능합니다",
       };
     }
-    // 하위 카테고리
-    if (subRange) {
-      ws.getCell(r, subCategoryCol).dataValidation = {
-        type: "list",
-        allowBlank: true,
-        formulae: [`=${subRange}`],
-        showErrorMessage: true,
-        errorStyle: "stop",
-        errorTitle: "하위 카테고리 선택",
-        error: "「카테고리 관리」에 등록된 일본어 명칭만 사용 가능합니다",
-      };
-    }
-    // 판매상태
-    ws.getCell(r, isActiveCol).dataValidation = {
+    // 하위 · 상위 셀 값에 따라 종속 (INDIRECT + 정의된 이름)
+    ws.getCell(r, subCategoryCol).dataValidation = {
       type: "list",
       allowBlank: true,
-      formulae: ['=_lookup!$C$2:$C$3'],
+      formulae: [`=INDIRECT("_sub_" & SUBSTITUTE(SUBSTITUTE(SUBSTITUTE(${categoryColLetter}${r}," ","_"),"/","_"),"-","_"))`],
       showErrorMessage: true,
       errorStyle: "stop",
-      errorTitle: "판매상태 선택",
-      error: "「판매중」 또는 「숨김」 중 하나를 선택하세요",
+      errorTitle: "하위 카테고리 선택",
+      error: "상위 카테고리를 먼저 선택한 뒤 · 해당 상위의 하위만 선택 가능",
     };
   }
 
-  // ── 데이터 검증 · 숫자 필드 ─────────────────────────────
+  // ── 데이터 검증 · 숫자 필드 (가격 · 정가) ─────────────────
   const priceCol = COLUMNS.findIndex((c) => c.key === "price") + 1;
   const originalPriceCol = COLUMNS.findIndex((c) => c.key === "original_price") + 1;
-  const stockCol = COLUMNS.findIndex((c) => c.key === "stock") + 1;
   const numericValidation = {
     type: "whole" as const,
     operator: "greaterThanOrEqual" as const,
@@ -224,11 +230,8 @@ export async function downloadProductTemplate(opts: TemplateOptions = {}): Promi
   for (let r = 6; r < 6 + INPUT_ROWS; r++) {
     ws.getCell(r, priceCol).dataValidation = numericValidation;
     ws.getCell(r, originalPriceCol).dataValidation = numericValidation;
-    ws.getCell(r, stockCol).dataValidation = numericValidation;
-    // 숫자 포맷 (통화 아님 · 순수 숫자 · 소수점 없음)
     ws.getCell(r, priceCol).numFmt = "#,##0";
     ws.getCell(r, originalPriceCol).numFmt = "#,##0";
-    ws.getCell(r, stockCol).numFmt = "#,##0";
   }
 
   // 시트 보호 없음 (편집 가능) · 인쇄 영역만 세팅
@@ -249,16 +252,17 @@ export async function downloadProductTemplate(opts: TemplateOptions = {}): Promi
   });
 
   const helpRows: [string, string][] = [
-    ["📝 입력 시작 위치", "「상품 일괄 등록」 시트의 6행부터 실제 데이터 입력. 4행 예시는 자동 제외됩니다."],
-    ["✅ 필수 항목", "상품명 · 가격 · 카테고리"],
-    ["🌐 언어", "모든 항목을 한국어로만 입력하시면 됩니다. 일본어는 등록 시 자동 번역/매핑됩니다."],
-    ["🈶 카테고리", "드롭다운에서 한국어 명칭 선택 → 시스템이 자동으로 일본어 명칭에 매핑합니다."],
-    ["🖼 이미지", "이 파일로는 등록되지 않습니다. 등록 후 상품 목록 → 상품 클릭 → 「이미지 라이브러리에서 선택」 또는 신규 업로드"],
-    ["🔢 숫자 필드", "가격 · 정가 · 재고 → 0 이상의 정수만. 공란 허용."],
-    ["🏷 판매상태", "「판매중」 또는 「숨김」 · 셀 클릭 시 드롭다운 표시"],
-    ["💾 저장", "엑셀에서 저장할 때 → xlsx 그대로 업로드 가능 · CSV(UTF-8)도 가능"],
-    ["📤 업로드", "관리자포털 → 상품 관리 → 「Excel로 일괄업로드」 → 파일 선택"],
-    ["⚠ 주의", "예시 행([예시] 접두 · 노란색)은 절대 등록되지 않으니 안심하고 남겨두세요"],
+    ["📝 어디부터 입력하나요?", "「상품 일괄 등록」 시트의 6행부터 상품 정보를 넣어주세요. 4행에 있는 노란색 예시는 자동으로 빠지니 지우지 않으셔도 돼요."],
+    ["✅ 꼭 넣어야 하는 항목", "상품명 · 가격 · 카테고리"],
+    ["🌐 언어", "모두 한국어로만 입력해주세요. 일본어 이름은 등록할 때 자동으로 만들어드려요."],
+    ["🈶 카테고리 · 하위 카테고리", "카테고리를 먼저 선택하면 · 하위 카테고리는 그 카테고리에 맞는 것만 목록에 나와요."],
+    ["🖼 상품 이미지", "이 파일로는 이미지가 등록되지 않아요. 관리자 화면의 「엑셀로 한꺼번에 등록」에서 왼쪽에 이미지를 올린 뒤 상품 카드를 눌러 연결해주세요."],
+    ["🔢 가격 · 정가", "숫자만 넣어주세요. 정가는 비워두셔도 돼요."],
+    ["🏷 판매상태", "모두 「판매중」으로 자동 등록돼요. 나중에 개별 상품 편집에서 「숨김」으로 바꿀 수 있어요."],
+    ["📦 재고", "재고는 이 파일에 없어요. 개별 상품 편집에서 관리해주세요."],
+    ["💾 저장하기", "엑셀에서 그대로 저장하시면 돼요. .xlsx 나 .csv 둘 다 올릴 수 있어요."],
+    ["📤 다음 단계", "관리자 → 상품 관리 → 「엑셀로 한꺼번에 등록」 → 이 파일 올리기"],
+    ["⚠ 주의사항", "노란색 예시 행([예시] 표시)은 자동으로 빠지니 그대로 두셔도 안전해요."],
   ];
   helpRows.forEach(([topic, detail], idx) => {
     const row = help.addRow({ topic, detail });
@@ -283,6 +287,180 @@ export async function downloadProductTemplate(opts: TemplateOptions = {}): Promi
   a.href = url;
   const today = new Date().toISOString().slice(0, 10);
   a.download = `CREAM_상품_일괄등록_${today}.xlsx`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// 상품 목록을 「일괄 등록」 템플릿과 동일한 xlsx 양식으로 내보내기
+// - 같은 헤더 · 같은 컬럼 폭 · 같은 드롭다운 검증
+// - 다운받아 편집 후 그대로 「Excel로 일괄업로드」 재등록 가능
+// - 예시 행 없음 · 실제 데이터로 채움
+export interface ExportRow {
+  name_ko?: string | null;
+  price?: number | null;
+  original_price?: number | null;
+  category_ko?: string | null;
+  sub_category_ko?: string | null;
+  description_ko?: string | null;
+  stock?: number | null;
+  is_active?: boolean | null;
+  /** category_ko 없을 때 폴백 */
+  category?: string | null;
+  sub_category?: string | null;
+}
+
+export async function exportProductsToXlsx(rows: ExportRow[], opts: TemplateOptions = {}): Promise<void> {
+  const wb = new ExcelJS.Workbook();
+  wb.creator = "CREAM Admin";
+  wb.created = new Date();
+
+  const tree = opts.categoryTree && opts.categoryTree.length > 0
+    ? opts.categoryTree
+    : (opts.topCategories ?? []).map((t) => ({ top: t, subs: opts.subCategories ?? [] }));
+  const topCats = tree.map((t) => t.top).filter((s) => s && s.trim().length > 0);
+
+  const ws = wb.addWorksheet("상품 목록", {
+    views: [{ state: "frozen", ySplit: 5, xSplit: 0 }],
+    properties: { defaultRowHeight: 20 },
+  });
+
+  ws.columns = COLUMNS.map((c) => ({ header: c.label, key: c.key, width: c.width }));
+
+  // ── 1행 · 타이틀 ─────
+  ws.mergeCells(1, 1, 1, COLUMNS.length);
+  const title = ws.getCell(1, 1);
+  title.value = `📦  CREAM  상품 목록 (총 ${rows.length}개)`;
+  title.font = { name: "맑은 고딕", size: 18, bold: true, color: { argb: HEADER_FONT } };
+  title.alignment = { vertical: "middle", horizontal: "center" };
+  title.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND } };
+  ws.getRow(1).height = 44;
+
+  // ── 2행 · 서브타이틀 ────
+  ws.mergeCells(2, 1, 2, COLUMNS.length);
+  const subtitle = ws.getCell(2, 1);
+  subtitle.value = "이 파일을 편집해서 「엑셀로 한꺼번에 등록」에 다시 올릴 수 있어요 · 항목 순서는 그대로 두세요";
+  subtitle.font = { name: "맑은 고딕", size: 11, color: { argb: "FF6B7280" }, italic: true };
+  subtitle.alignment = { vertical: "middle", horizontal: "center" };
+  subtitle.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF9FAFB" } };
+  ws.getRow(2).height = 24;
+
+  // ── 3행 · 안내 ─────
+  ws.mergeCells(3, 1, 3, COLUMNS.length);
+  const note = ws.getCell(3, 1);
+  note.value = `⚠  카테고리는 셀을 눌러 선택해주세요 · 상품 이미지는 이 파일에 포함되지 않아요`;
+  note.font = { name: "맑은 고딕", size: 10, color: { argb: "FF92400E" }, bold: true };
+  note.alignment = { vertical: "middle", horizontal: "center" };
+  note.fill = { type: "pattern", pattern: "solid", fgColor: { argb: INSTRUCTION_BG } };
+  note.border = { top: { style: "thin", color: { argb: "FFFCD34D" } }, bottom: { style: "thin", color: { argb: "FFFCD34D" } } };
+  ws.getRow(3).height = 22;
+
+  // ── 4행 · 안내 (여백) ─────
+  ws.mergeCells(4, 1, 4, COLUMNS.length);
+  ws.getCell(4, 1).value = "";
+  ws.getRow(4).height = 6;
+
+  // ── 5행 · 헤더 ─────
+  const headerRow = ws.getRow(5);
+  COLUMNS.forEach((c, i) => {
+    const cell = headerRow.getCell(i + 1);
+    cell.value = c.required ? `${c.label} *` : c.label;
+    cell.font = { name: "맑은 고딕", size: 11, bold: true, color: { argb: HEADER_FONT } };
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND_DARK } };
+    cell.alignment = { vertical: "middle", horizontal: "center" };
+    cell.border = {
+      top: { style: "medium", color: { argb: BRAND_DARK } },
+      bottom: { style: "medium", color: { argb: BRAND_DARK } },
+      left: { style: "thin", color: { argb: HEADER_FONT } },
+      right: { style: "thin", color: { argb: HEADER_FONT } },
+    };
+  });
+  headerRow.height = 32;
+
+  // ── 6~ · 데이터 행 ─────
+  const priceCol = COLUMNS.findIndex((c) => c.key === "price") + 1;
+  const originalPriceCol = COLUMNS.findIndex((c) => c.key === "original_price") + 1;
+
+  rows.forEach((rec, idx) => {
+    const r = 6 + idx;
+    const row = ws.getRow(r);
+    row.height = 22;
+
+    const values: Record<string, string | number | null> = {
+      name_ko: rec.name_ko || "",
+      price: rec.price ?? null,
+      original_price: rec.original_price ?? null,
+      category_ko: rec.category_ko || rec.category || "",
+      sub_category_ko: rec.sub_category_ko || rec.sub_category || "",
+      description_ko: rec.description_ko || "",
+    };
+
+    COLUMNS.forEach((c, i) => {
+      const cell = row.getCell(i + 1);
+      const v = values[c.key];
+      cell.value = v as string | number | null;
+      cell.font = { name: "맑은 고딕", size: 10 };
+      cell.alignment = { vertical: "middle", horizontal: (c.key === "price" || c.key === "original_price") ? "right" : "left", wrapText: true };
+      cell.border = {
+        top: { style: "hair", color: { argb: "FFE5E7EB" } },
+        bottom: { style: "hair", color: { argb: "FFE5E7EB" } },
+        left: { style: "hair", color: { argb: "FFE5E7EB" } },
+        right: { style: "hair", color: { argb: "FFE5E7EB" } },
+      };
+      if (r % 2 === 1) cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFAFAFA" } };
+      else cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: EMPTY_BG } };
+    });
+
+    row.getCell(priceCol).numFmt = "#,##0";
+    row.getCell(originalPriceCol).numFmt = "#,##0";
+  });
+
+  // ── 숨김 「_lookup」 시트 + 종속 드롭다운 (업로드 템플릿과 동일 구조) ─────
+  const lookup = wb.addWorksheet("_lookup", { state: "hidden" });
+  lookup.getCell(1, 1).value = "카테고리";
+  topCats.forEach((v, i) => { lookup.getCell(i + 2, 1).value = v; });
+
+  tree.forEach((entry, idx) => {
+    const colIdx = idx + 2;
+    const colLetter = colIdx <= 26 ? String.fromCharCode(64 + colIdx) : `A${String.fromCharCode(64 + colIdx - 26)}`;
+    lookup.getCell(1, colIdx).value = entry.top;
+    entry.subs.forEach((s, si) => { lookup.getCell(si + 2, colIdx).value = s; });
+    if (entry.subs.length > 0) {
+      const sanitized = "_sub_" + sanitizeExcelName(entry.top);
+      const range = `_lookup!$${colLetter}$2:$${colLetter}$${entry.subs.length + 1}`;
+      try { wb.definedNames.add(range, sanitized); } catch (e) { console.warn("definedName 등록 실패:", entry.top, e); }
+    }
+  });
+
+  const topRange = topCats.length > 0 ? `_lookup!$A$2:$A$${topCats.length + 1}` : null;
+  const categoryCol = COLUMNS.findIndex((c) => c.key === "category_ko") + 1;
+  const subCategoryCol = COLUMNS.findIndex((c) => c.key === "sub_category_ko") + 1;
+  const categoryColLetter = String.fromCharCode(64 + categoryCol);
+
+  for (let r = 6; r < 6 + rows.length; r++) {
+    if (topRange) {
+      ws.getCell(r, categoryCol).dataValidation = {
+        type: "list", allowBlank: true, formulae: [`=${topRange}`],
+        showErrorMessage: true, errorStyle: "stop", errorTitle: "카테고리 선택", error: "카테고리 관리 등록 명칭만 사용",
+      };
+    }
+    ws.getCell(r, subCategoryCol).dataValidation = {
+      type: "list", allowBlank: true,
+      formulae: [`=INDIRECT("_sub_" & SUBSTITUTE(SUBSTITUTE(SUBSTITUTE(${categoryColLetter}${r}," ","_"),"/","_"),"-","_"))`],
+      showErrorMessage: true, errorStyle: "stop", errorTitle: "하위 카테고리 선택", error: "상위를 먼저 선택 · 해당 상위의 하위만 선택 가능",
+    };
+  }
+
+  ws.pageSetup = { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 };
+
+  const buffer = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  const today = new Date().toISOString().slice(0, 10);
+  a.download = `CREAM_상품목록_${today}.xlsx`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);

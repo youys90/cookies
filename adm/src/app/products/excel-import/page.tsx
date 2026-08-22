@@ -33,8 +33,6 @@ interface ParsedRow {
   category_ko: string;
   sub_category_ko: string;
   description_ko: string;
-  stock: number | null;
-  is_active: boolean;
   imageUrls: string[]; // 좌측에서 매핑된 이미지들
   status: "idle" | "uploading" | "success" | "failed";
   error?: string;
@@ -120,7 +118,7 @@ export default function ExcelImportPage() {
       if (nm.endsWith(".xlsx") || nm.endsWith(".xls")) parsed = await parseXlsxToObjects(file);
       else parsed = parseCsvToObjects(await file.text());
     } catch (e) {
-      alert("파일 파싱 실패: " + String(e));
+      alert("파일을 읽지 못했어요. 엑셀 양식이 맞는지 확인해주세요.\n\n오류 내용: " + String(e));
       return;
     }
 
@@ -155,8 +153,6 @@ export default function ExcelImportPage() {
         category_ko: rec.category_ko || "",
         sub_category_ko: rec.sub_category_ko || "",
         description_ko: rec.description_ko || "",
-        stock: num(rec.stock),
-        is_active: !rec.is_active ? true : /^(true|1|yes|y|판매중|공개|active|판매)$/i.test(rec.is_active),
         imageUrls: [] as string[],
         status: "idle" as const,
       };
@@ -190,13 +186,19 @@ export default function ExcelImportPage() {
     setRows((prev) => prev.map((r) => r.key === rowKey ? { ...r, imageUrls: r.imageUrls.filter((u) => u !== url) } : r));
   };
 
-  // ── 템플릿 다운로드 ────────────────────────────────
+  // ── 템플릿 다운로드 · 카테고리 트리 (상위→하위 종속 드롭다운) ──
   const downloadTemplate = async () => {
     setDownloadingTpl(true);
     try {
-      const topCategories = categories.filter((c) => c.parent_id === null).map((c) => c.name_ko);
-      const subCategories = categories.filter((c) => c.parent_id !== null).map((c) => c.name_ko);
-      await downloadProductTemplate({ topCategories, subCategories });
+      // categories는 id/name_ko/parent_id를 포함해야 트리 구성 가능
+      const { data: full } = await supabase.from("categories").select("id, name_ko, parent_id").order("id");
+      const list = (full || []) as Array<{ id: number; name_ko: string; parent_id: number | null }>;
+      const tops = list.filter((c) => c.parent_id === null && c.name_ko);
+      const categoryTree = tops.map((t) => ({
+        top: t.name_ko,
+        subs: list.filter((c) => c.parent_id === t.id && c.name_ko).map((c) => c.name_ko),
+      }));
+      await downloadProductTemplate({ categoryTree });
     } finally {
       setDownloadingTpl(false);
     }
@@ -225,21 +227,21 @@ export default function ExcelImportPage() {
   const handleSubmit = async () => {
     if (!canSubmit) return;
     setBusy(true);
-    setPhase("등록 준비 중...");
+    setPhase("등록 준비 중이에요...");
     let ok = 0;
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i];
       setPhase(`${i + 1} / ${rows.length} · ${r.name_ko.slice(0, 20)}`);
       // 검증
-      if (!r.name_ko) { setRows((prev) => prev.map((x) => x.key === r.key ? { ...x, status: "failed", error: "상품명 누락" } : x)); continue; }
-      if (r.price === null) { setRows((prev) => prev.map((x) => x.key === r.key ? { ...x, status: "failed", error: "가격 누락" } : x)); continue; }
-      if (!r.category_ko) { setRows((prev) => prev.map((x) => x.key === r.key ? { ...x, status: "failed", error: "카테고리 누락" } : x)); continue; }
+      if (!r.name_ko) { setRows((prev) => prev.map((x) => x.key === r.key ? { ...x, status: "failed", error: "상품명이 비어있어요" } : x)); continue; }
+      if (r.price === null) { setRows((prev) => prev.map((x) => x.key === r.key ? { ...x, status: "failed", error: "가격이 비어있어요" } : x)); continue; }
+      if (!r.category_ko) { setRows((prev) => prev.map((x) => x.key === r.key ? { ...x, status: "failed", error: "카테고리가 비어있어요" } : x)); continue; }
       const topCat = catMaps.top.get(r.category_ko);
-      if (!topCat) { setRows((prev) => prev.map((x) => x.key === r.key ? { ...x, status: "failed", error: `카테고리 「${r.category_ko}」 매핑 실패` } : x)); continue; }
+      if (!topCat) { setRows((prev) => prev.map((x) => x.key === r.key ? { ...x, status: "failed", error: `카테고리 「${r.category_ko}」는 카테고리 관리에 없는 이름이에요` } : x)); continue; }
       let subCat: CategoryEntry | undefined;
       if (r.sub_category_ko) {
         subCat = catMaps.sub.get(r.sub_category_ko);
-        if (!subCat) { setRows((prev) => prev.map((x) => x.key === r.key ? { ...x, status: "failed", error: `하위 「${r.sub_category_ko}」 매핑 실패` } : x)); continue; }
+        if (!subCat) { setRows((prev) => prev.map((x) => x.key === r.key ? { ...x, status: "failed", error: `하위 「${r.sub_category_ko}」는 카테고리 관리에 없는 이름이에요` } : x)); continue; }
       }
 
       setRows((prev) => prev.map((x) => x.key === r.key ? { ...x, status: "uploading" } : x));
@@ -254,14 +256,14 @@ export default function ExcelImportPage() {
         name_ja: nameJa || r.name_ko,
         price: r.price,
         original_price: r.original_price,
-        stock: r.stock,
+        stock: null,
         category: topCat.name_ja,
         category_ja: topCat.name_ja,
         category_ko: topCat.name_ko,
         sub_category: subCat ? subCat.name_ja : null,
         description_ko: r.description_ko || null,
         description_ja: descJa || null,
-        is_active: r.is_active,
+        is_active: true,
         image: r.imageUrls[0] || "https://placehold.co/600x600/e5e7eb/9ca3af?text=No+Image",
         images: r.imageUrls.length > 0 ? r.imageUrls : null,
         source: "CSV",
@@ -274,7 +276,7 @@ export default function ExcelImportPage() {
         setRows((prev) => prev.map((x) => x.key === r.key ? { ...x, status: "success", productId: data?.id } : x));
       }
     }
-    setPhase(`완료 · 성공 ${ok}건 / 전체 ${rows.length}건`);
+    setPhase(`끝났어요 · ${ok}개 등록 완료 (전체 ${rows.length}개)`);
     setBusy(false);
   };
 
@@ -288,10 +290,10 @@ export default function ExcelImportPage() {
           </div>
           <div className="flex items-center gap-2">
             <svg viewBox="0 0 24 24" className="w-6 h-6"><rect x="2" y="4" width="20" height="16" rx="2" fill="#107C41" /><path d="M7 8l3.2 4L7 16h2.2l2-2.7L13.2 16h2.2L12.2 12l3.2-4h-2.2l-2 2.7L9.2 8H7z" fill="#FFFFFF" /></svg>
-            <h1 className="text-2xl font-bold text-gray-900">Excel로 일괄업로드</h1>
+            <h1 className="text-2xl font-bold text-gray-900">엑셀로 상품 한꺼번에 등록하기</h1>
           </div>
           <p className="text-sm text-gray-500 mt-1">
-            좌 · 이미지 풀에 올려두고 → 우 · 엑셀 목록의 상품 카드를 클릭해 매핑 → 「등록」
+            상품 이미지와 작성한 엑셀 파일을 올려주세요. 내용을 확인한 뒤 상품을 한꺼번에 등록할 수 있습니다.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -301,7 +303,7 @@ export default function ExcelImportPage() {
             disabled={!canSubmit || validCount === 0}
             className="px-5 py-2.5 text-sm bg-[var(--color-brand)] hover:bg-[var(--color-brand-dk)] text-white rounded-lg font-semibold disabled:opacity-40 shadow-sm"
           >
-            {busy ? "등록 중..." : `${validCount}건 등록`}
+            {busy ? "등록하고 있어요..." : `상품 ${validCount}개 등록하기`}
           </button>
         </div>
       </div>
@@ -311,8 +313,8 @@ export default function ExcelImportPage() {
         <div className="bg-white rounded-2xl border border-gray-200 flex flex-col overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-100">
             <div className="flex items-center justify-between mb-1.5">
-              <h2 className="text-sm font-semibold text-gray-900">📸 이미지 풀</h2>
-              <span className="text-[10px] text-gray-400">💾 이 세션에만 유지</span>
+              <h2 className="text-sm font-semibold text-gray-900">📸 상품 이미지</h2>
+              <span className="text-[10px] text-gray-400">이 화면을 벗어나면 다시 올려야 해요</span>
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -320,7 +322,7 @@ export default function ExcelImportPage() {
                 className="px-3 py-1.5 text-xs bg-[var(--color-brand)] text-white rounded-md hover:bg-[var(--color-brand-dk)] font-medium flex items-center gap-1"
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                이미지 업로드
+                + 상품 이미지 올리기
               </button>
               <input
                 ref={imgInputRef}
@@ -331,11 +333,11 @@ export default function ExcelImportPage() {
                 className="hidden"
               />
               <div className="ml-auto text-[11px] text-gray-500">
-                선택 <b className="text-gray-700">{picked.size}</b> / {pool.length}
+                선택한 이미지 <b className="text-gray-700">{picked.size}개</b> (총 {pool.length}개)
                 {picked.size > 0 ? (
-                  <button onClick={clearPicked} className="ml-2 text-gray-500 hover:text-gray-800 underline">해제</button>
+                  <button onClick={clearPicked} className="ml-2 text-gray-500 hover:text-gray-800 underline">해제하기</button>
                 ) : pool.length > 0 ? (
-                  <button onClick={pickAll} className="ml-2 text-gray-500 hover:text-gray-800 underline">전체</button>
+                  <button onClick={pickAll} className="ml-2 text-gray-500 hover:text-gray-800 underline">전체 선택</button>
                 ) : null}
               </div>
             </div>
@@ -343,8 +345,8 @@ export default function ExcelImportPage() {
           <div className="flex-1 overflow-y-auto p-3">
             {pool.length === 0 ? (
               <div className="text-center py-24 text-gray-400 text-sm">
-                <p className="mb-1">이미지 풀이 비어있습니다</p>
-                <p className="text-[11px]">↑ 위 「이미지 업로드」로 사진들을 담아주세요</p>
+                <p className="mb-1">등록할 상품 이미지를 올려주세요</p>
+                <p className="text-[11px]">여러 장을 한꺼번에 올릴 수 있어요</p>
               </div>
             ) : (
               <div className="grid grid-cols-3 sm:grid-cols-4 xl:grid-cols-5 gap-2">
@@ -360,7 +362,7 @@ export default function ExcelImportPage() {
                       title={p.name}
                     >
                       {p.uploading ? (
-                        <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-[10px]">업로드 중...</div>
+                        <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-[10px]">올리는 중...</div>
                       ) : (
                         <>
                           <Image src={p.url} alt={p.name} fill unoptimized className="object-cover" />
@@ -378,36 +380,36 @@ export default function ExcelImportPage() {
             )}
           </div>
           <div className="p-3 border-t border-gray-100 bg-gray-50 text-[11px] text-gray-500">
-            💡 이미지 여러 개 체크 → 우측 상품 카드 클릭 = 매핑
+            💡 이미지를 여러 개 선택한 후 오른쪽 상품 카드를 누르면 · 그 상품에 사진이 연결돼요
           </div>
         </div>
 
         {/* ── 우 · 엑셀 목록 ────────────────────────── */}
         <div className="bg-white rounded-2xl border border-gray-200 flex flex-col overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-100">
-            <h2 className="text-sm font-semibold text-gray-900 mb-2">📊 Excel 목록</h2>
+            <h2 className="text-sm font-semibold text-gray-900 mb-2">📊 상품 엑셀 파일</h2>
 
-            {/* 스텝 1 · 템플릿 다운로드 */}
+            {/* ① 엑셀 양식 내려받기 */}
             <div className="flex items-center gap-2 mb-2">
-              <span className="w-6 h-6 rounded-full bg-gray-100 text-gray-600 text-[10px] font-bold flex items-center justify-center">1</span>
+              <span className="w-6 h-6 rounded-full bg-gray-100 text-gray-600 text-[10px] font-bold flex items-center justify-center">①</span>
               <button
                 onClick={downloadTemplate}
                 disabled={downloadingTpl}
                 className="flex-1 px-3 py-2 text-xs bg-white border border-[var(--color-brand)]/40 text-[var(--color-brand-dk)] rounded-md hover:bg-[var(--color-brand)]/5 font-medium disabled:opacity-50 flex items-center justify-center gap-1.5"
               >
                 <svg viewBox="0 0 24 24" className="w-4 h-4"><rect x="2" y="4" width="20" height="16" rx="2" fill="#107C41" /><path d="M7 8l3.2 4L7 16h2.2l2-2.7L13.2 16h2.2L12.2 12l3.2-4h-2.2l-2 2.7L9.2 8H7z" fill="#FFFFFF" /></svg>
-                {downloadingTpl ? "생성 중..." : "XLSX 템플릿 다운로드 (드롭다운 · 안내시트 포함)"}
+                {downloadingTpl ? "양식을 만드는 중이에요..." : "엑셀 양식 내려받기 (상품 정보를 입력할 수 있어요)"}
               </button>
             </div>
 
-            {/* 스텝 2 · 파일 선택 */}
+            {/* ② 작성한 엑셀 파일 올리기 */}
             <div className="flex items-center gap-2">
-              <span className="w-6 h-6 rounded-full bg-gray-100 text-gray-600 text-[10px] font-bold flex items-center justify-center">2</span>
+              <span className="w-6 h-6 rounded-full bg-gray-100 text-gray-600 text-[10px] font-bold flex items-center justify-center">②</span>
               <button
                 onClick={() => excelInputRef.current?.click()}
                 className="flex-1 px-3 py-2 text-xs bg-gray-900 text-white rounded-md hover:bg-gray-800 font-medium"
               >
-                {rows.length > 0 ? `📄 ${fileName} (${rows.length}행) · 다시 선택` : "📄 xlsx / csv 파일 선택"}
+                {rows.length > 0 ? `📄 ${fileName} · 상품 ${rows.length}개 · 다시 선택` : "📄 작성한 엑셀 파일 올리기 (xlsx, csv)"}
               </button>
               <input
                 ref={excelInputRef}
@@ -417,7 +419,7 @@ export default function ExcelImportPage() {
                 className="hidden"
               />
               {rows.length > 0 && (
-                <button onClick={clearRows} className="text-[11px] text-gray-500 hover:text-gray-700 underline">초기화</button>
+                <button onClick={clearRows} className="text-[11px] text-gray-500 hover:text-gray-700 underline">비우기</button>
               )}
             </div>
           </div>
@@ -425,8 +427,8 @@ export default function ExcelImportPage() {
           <div className="flex-1 overflow-y-auto p-3">
             {rows.length === 0 ? (
               <div className="text-center py-24 text-gray-400 text-sm">
-                <p className="mb-1">엑셀 파일을 업로드하세요</p>
-                <p className="text-[11px]">↑ 위 스텝 1로 템플릿 다운 → 채운 뒤 → 스텝 2로 업로드</p>
+                <p className="mb-1">아직 엑셀 파일을 올리지 않았어요</p>
+                <p className="text-[11px]">위 ①에서 양식을 내려받아 작성한 뒤 · ②에서 올려주세요</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -453,7 +455,7 @@ export default function ExcelImportPage() {
                         disabled={busy || r.status === "success"}
                         onClick={() => applyPickedToRow(r.key)}
                         className="w-full p-3 flex items-center gap-3 hover:bg-black/[0.02] transition text-left disabled:opacity-70 disabled:cursor-default"
-                        title="선택한 이미지를 이 상품에 매핑"
+                        title="선택한 이미지를 이 상품에 사진 연결하기"
                       >
                         <span className="text-[11px] text-gray-400 w-5 text-right flex-shrink-0">{idx + 1}</span>
                         {/* 썸네일 스택 */}
@@ -474,25 +476,24 @@ export default function ExcelImportPage() {
 
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <p className="text-sm font-medium text-gray-900 truncate">{r.name_ko || "(상품명 없음)"}</p>
+                            <p className="text-sm font-medium text-gray-900 truncate">{r.name_ko || "(상품명이 비어있어요)"}</p>
                             {r.imageUrls.length > 0 && (
-                              <span className="text-[9px] px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded-full">📷 {r.imageUrls.length}</span>
+                              <span className="text-[9px] px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded-full">📷 {r.imageUrls.length}장</span>
                             )}
-                            {r.status === "success" && <span className="text-[9px] px-1.5 py-0.5 bg-emerald-500 text-white rounded-full">✓ 등록됨</span>}
-                            {r.status === "uploading" && <span className="text-[9px] px-1.5 py-0.5 bg-blue-500 text-white rounded-full">등록 중...</span>}
-                            {r.status === "failed" && <span className="text-[9px] px-1.5 py-0.5 bg-red-500 text-white rounded-full">✗ 실패</span>}
-                            {!valid && r.status === "idle" && <span className="text-[9px] px-1.5 py-0.5 bg-amber-500 text-white rounded-full">! 검토 필요</span>}
+                            {r.status === "success" && <span className="text-[9px] px-1.5 py-0.5 bg-emerald-500 text-white rounded-full">✓ 등록 완료</span>}
+                            {r.status === "uploading" && <span className="text-[9px] px-1.5 py-0.5 bg-blue-500 text-white rounded-full">등록하고 있어요</span>}
+                            {r.status === "failed" && <span className="text-[9px] px-1.5 py-0.5 bg-red-500 text-white rounded-full">등록하지 못했어요</span>}
+                            {!valid && r.status === "idle" && <span className="text-[9px] px-1.5 py-0.5 bg-amber-500 text-white rounded-full">확인이 필요해요</span>}
                           </div>
                           <p className="text-[11px] text-gray-500 truncate mt-0.5">
-                            {r.category_ko || "카테고리 없음"}{r.sub_category_ko ? ` · ${r.sub_category_ko}` : ""}
-                            {r.price !== null ? ` · ¥${r.price.toLocaleString()}` : " · 가격 없음"}
-                            {r.stock !== null ? ` · 재고 ${r.stock}` : ""}
+                            {r.category_ko || "카테고리가 비어있어요"}{r.sub_category_ko ? ` · ${r.sub_category_ko}` : ""}
+                            {r.price !== null ? ` · ¥${r.price.toLocaleString()}` : " · 가격이 비어있어요"}
                           </p>
                           {r.error && <p className="text-[10.5px] text-red-600 mt-0.5">{r.error}</p>}
                           {(missingCat || missingSub) && !r.error && (
                             <p className="text-[10.5px] text-amber-700 mt-0.5">
-                              {missingCat && `카테고리 「${r.category_ko}」 DB에 없음`}
-                              {missingSub && ` · 하위 「${r.sub_category_ko}」 DB에 없음`}
+                              {missingCat && `카테고리 「${r.category_ko}」는 카테고리 관리에 없는 이름이에요`}
+                              {missingSub && ` · 하위 「${r.sub_category_ko}」는 카테고리 관리에 없는 이름이에요`}
                             </p>
                           )}
                         </div>
@@ -507,7 +508,7 @@ export default function ExcelImportPage() {
                                 type="button"
                                 onClick={(e) => { e.stopPropagation(); removeImgFromRow(r.key, u); }}
                                 className="absolute inset-0 bg-black/60 text-white text-[10px] opacity-0 group-hover:opacity-100 flex items-center justify-center"
-                                title="이 상품에서 제거"
+                                title="이 상품에서 사진 빼기"
                               >✕</button>
                             </div>
                           ))}

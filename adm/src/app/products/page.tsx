@@ -8,7 +8,7 @@ import { supabase } from "@/lib/supabase";
 import BulkActionBar from "@/components/BulkActionBar";
 import DeleteConfirmModal from "@/components/DeleteConfirmModal";
 import InlineEditCell from "@/components/InlineEditCell";
-import { generateCsv, downloadCsv } from "@/lib/csv";
+import { exportProductsToXlsx } from "@/lib/xlsxTemplate";
 import { useAdmLanguage } from "@/contexts/LanguageContext";
 import CategoryFilter from "@/components/CategoryFilter";
 
@@ -25,6 +25,7 @@ interface Product {
   category_ko?: string;
   category_ja?: string;
   sub_category?: string;
+  sub_category_ko?: string;
   description?: string;
   description_ko?: string;
   description_ja?: string;
@@ -381,31 +382,32 @@ export default function ProductsPage() {
     );
   };
 
-  // ── CSV 다운로드 · 한글 헤더 · DB 컬럼 매핑해서 값 채움 ─────────────────
-  const columns = useMemo(
-    () =>
-      CSV_HEADER.map((label) => ({
-        key: label,
-        label,
-        toCell: (row: Product) => {
-          const dbCol = CSV_HEADER_MAP[label]; // 한글 헤더 → DB 컬럼
-          const v = dbCol ? (row as unknown as Record<string, unknown>)[dbCol] : undefined;
-          if (v === undefined || v === null) return "";
-          // 판매상태 · true → "판매중" · false → "숨김"
-          if (dbCol === "is_active") return v === true ? "판매중" : "숨김";
-          return String(v);
-        },
-      })),
-    []
-  );
-
-  const exportCsv = (rows: Product[]) => {
-    const csv = generateCsv(rows, columns);
-    const stamp = new Date().toISOString().slice(0, 10);
-    downloadCsv(csv, `products_${stamp}.csv`);
+  // ── Excel 내보내기 · 「Excel로 일괄업로드」와 동일 양식 · 편집 후 재업로드 가능 ──
+  const exportXlsx = async (rows: Product[]) => {
+    // 카테고리 트리 (상위 → 하위) · 종속 드롭다운용
+    const { data: catData } = await supabase.from("categories").select("id, name_ko, parent_id").order("id");
+    const list = (catData || []) as Array<{ id: number; name_ko: string | null; parent_id: number | null }>;
+    const tops = list.filter((c) => c.parent_id === null);
+    const categoryTree = tops
+      .filter((t) => t.name_ko)
+      .map((t) => ({
+        top: t.name_ko as string,
+        subs: list.filter((c) => c.parent_id === t.id && c.name_ko).map((c) => c.name_ko as string),
+      }));
+    const exportRows = rows.map((p) => ({
+      name_ko: p.name_ko || p.name || "",
+      price: typeof p.price === "number" ? p.price : Number(p.price) || null,
+      original_price: typeof p.original_price === "number" ? p.original_price : (p.original_price ? Number(p.original_price) : null),
+      category_ko: p.category_ko || "",
+      sub_category_ko: p.sub_category_ko || "",
+      description_ko: p.description_ko || "",
+      category: p.category || "",
+      sub_category: p.sub_category || "",
+    }));
+    await exportProductsToXlsx(exportRows, { categoryTree });
   };
 
-  // 전체 CSV 내보내기 · 현재 필터/검색 조건 유지 · 페이지네이션 무시 · 전체 조회
+  // 전체 Excel 내보내기 · 현재 필터/검색 조건 유지 · 페이지네이션 무시 · 전체 조회
   const handleExportAll = async () => {
     let query = supabase.from("products").select("*");
     if (selectedCategory !== "전체") {
@@ -419,13 +421,13 @@ export default function ProductsPage() {
     }
     const { data, error } = await query.order("created_at", { ascending: false }).limit(5000);
     if (error) {
-      alert("CSV 내보내기 실패: " + error.message);
+      alert("엑셀 내려받기가 실패했어요.\n오류 내용: " + error.message);
       return;
     }
-    exportCsv((data as Product[]) || []);
+    await exportXlsx((data as Product[]) || []);
   };
   const handleExportSelected = () =>
-    exportCsv(productList.filter((p) => selectedIds.has(p.id)));
+    exportXlsx(productList.filter((p) => selectedIds.has(p.id)));
 
   // ── CSV 업로드 ───────────────────────────────────
   // ── 검색·카테고리·페이지 핸들러 ─────────────────
@@ -477,23 +479,26 @@ export default function ProductsPage() {
         <div className="flex items-center gap-2">
           <button
             onClick={handleExportAll}
-            className="px-3 py-2 text-sm text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
-            title="현재 목록을 CSV로 내보내기"
+            className="px-3 py-2 text-sm text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition flex items-center gap-1.5"
+            title="현재 목록을 엑셀로 내려받아요 · 상품 일괄 등록 양식과 같아서 편집 후 다시 올릴 수 있어요"
           >
-            📤 CSV 내보내기
+            <svg viewBox="0 0 24 24" className="w-4 h-4" aria-hidden="true">
+              <rect x="2" y="4" width="20" height="16" rx="2" fill="#107C41" />
+              <path d="M7 8l3.2 4L7 16h2.2l2-2.7L13.2 16h2.2L12.2 12l3.2-4h-2.2l-2 2.7L9.2 8H7z" fill="#FFFFFF" />
+            </svg>
+            엑셀 내려받기
           </button>
           {/* 일괄등록 · 완성 후 전 환경 노출 (관리자 실무 편의) */}
           <Link
             href="/products/excel-import"
             className="px-3 py-2 text-sm text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition flex items-center gap-1.5"
-            title="Excel(.xlsx) 또는 CSV로 여러 상품 한 번에 등록 · 이미지 매핑 통합"
+            title="엑셀 파일(xlsx, csv)로 여러 상품을 한꺼번에 등록해요 · 상품 이미지도 함께 연결할 수 있어요"
           >
-            {/* Excel 로고 · Microsoft Excel 스타일 (X 마크 · 녹색) */}
             <svg viewBox="0 0 24 24" className="w-4 h-4" aria-hidden="true">
               <rect x="2" y="4" width="20" height="16" rx="2" fill="#107C41" />
               <path d="M7 8l3.2 4L7 16h2.2l2-2.7L13.2 16h2.2L12.2 12l3.2-4h-2.2l-2 2.7L9.2 8H7z" fill="#FFFFFF" />
             </svg>
-            Excel로 일괄업로드
+            엑셀로 한꺼번에 등록
           </Link>
           <Link
             href="/products/bulk-new"
@@ -566,7 +571,7 @@ export default function ProductsPage() {
                 href="/products/excel-import"
                 className="ml-2 text-xs text-[var(--color-brand-dk)] hover:text-[var(--color-brand)] underline"
               >
-                → Excel 일괄업로드에서 이미지 매핑
+                → 엑셀 등록 화면에서 상품 이미지 연결하기
               </Link>
             )}
           </div>

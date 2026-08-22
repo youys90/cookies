@@ -93,10 +93,11 @@ export default function BulkActionBar({
       {onExportCsv && (
         <button
           onClick={onExportCsv}
-          className="px-3 py-1.5 text-xs rounded hover:bg-gray-800 transition"
-          title="선택 항목 CSV 내보내기"
+          className="px-3 py-1.5 text-xs rounded hover:bg-gray-800 transition flex items-center gap-1"
+          title="선택한 상품을 엑셀 파일로 내려받아요 · 다시 올릴 수 있어요"
         >
-          CSV ⬇
+          <svg viewBox="0 0 24 24" className="w-3 h-3"><rect x="2" y="4" width="20" height="16" rx="2" fill="#107C41" /><path d="M7 8l3.2 4L7 16h2.2l2-2.7L13.2 16h2.2L12.2 12l3.2-4h-2.2l-2 2.7L9.2 8H7z" fill="#FFFFFF" /></svg>
+          엑셀 내려받기
         </button>
       )}
 
