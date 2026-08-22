@@ -101,19 +101,29 @@ export default function CsvImportModal({
 
         <div className="flex-1 overflow-y-auto p-6 space-y-5">
           {/* 템플릿 다운로드 */}
-          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-            <div>
-              <p className="text-sm text-gray-700 font-medium">먼저 템플릿을 받으세요</p>
-              <p className="text-xs text-gray-500 mt-0.5">
-                컬럼: {templateHeader.join(" · ")}
+          <div className="p-3 bg-gray-50 rounded-lg space-y-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-700 font-medium">1️⃣ 먼저 템플릿을 다운로드</p>
+                <p className="text-xs text-gray-500 mt-0.5">엑셀에서 열어서 · 각 행에 상품 정보 입력</p>
+              </div>
+              <button
+                onClick={downloadTemplate}
+                className="px-3 py-1.5 text-sm bg-[var(--color-brand)] text-white rounded-lg hover:bg-[var(--color-brand-dk)] transition whitespace-nowrap font-medium shadow-sm"
+              >
+                📥 템플릿 CSV
+              </button>
+            </div>
+            <div className="pt-2 border-t border-gray-200">
+              <p className="text-[11px] text-gray-500 leading-relaxed">
+                <span className="font-semibold text-gray-700">컬럼 (필수+선택)</span>: {templateHeader.join(" · ")}
+              </p>
+              <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded p-2 mt-1.5 leading-relaxed">
+                📌 <b>이미지는 CSV에 포함하지 않습니다.</b> 등록 후 상품 목록에서 각 상품을 열어 이미지를 첨부해주세요.<br />
+                📌 <b>카테고리 · 하위카테고리</b>는 카테고리 관리에 등록된 <b>일본어 이름</b>과 정확히 일치해야 합니다.<br />
+                📌 <b>판매상태</b>: <code>판매중</code> 또는 <code>숨김</code>
               </p>
             </div>
-            <button
-              onClick={downloadTemplate}
-              className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-white transition whitespace-nowrap"
-            >
-              📥 템플릿 CSV
-            </button>
           </div>
 
           {/* 업로드 영역 */}

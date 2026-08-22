@@ -401,8 +401,15 @@ export default function NewProductPage() {
 
   return (
     <div className="pb-8">
-      <div className="mb-6">
-        <h1 className="text-xl md:text-2xl font-medium text-gray-900">상품 등록</h1>
+      {/* 등록 모드 시각 구분 · 파랑 계열 · "🆕 신규 등록" · 상단 세로 바 */}
+      <div className="mb-6 relative pl-4 py-1 border-l-4 border-blue-500">
+        <div className="absolute -left-1 top-0 bottom-0 w-1 bg-blue-500 rounded-full"></div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <h1 className="text-xl md:text-2xl font-medium text-gray-900">상품 등록</h1>
+          <span className="inline-flex items-center gap-1 bg-blue-100 text-blue-700 text-[11px] font-semibold px-2.5 py-1 rounded-full border border-blue-200 tracking-wide">
+            🆕 신규 등록
+          </span>
+        </div>
         <p className="text-sm text-gray-500 mt-1">새로운 상품을 등록합니다 (일본어/한국어)</p>
       </div>
 

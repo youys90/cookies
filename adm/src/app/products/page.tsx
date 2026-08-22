@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useState, useEffect, useMemo } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import BulkActionBar from "@/components/BulkActionBar";
 import DeleteConfirmModal from "@/components/DeleteConfirmModal";
@@ -36,41 +36,51 @@ interface Product {
 
 const PAGE_SIZE_OPTIONS = [10, 50, 100];
 
-// CSV 템플릿 컬럼 (등록·내보내기 공용)
+// CSV 템플릿 · 관리자 친화 한글 헤더 (관리자포털 UI 명칭과 100% 일치)
+// 이미지 · CSV엔 포함 안 함 · 등록 후 개별 편집 or 일괄등록에서 첨부 (URL 몰라도 됨)
 const CSV_HEADER = [
-  "name",
-  "name_ko",
-  "name_ja",
-  "price",
-  "original_price",
-  "category",
-  "sub_category",
-  "description",
-  "description_ko",
-  "description_ja",
-  "image",
-  "stock",
-  "is_active",
+  "상품명(일본어)",
+  "상품명(한국어)",
+  "가격",
+  "정가",
+  "카테고리",
+  "하위카테고리",
+  "상품설명(일본어)",
+  "상품설명(한국어)",
+  "재고",
+  "판매상태",
 ];
 
+// 한글 헤더 → DB 컬럼 매핑 (업로드 시 사용)
+export const CSV_HEADER_MAP: Record<string, string> = {
+  "상품명(일본어)": "name_ja",
+  "상품명(한국어)": "name_ko",
+  "가격": "price",
+  "정가": "original_price",
+  "카테고리": "category",
+  "하위카테고리": "sub_category",
+  "상품설명(일본어)": "description_ja",
+  "상품설명(한국어)": "description_ko",
+  "재고": "stock",
+  "판매상태": "is_active",
+};
+
 const CSV_SAMPLE: Record<string, string> = {
-  name: "サンプル商品",
-  name_ko: "샘플 상품",
-  name_ja: "サンプル商品",
-  price: "10000",
-  original_price: "12000",
-  category: "アクセサリー",
-  sub_category: "ピアス",
-  description: "商品説明",
-  description_ko: "상품 설명",
-  description_ja: "商品説明",
-  image: "https://example.com/image.jpg",
-  stock: "10",
-  is_active: "true",
+  "상품명(일본어)": "ゴールドチェーンネックレス",
+  "상품명(한국어)": "골드 체인 목걸이",
+  "가격": "10000",
+  "정가": "12000",
+  "카테고리": "アクセサリー",
+  "하위카테고리": "ネックレス",
+  "상품설명(일본어)": "シンプルで上品なゴールドチェーン",
+  "상품설명(한국어)": "심플하고 고급스러운 골드 체인",
+  "재고": "10",
+  "판매상태": "판매중",
 };
 
 export default function ProductsPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const { language, pickName, pickCategory } = useAdmLanguage();
   const [productList, setProductList] = useState<Product[]>([]);
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get("cat") || "전체");
@@ -361,15 +371,19 @@ export default function ProductsPage() {
     );
   };
 
-  // ── CSV 다운로드 ─────────────────────────────────
+  // ── CSV 다운로드 · 한글 헤더 · DB 컬럼 매핑해서 값 채움 ─────────────────
   const columns = useMemo(
     () =>
-      CSV_HEADER.map((k) => ({
-        key: k,
-        label: k,
+      CSV_HEADER.map((label) => ({
+        key: label,
+        label,
         toCell: (row: Product) => {
-          const v = (row as unknown as Record<string, unknown>)[k];
-          return v === undefined || v === null ? "" : String(v);
+          const dbCol = CSV_HEADER_MAP[label]; // 한글 헤더 → DB 컬럼
+          const v = dbCol ? (row as unknown as Record<string, unknown>)[dbCol] : undefined;
+          if (v === undefined || v === null) return "";
+          // 판매상태 · true → "판매중" · false → "숨김"
+          if (dbCol === "is_active") return v === true ? "판매중" : "숨김";
+          return String(v);
         },
       })),
     []
@@ -396,22 +410,25 @@ export default function ProductsPage() {
     for (let i = 0; i < rows.length; i += chunk) {
       const slice = rows.slice(i, i + chunk).map((r) => {
         const rec: Record<string, unknown> = {};
-        for (const k of CSV_HEADER) {
-          const raw = r[k];
+        // 한글 헤더 → DB 컬럼 매핑 (구 영문 헤더도 호환)
+        for (const [koLabel, dbCol] of Object.entries(CSV_HEADER_MAP)) {
+          const raw = r[koLabel] ?? r[dbCol]; // 한글 or 영문 둘 다 허용
           if (raw === undefined || raw === "") continue;
-          if (k === "price" || k === "original_price" || k === "stock") {
+          if (dbCol === "price" || dbCol === "original_price" || dbCol === "stock") {
             const n = Number(raw);
-            if (!Number.isNaN(n)) rec[k] = n;
-          } else if (k === "is_active") {
-            rec[k] = /^(true|1|yes|y|판매중)$/i.test(raw);
+            if (!Number.isNaN(n)) rec[dbCol] = n;
+          } else if (dbCol === "is_active") {
+            rec[dbCol] = /^(true|1|yes|y|판매중|공개|active|판매)$/i.test(raw);
           } else {
-            rec[k] = raw;
+            rec[dbCol] = raw;
           }
         }
-        // name 필수
-        if (!rec.name) rec.name = r.name_ja || r.name_ko || "";
-        if (!rec.image) rec.image = "https://placehold.co/400x400";
+        // name(원본) · name_ja 우선 fallback
+        if (!rec.name) rec.name = (rec.name_ja as string) || (rec.name_ko as string) || "";
+        // 이미지 · CSV엔 미포함 · placeholder 사용 (등록 후 편집으로 이미지 첨부)
+        rec.image = "https://placehold.co/600x600/e5e7eb/9ca3af?text=No+Image";
         if (!rec.price) rec.price = 0;
+        if (rec.is_active === undefined) rec.is_active = true;
         return rec;
       });
 
@@ -490,25 +507,21 @@ export default function ProductsPage() {
           >
             📤 CSV 내보내기
           </button>
-          {/* 일괄등록 버튼 2개는 운영(production)에서 숨김 · 테스트 미완 상태 · dev/preview에서만 노출 */}
-          {process.env.NEXT_PUBLIC_VERCEL_ENV !== "production" && (
-            <>
-              <button
-                onClick={() => setShowCsvImport(true)}
-                className="px-3 py-2 text-sm text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
-                title="CSV로 대량 등록 (dev 전용 · 테스트 중)"
-              >
-                📥 CSV 일괄등록
-              </button>
-              <Link
-                href="/products/bulk-new"
-                className="px-4 py-2 text-sm text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
-                title="여러 상품을 한 페이지에서 동시에 등록 (dev 전용 · 테스트 중)"
-              >
-                📦 일괄 등록
-              </Link>
-            </>
-          )}
+          {/* 일괄등록 · 완성 후 전 환경 노출 (관리자 실무 편의) */}
+          <button
+            onClick={() => setShowCsvImport(true)}
+            className="px-3 py-2 text-sm text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
+            title="CSV 파일로 여러 상품 한 번에 등록"
+          >
+            📥 CSV 일괄등록
+          </button>
+          <Link
+            href="/products/bulk-new"
+            className="px-4 py-2 text-sm text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
+            title="여러 상품을 한 페이지에서 동시에 등록 (이미지 포함)"
+          >
+            📦 일괄 등록
+          </Link>
           <Link
             href="/products/new"
             className="px-4 py-2 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-800 transition-colors"
@@ -858,6 +871,7 @@ export default function ProductsPage() {
         onToggleActive={handleBulkActive}
         onChangeCategory={handleBulkCategory}
         onExportCsv={handleExportSelected}
+        onBulkEdit={() => router.push(`/products/bulk-edit?ids=${Array.from(selectedIds).join(",")}`)}
         onClear={clearSelection}
       />
 

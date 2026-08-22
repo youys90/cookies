@@ -8,6 +8,7 @@ interface BulkActionBarProps {
   onToggleActive: (active: boolean) => void;
   onChangeCategory?: (category: string) => void;
   onExportCsv?: () => void;
+  onBulkEdit?: () => void;
   onClear: () => void;
 }
 
@@ -18,6 +19,7 @@ export default function BulkActionBar({
   onToggleActive,
   onChangeCategory,
   onExportCsv,
+  onBulkEdit,
   onClear,
 }: BulkActionBarProps) {
   if (count === 0) return null;
@@ -76,6 +78,16 @@ export default function BulkActionBar({
             <path d="M3 5l3 3 3-3" />
           </svg>
         </div>
+      )}
+
+      {onBulkEdit && (
+        <button
+          onClick={onBulkEdit}
+          className="px-3 py-1.5 text-xs rounded bg-amber-500 hover:bg-amber-600 transition font-medium"
+          title="선택 항목 일괄 수정"
+        >
+          ✏️ 일괄 수정
+        </button>
       )}
 
       {onExportCsv && (

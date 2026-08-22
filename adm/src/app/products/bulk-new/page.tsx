@@ -99,6 +99,20 @@ export default function BulkNewProductsPage() {
     });
   };
 
+  // 행 내부 이미지 드래그 순서 변경 상태
+  const [rowDrag, setRowDrag] = useState<{ rowKey: number | null; from: number | null; over: number | null }>({ rowKey: null, from: null, over: null });
+  const moveRowImage = (key: number, from: number, to: number) => {
+    setRows((prev) =>
+      prev.map((r) => {
+        if (r.key !== key) return r;
+        const a = [...r.images];
+        const [moved] = a.splice(from, 1);
+        a.splice(to, 0, moved);
+        return { ...r, images: a };
+      })
+    );
+  };
+
   const removeImage = (key: number, imgIndex: number) => {
     setRows((prev) =>
       prev.map((r) =>
@@ -266,23 +280,44 @@ export default function BulkNewProductsPage() {
                   </label>
                 ) : (
                   <div className="grid grid-cols-3 gap-1.5">
-                    {row.images.map((img, i) => (
-                      <div key={i} className="relative aspect-square group">
-                        <div className={`relative w-full h-full rounded overflow-hidden border ${i === 0 ? "border-blue-500 border-2" : "border-gray-200"}`}>
+                    {row.images.map((img, i) => {
+                      const isDragging = rowDrag.rowKey === row.key && rowDrag.from === i;
+                      const isOver = rowDrag.rowKey === row.key && rowDrag.over === i && rowDrag.from !== i;
+                      return (
+                      <div
+                        key={i}
+                        className={`relative aspect-square group transition-transform ${isDragging ? "opacity-30 scale-95" : ""} ${isOver ? "scale-105" : ""}`}
+                        draggable
+                        onDragStart={() => setRowDrag({ rowKey: row.key, from: i, over: null })}
+                        onDragOver={(e) => { e.preventDefault(); if (rowDrag.rowKey === row.key && rowDrag.from !== null && rowDrag.from !== i && rowDrag.over !== i) setRowDrag({ ...rowDrag, over: i }); }}
+                        onDragLeave={() => rowDrag.over === i && setRowDrag({ ...rowDrag, over: null })}
+                        onDrop={(e) => { e.preventDefault(); e.stopPropagation(); if (rowDrag.rowKey === row.key && rowDrag.from !== null && rowDrag.from !== i) moveRowImage(row.key, rowDrag.from, i); setRowDrag({ rowKey: null, from: null, over: null }); }}
+                        onDragEnd={() => setRowDrag({ rowKey: null, from: null, over: null })}
+                      >
+                        {isOver && <div className="absolute -left-1 top-0 bottom-0 w-0.5 bg-blue-500 rounded z-20"></div>}
+                        <div className={`relative w-full h-full rounded overflow-hidden border-2 cursor-move transition-all ${
+                          isOver ? "border-blue-500 ring-2 ring-blue-200 shadow" :
+                          i === 0 ? "border-blue-500" : "border-gray-200 hover:border-blue-400"
+                        }`}>
                           <Image src={img.preview} alt={`img${i}`} fill className="object-cover" unoptimized />
+                          {/* 순번 배지 · 우상단 · 등록/수정과 동일 스타일 */}
+                          <div className="absolute top-0.5 right-0.5 w-5 h-5 bg-gray-900/85 text-white text-[9px] font-bold rounded-full flex items-center justify-center shadow ring-1 ring-white/20">
+                            {i + 1}
+                          </div>
                           {i === 0 && (
-                            <span className="absolute top-0.5 left-0.5 bg-blue-500 text-white text-[9px] px-1 rounded">M</span>
+                            <span className="absolute top-0.5 left-0.5 bg-blue-500 text-white text-[9px] font-bold px-1 rounded shadow">M</span>
                           )}
                         </div>
                         <button
                           type="button"
                           onClick={() => removeImage(row.key, i)}
-                          className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
+                          className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition z-10"
                         >
                           ✕
                         </button>
                       </div>
-                    ))}
+                      );
+                    })}
                     <label className="cursor-pointer aspect-square border-2 border-dashed border-gray-300 rounded flex items-center justify-center text-gray-400 hover:border-gray-500">
                       <span className="text-lg">+</span>
                       <input
