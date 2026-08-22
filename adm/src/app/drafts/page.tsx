@@ -16,6 +16,7 @@ const PAGE_PATH: Record<string, string> = {
   "excel-import": "/products/excel-import",
   "review-import": "/reviews/import",
   "review-bulk-new": "/reviews/bulk-new",
+  "review-bulk-edit": "/reviews/bulk-edit",
   "product-new": "/products/new",
   "product-edit": "/products",
 };
@@ -27,6 +28,7 @@ const PAGE_ICON: Record<string, string> = {
   "excel-import": "📥",
   "review-import": "⭐",
   "review-bulk-new": "⭐",
+  "review-bulk-edit": "⭐",
   "product-new": "📦",
   "product-edit": "✏️",
 };
@@ -35,7 +37,7 @@ const TAB_GROUPS: Array<{ key: string; label: string; icon: string; pageKeys: st
   { key: "all", label: "전체", icon: "📚", pageKeys: [] },
   { key: "products", label: "상품 관리", icon: "🛍", pageKeys: ["bulk-new", "excel-import", "product-new", "product-edit", "bulk-edit"] },
   { key: "customize", label: "매장 화면 관리", icon: "🎨", pageKeys: ["customize"] },
-  { key: "reviews", label: "리뷰 관리", icon: "⭐", pageKeys: ["review-import", "review-bulk-new"] },
+  { key: "reviews", label: "리뷰 관리", icon: "⭐", pageKeys: ["review-import", "review-bulk-new", "review-bulk-edit"] },
 ];
 
 export default function DraftsPage() {

@@ -191,6 +191,7 @@ export default function BulkNewProductsPage() {
       pageLabel: PAGE_LABEL,
       data: { rows: toSerializable(rows), pool: sessionPool },
     });
+    if (!d) { alert("임시 저장 실패 · 브라우저 저장 공간 부족 또는 프라이빗 모드"); return; }
     currentDraftIdRef.current = d.id;
     setLastSavedAt(new Date());
     setSavedTick((n) => n + 1);

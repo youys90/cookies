@@ -590,9 +590,41 @@ export default function CustomizePage() {
           </div>
 
           {/* 좌: 편집 폼 (해당 화면 관련 섹션만) · 우: 실시간 미리보기 */}
-          <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-6">
+          {/* 편집 모드 전환 · 사장님 요구 (양쪽 편집 ↔ 큰 미리보기 전환) */}
+          <div className="flex items-center justify-end mb-3 gap-1.5">
+            <span className="text-[11px] text-gray-500 font-medium mr-1">편집 방식:</span>
+            <button
+              type="button"
+              onClick={() => setEditorMode("split")}
+              className={`px-3 py-1.5 text-xs rounded-lg border-2 transition font-semibold ${
+                editorMode === "split"
+                  ? "border-[var(--color-brand)] bg-[var(--color-brand)]/10 text-[var(--color-brand-dk)]"
+                  : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+              }`}
+              title="좌측 설정 폼 + 우측 실시간 미리보기 (기본)"
+            >
+              📋 양쪽 편집
+            </button>
+            <button
+              type="button"
+              onClick={() => setEditorMode("preview")}
+              className={`px-3 py-1.5 text-xs rounded-lg border-2 transition font-semibold ${
+                editorMode === "preview"
+                  ? "border-[var(--color-brand)] bg-[var(--color-brand)]/10 text-[var(--color-brand-dk)]"
+                  : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+              }`}
+              title="미리보기가 큰 화면 · 좌측 설정은 접힘 (아이콘 클릭 시 펼침)"
+            >
+              🔍 큰 미리보기
+            </button>
+          </div>
+          <div className={`grid grid-cols-1 gap-6 transition-all ${
+            editorMode === "split"
+              ? "xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
+              : "xl:grid-cols-[minmax(0,320px)_minmax(0,1fr)]"
+          }`}>
             {/* 편집 폼 · 선택된 화면에 해당하는 섹션만 노출 */}
-            <div className="space-y-4">
+            <div className={`space-y-4 ${editorMode === "preview" ? "xl:max-h-[calc(100vh-6rem)] xl:overflow-y-auto xl:pr-2" : ""}`}>
               {previewPage === "mainTop" && (
                 <>
                   {/* ─── 2뎁스 · 세부 영역 선택 · 사장님 요구 (스포트라이트 UX) ─── */}

@@ -13,10 +13,8 @@
 
 const DEFAULT_LOCAL_SHOP = "http://localhost:3001";
 
-export function getShopUrl(): string {
-  // 1) 명시적 env 최우선 (사장님이 Vercel 대시보드에서 NEXT_PUBLIC_SHOP_URL 설정 가능)
-  if (process.env.NEXT_PUBLIC_SHOP_URL) return process.env.NEXT_PUBLIC_SHOP_URL;
-  // 2) 서버 렌더 시 · 로컬 폴백
+// hostname 기반 감지 · env와 무관
+function detectFromHost(): string {
   if (typeof window === "undefined") return DEFAULT_LOCAL_SHOP;
   const host = window.location.hostname;
   const origin = window.location.origin;
@@ -34,16 +32,33 @@ export function getShopUrl(): string {
   if (firstDot > 0) {
     const firstLabel = host.slice(0, firstDot);
     const rest = host.slice(firstDot);
-    if (firstLabel.endsWith("adm") && firstLabel.length > 3) {
-      const newFirst = firstLabel.slice(0, -3) + "shop";
-      return `${window.location.protocol}//${newFirst}${rest}`;
-    }
     if (firstLabel.endsWith("admin") && firstLabel.length > 5) {
       const newFirst = firstLabel.slice(0, -5) + "shop";
       return `${window.location.protocol}//${newFirst}${rest}`;
     }
+    if (firstLabel.endsWith("adm") && firstLabel.length > 3) {
+      const newFirst = firstLabel.slice(0, -3) + "shop";
+      return `${window.location.protocol}//${newFirst}${rest}`;
+    }
   }
   // 폴백 · 안전 · 최소한 뭔가는 열리도록 · 같은 origin (관리자 자기 자신)
-  // ⚠ 이 경우 · Vercel 대시보드에서 NEXT_PUBLIC_SHOP_URL 설정 권장
   return origin;
+}
+
+export function getShopUrl(): string {
+  const detected = detectFromHost();
+  // env가 설정돼있으면 우선 · 단 · 자기 자신(관리자 origin)을 가리키면 무시하고 hostname 감지값 사용
+  const envUrl = process.env.NEXT_PUBLIC_SHOP_URL;
+  if (envUrl) {
+    if (typeof window !== "undefined") {
+      const currentOrigin = window.location.origin;
+      const cleanEnv = envUrl.replace(/\/$/, "");
+      // env가 관리자 자기 자신을 가리키는 경우 · 오설정 · hostname 감지값으로 폴백
+      if (cleanEnv === currentOrigin || cleanEnv === currentOrigin.replace(/^https?:\/\//, "")) {
+        return detected;
+      }
+    }
+    return envUrl;
+  }
+  return detected;
 }
