@@ -27,9 +27,17 @@ const PAGE_ICON: Record<string, string> = {
   "product-edit": "✏️",
 };
 
+// 사이드바 메뉴 그룹핑 · 임시저장 목록 상단 탭
+const TAB_GROUPS: Array<{ key: string; label: string; icon: string; pageKeys: string[] }> = [
+  { key: "all", label: "전체", icon: "📚", pageKeys: [] },
+  { key: "products", label: "상품 관리", icon: "🛍", pageKeys: ["bulk-new", "excel-import", "product-new", "product-edit", "bulk-edit"] },
+  { key: "customize", label: "매장 화면 관리", icon: "🎨", pageKeys: ["customize"] },
+  { key: "reviews", label: "리뷰 관리", icon: "⭐", pageKeys: ["review-import"] },
+];
+
 export default function DraftsPage() {
   const [rows, setRows] = useState<Draft[]>([]);
-  const [filterPage, setFilterPage] = useState<string>("all");
+  const [activeTab, setActiveTab] = useState<string>("all");
 
   const load = useCallback(() => {
     setRows(listDrafts());
@@ -37,8 +45,17 @@ export default function DraftsPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  const pageKeys = Array.from(new Set(rows.map((r) => r.pageKey)));
-  const filtered = filterPage === "all" ? rows : rows.filter((r) => r.pageKey === filterPage);
+  const tabWithCount = TAB_GROUPS.map((t) => ({
+    ...t,
+    count: t.key === "all" ? rows.length : rows.filter((r) => t.pageKeys.includes(r.pageKey)).length,
+  }));
+
+  const filtered = activeTab === "all"
+    ? rows
+    : rows.filter((r) => {
+        const t = TAB_GROUPS.find((x) => x.key === activeTab);
+        return t?.pageKeys.includes(r.pageKey);
+      });
 
   const remove = (id: string, title: string) => {
     if (!confirm(`「${title}」 임시저장을 지웁니다.\n\n이 작업은 되돌릴 수 없어요.`)) return;
@@ -66,28 +83,34 @@ export default function DraftsPage() {
         ⏰ 임시저장은 마지막 저장으로부터 <b>{RETENTION_DAYS}일</b>이 지나면 자동으로 삭제돼요. 지우고 싶지 않으면 이어서 편집·저장해두세요.
       </div>
 
-      {/* 페이지 필터 */}
-      {pageKeys.length > 1 && (
-        <div className="mb-3 flex items-center gap-1.5 flex-wrap">
-          <span className="text-xs text-gray-500 mr-1">화면별:</span>
-          <button
-            onClick={() => setFilterPage("all")}
-            className={`px-2.5 py-1 text-xs rounded border ${filterPage === "all" ? "bg-gray-900 text-white border-gray-900" : "bg-white text-gray-600 border-gray-200"}`}
-          >
-            전체
-          </button>
-          {pageKeys.map((k) => (
+      {/* 상단 메뉴별 큰 탭 · 사이드바 메뉴 그룹핑과 일치 */}
+      <div className="mb-4 bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
+        <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-gray-100">
+          {tabWithCount.map((t) => (
             <button
-              key={k}
-              onClick={() => setFilterPage(k)}
-              className={`px-2.5 py-1 text-xs rounded border flex items-center gap-1 ${filterPage === k ? "bg-gray-900 text-white border-gray-900" : "bg-white text-gray-600 border-gray-200"}`}
+              key={t.key}
+              onClick={() => setActiveTab(t.key)}
+              className={`px-4 py-3 text-left transition ${
+                activeTab === t.key
+                  ? "bg-[var(--color-brand)]/10 border-b-2 border-[var(--color-brand)]"
+                  : "bg-white hover:bg-gray-50 border-b-2 border-transparent"
+              }`}
             >
-              <span>{PAGE_ICON[k] || "📄"}</span>
-              {rows.find((r) => r.pageKey === k)?.pageLabel || k}
+              <div className="flex items-center gap-2">
+                <span className="text-2xl">{t.icon}</span>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-bold truncate ${activeTab === t.key ? "text-[var(--color-brand-dk)]" : "text-gray-900"}`}>
+                    {t.label}
+                  </p>
+                  <p className={`text-[11px] ${activeTab === t.key ? "text-[var(--color-brand-dk)]/80" : "text-gray-500"}`}>
+                    임시저장 <b>{t.count}</b>건
+                  </p>
+                </div>
+              </div>
             </button>
           ))}
         </div>
-      )}
+      </div>
 
       {/* 목록 */}
       {filtered.length === 0 ? (

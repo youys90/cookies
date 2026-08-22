@@ -108,16 +108,13 @@ export function ShopUiProvider({ children }: { children: ReactNode }) {
           </div>
         </div>
       )}
-      {/* 모바일 미리보기 · 뷰포트 폭 강제 */}
-      {isPreview && previewDevice === "mobile" ? (
-        <div className="min-h-screen bg-gray-100 flex justify-center py-6">
-          <div className="w-[390px] bg-white shadow-2xl overflow-hidden">
-            {children}
-          </div>
+      {/* 모바일 미리보기 · 실제 매장은 원래대로 렌더 · 폭만 안내 */}
+      {isPreview && previewDevice === "mobile" && (
+        <div className="fixed top-11 left-1/2 -translate-x-1/2 z-40 px-3 py-1 bg-blue-500 text-white text-[10px] font-medium rounded-full shadow pointer-events-none">
+          📱 진짜 모바일 화면으로 보려면 · 브라우저 창을 좁게 조정하거나 · 개발자 도구 (F12) → 모바일 뷰
         </div>
-      ) : (
-        children
       )}
+      {children}
     </ShopUiCtx.Provider>
   );
 }

@@ -67,7 +67,15 @@ function BulkEditInner() {
         .select("id, name_ja, name_ko, parent_id, sort_order")
         .eq("is_active", true)
         .order("sort_order");
-      setProducts((prods || []) as Product[]);
+      // 기존 이미지 URL을 편집 가능한 배열로 초기화
+      const initialized = ((prods || []) as Product[]).map((p) => {
+        const arr = Array.isArray(p.images) ? (p.images.filter((u): u is string => typeof u === "string" && u.length > 0)) : [];
+        const list: ImageItem[] = arr.length > 0
+          ? arr.map((u) => ({ file: null, preview: u, url: u }))
+          : (p.image ? [{ file: null, preview: p.image, url: p.image }] : []);
+        return { ...p, editImages: list };
+      });
+      setProducts(initialized);
       setCategories(((cats as Array<{ id: number; name_ja: string; name_ko: string | null; parent_id: number | null }>) || []).map((c) => ({
         id: c.id,
         name_ja: c.name_ja || "",
@@ -83,6 +91,92 @@ function BulkEditInner() {
     setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, [field]: value } : p)));
   };
 
+  // ── 이미지 편집 (bulk-new와 동일 UX) ──────────────
+  const setEditImages = (id: number, imgs: ImageItem[]) => {
+    setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, editImages: imgs } : p)));
+  };
+  const addImagesToProduct = async (id: number, files: FileList | File[]) => {
+    const arr = Array.from(files);
+    const readers = arr.map(
+      (file) => new Promise<ImageItem>((resolve) => {
+        const r = new FileReader();
+        r.onloadend = () => resolve({ file, preview: r.result as string });
+        r.readAsDataURL(file);
+      })
+    );
+    const imgs = await Promise.all(readers);
+    setProducts((prev) => prev.map((p) => p.id === id ? { ...p, editImages: [...(p.editImages || []), ...imgs] } : p));
+  };
+  const removeImage = (id: number, index: number) => {
+    setProducts((prev) => prev.map((p) => p.id === id ? { ...p, editImages: (p.editImages || []).filter((_, i) => i !== index) } : p));
+  };
+  const moveImage = (id: number, from: number, to: number) => {
+    setProducts((prev) => prev.map((p) => {
+      if (p.id !== id) return p;
+      const list = [...(p.editImages || [])];
+      const [moved] = list.splice(from, 1);
+      list.splice(to, 0, moved);
+      return { ...p, editImages: list };
+    }));
+  };
+
+  // 세션 풀 (bulk-new와 동일 · 여러 상품에서 재사용)
+  const [sessionPool, setSessionPool] = useState<string[]>(() => loadSession<string[]>(SESSION_KEYS.IMAGE_POOL, []));
+  const [sessionUploading, setSessionUploading] = useState(false);
+  const sessionBulkInputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => { saveSession(SESSION_KEYS.IMAGE_POOL, sessionPool); }, [sessionPool]);
+  const uploadToSessionPool = async (files: File[]) => {
+    setSessionUploading(true);
+    const newUrls: string[] = [];
+    for (const file of files) {
+      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+      const path = `products/${Date.now()}_${Math.random().toString(36).slice(2, 10)}.${ext}`;
+      const { error } = await supabase.storage.from("product-images").upload(path, file);
+      if (error) { console.error(error); continue; }
+      const { data: pub } = supabase.storage.from("product-images").getPublicUrl(path);
+      newUrls.push(pub.publicUrl);
+    }
+    if (newUrls.length > 0) setSessionPool((prev) => [...newUrls, ...prev]);
+    setSessionUploading(false);
+  };
+  const [pickerProductId, setPickerProductId] = useState<number | null>(null);
+
+  // 이미지 파일 업로드 헬퍼 (저장 시)
+  const uploadImageFile = async (file: File): Promise<string | null> => {
+    const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+    const path = `products/${Date.now()}_${Math.random().toString(36).slice(2, 10)}.${ext}`;
+    const { error } = await supabase.storage.from("product-images").upload(path, file);
+    if (error) { console.error("upload fail:", error); return null; }
+    const { data: pub } = supabase.storage.from("product-images").getPublicUrl(path);
+    return pub.publicUrl;
+  };
+
+  // 일괄 자동번역
+  const [translating, setTranslating] = useState(false);
+  const [translateMsg, setTranslateMsg] = useState<string>("");
+  const bulkTranslate = async () => {
+    setTranslating(true);
+    setTranslateMsg("");
+    let done = 0;
+    for (const p of products) {
+      const targets: Array<{ field: "name_ja" | "name_ko" | "description_ja" | "description_ko"; source: string; from: "ko" | "ja" }> = [];
+      if (!p.name_ja && p.name_ko) targets.push({ field: "name_ja", source: p.name_ko, from: "ko" });
+      if (!p.name_ko && p.name_ja) targets.push({ field: "name_ko", source: p.name_ja, from: "ja" });
+      if (!p.description_ja && p.description_ko) targets.push({ field: "description_ja", source: p.description_ko, from: "ko" });
+      if (!p.description_ko && p.description_ja) targets.push({ field: "description_ko", source: p.description_ja, from: "ja" });
+      for (const t of targets) {
+        try {
+          const to: "ko" | "ja" = t.from === "ko" ? "ja" : "ko";
+          const translated = await translateKoJa(t.source, t.from, to);
+          updateField(p.id, t.field, translated);
+          done++;
+        } catch (e) { console.error(e); }
+      }
+    }
+    setTranslating(false);
+    setTranslateMsg(`번역 완료 · ${done}건 채움`);
+  };
+
   const handleSave = async () => {
     if (products.length === 0) return;
     if (!confirm(`선택한 ${products.length}개 상품을 수정하시겠습니까?\n\n· 각 카드의 값이 그대로 저장됩니다.\n· 변경 안 한 상품도 재저장됩니다.`)) return;
@@ -91,6 +185,16 @@ function BulkEditInner() {
     let ok = 0;
     let fail = 0;
     for (const p of products) {
+      // 이미지 · 파일 신규 업로드 → URL 배열 확정
+      const urls: string[] = [];
+      for (const img of (p.editImages || [])) {
+        if (img.file) {
+          const u = await uploadImageFile(img.file);
+          if (u) urls.push(u);
+        } else if (img.url) {
+          urls.push(img.url);
+        }
+      }
       const { error } = await supabase
         .from("products")
         .update({
@@ -100,8 +204,10 @@ function BulkEditInner() {
           original_price: p.original_price ? Number(p.original_price) : null,
           category: p.category,
           sub_category: p.sub_category || null,
-          // 재고는 옵션 단위에서만 관리 · 상품 자체는 null (필요 시 별도 편집)
-          // stock: p.stock !== null && p.stock !== undefined ? Number(p.stock) : null,
+          description_ja: p.description_ja || null,
+          description_ko: p.description_ko || null,
+          image: urls[0] || p.image, // 없으면 기존 유지
+          images: urls.length > 0 ? urls : null,
           is_active: !!p.is_active,
         })
         .eq("id", p.id);
@@ -154,18 +260,117 @@ function BulkEditInner() {
 
 
       {/* 상품 카드 목록 */}
+      {/* 상단 툴바 · 세션 풀 + 일괄 자동번역 (bulk-new 스타일) */}
+      <div className="mb-4 flex items-center gap-2 flex-wrap">
+        <button
+          type="button"
+          onClick={() => sessionBulkInputRef.current?.click()}
+          disabled={sessionUploading}
+          className={`group relative flex items-center gap-2.5 pl-3 pr-3.5 py-2 rounded-xl font-medium text-sm shadow-md transition-all disabled:opacity-60 ${
+            sessionPool.length === 0
+              ? "bg-gradient-to-br from-[var(--color-brand)] via-[#D6A490] to-[var(--color-brand-dk)] text-white hover:shadow-lg hover:-translate-y-0.5"
+              : "bg-gradient-to-br from-emerald-500 to-emerald-600 text-white hover:from-emerald-600 hover:to-emerald-700 hover:shadow-lg"
+          }`}
+        >
+          <span className="text-xl">📸</span>
+          <div className="flex flex-col items-start leading-tight">
+            <span className="text-[13px] font-bold">{sessionPool.length === 0 ? "사진 미리 담기" : `담긴 사진 ${sessionPool.length}장`}</span>
+            <span className="text-[10px] opacity-90">▼ 여러 장 한번에 담아두고 각 상품에 재사용</span>
+          </div>
+          {sessionPool.length > 0 && (
+            <span className="ml-1 flex items-center justify-center min-w-[24px] h-6 px-1.5 bg-white/25 backdrop-blur rounded-full text-[11px] font-bold border border-white/40">
+              {sessionPool.length}
+            </span>
+          )}
+        </button>
+        <input
+          ref={sessionBulkInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          className="hidden"
+          onChange={(e) => {
+            if (e.target.files && e.target.files.length > 0) uploadToSessionPool(Array.from(e.target.files));
+            e.target.value = "";
+          }}
+        />
+        <button
+          onClick={bulkTranslate}
+          disabled={translating || saving}
+          className="px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg font-medium disabled:opacity-50 shadow-sm transition"
+          title="비어있는 반대 언어 필드 자동 채움"
+        >
+          {translating ? "🌐 번역 중..." : "🌐 일괄 자동번역"}
+        </button>
+        {translateMsg && <span className="text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-3 py-1 font-medium">{translateMsg}</span>}
+      </div>
+
       <div className="space-y-3">
         {products.map((p, idx) => (
           <div key={p.id} className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
-            <div className="flex items-start gap-4">
-              {/* 썸네일 */}
-              <div className="relative w-20 h-20 flex-shrink-0 rounded overflow-hidden bg-gray-100 border border-gray-200">
-                {p.image && <Image src={p.image} alt="" fill unoptimized className="object-cover" />}
-                <span className="absolute top-0.5 left-0.5 bg-gray-900/85 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">#{idx + 1}</span>
+            <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr_auto] gap-4 items-start">
+              {/* 이미지 편집 · bulk-new와 동일 UX */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[10px] font-bold text-gray-500 tracking-wider">#{idx + 1} · 사진</span>
+                  <label className="text-[10px] text-[var(--color-brand-dk)] cursor-pointer hover:underline">
+                    + 사진 추가
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => { if (e.target.files) addImagesToProduct(p.id, e.target.files); e.target.value = ""; }}
+                    />
+                  </label>
+                </div>
+                {(p.editImages || []).length === 0 ? (
+                  <label className="cursor-pointer flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg p-4 min-h-[120px] hover:border-gray-500 hover:bg-gray-50 transition">
+                    <span className="text-3xl mb-1">📷</span>
+                    <p className="text-xs text-gray-500">클릭 or 위 「+ 사진 추가」</p>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => { if (e.target.files) addImagesToProduct(p.id, e.target.files); e.target.value = ""; }}
+                    />
+                  </label>
+                ) : (
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {(p.editImages || []).map((img, i) => (
+                      <div key={i} className="relative aspect-square group">
+                        <div className={`relative w-full h-full rounded overflow-hidden border-2 ${i === 0 ? "border-blue-500" : "border-gray-200"}`}>
+                          <Image src={img.preview} alt="" fill unoptimized className="object-cover" />
+                          <div className="absolute top-0 right-0 w-4 h-4 bg-gray-900/85 text-white text-[8px] font-bold rounded-bl flex items-center justify-center">{i + 1}</div>
+                          {i === 0 && <span className="absolute top-0 left-0 bg-blue-500 text-white text-[8px] font-bold px-1 rounded-br">M</span>}
+                        </div>
+                        <div className="absolute -top-1 -right-1 flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition">
+                          <button type="button" onClick={() => removeImage(p.id, i)} className="w-4 h-4 bg-red-500 text-white rounded-full text-[10px] flex items-center justify-center">✕</button>
+                        </div>
+                        <div className="absolute bottom-0 inset-x-0 flex justify-between opacity-0 group-hover:opacity-100 transition">
+                          <button type="button" onClick={() => i > 0 && moveImage(p.id, i, i - 1)} disabled={i === 0} className="text-[10px] bg-black/50 text-white px-1 rounded disabled:opacity-30">←</button>
+                          <button type="button" onClick={() => i < (p.editImages?.length || 0) - 1 && moveImage(p.id, i, i + 1)} disabled={i === (p.editImages?.length || 0) - 1} className="text-[10px] bg-black/50 text-white px-1 rounded disabled:opacity-30">→</button>
+                        </div>
+                      </div>
+                    ))}
+                    {sessionPool.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setPickerProductId(p.id)}
+                        className="aspect-square bg-gradient-to-br from-emerald-500 to-emerald-600 text-white rounded flex flex-col items-center justify-center border-2 border-emerald-500 shadow-sm hover:shadow-md"
+                        title={`세션 풀에서 (${sessionPool.length}장)`}
+                      >
+                        <span className="text-base">📸</span>
+                        <span className="text-[8px]">세션 풀</span>
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
 
-              {/* 필드 */}
-              <div className="flex-1 grid grid-cols-2 md:grid-cols-6 gap-2">
+              {/* 필드 · 상품명 · 가격 · 카테고리 · 설명 */}
+              <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
                 <div className="col-span-2 md:col-span-3">
                   <label className="text-[10px] text-gray-500 uppercase tracking-wider">상품명 (일본어)</label>
                   <input
@@ -249,6 +454,26 @@ function BulkEditInner() {
                     <option value="off">숨김</option>
                   </select>
                 </div>
+
+                {/* 상품 설명 · JP / KO */}
+                <div className="col-span-2 md:col-span-3">
+                  <label className="text-[10px] text-gray-500 uppercase tracking-wider">상품 설명 (일본어)</label>
+                  <textarea
+                    value={p.description_ja || ""}
+                    onChange={(e) => updateField(p.id, "description_ja", e.target.value)}
+                    rows={2}
+                    className="mt-1 w-full px-2 py-1 text-sm border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-[var(--color-brand)] resize-y"
+                  />
+                </div>
+                <div className="col-span-2 md:col-span-3">
+                  <label className="text-[10px] text-gray-500 uppercase tracking-wider">상품 설명 (한국어)</label>
+                  <textarea
+                    value={p.description_ko || ""}
+                    onChange={(e) => updateField(p.id, "description_ko", e.target.value)}
+                    rows={2}
+                    className="mt-1 w-full px-2 py-1 text-sm border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-[var(--color-brand)] resize-y"
+                  />
+                </div>
               </div>
 
               {/* 개별 편집 링크 */}
@@ -272,6 +497,21 @@ function BulkEditInner() {
           label: saving ? "저장 중..." : "✏️ 일괄 저장",
           onClick: handleSave,
           disabled: saving,
+        }}
+      />
+
+      <ImageLibraryPicker
+        open={pickerProductId !== null}
+        onClose={() => setPickerProductId(null)}
+        sessionUrls={sessionPool}
+        titleOverride="📸 세션 이미지 풀에서 선택"
+        descriptionOverride="이번 세션에 담아둔 사진 중 골라 이 상품에 넣기"
+        onSelect={(urls) => {
+          if (pickerProductId === null) return;
+          setProducts((prev) => prev.map((p) => p.id === pickerProductId
+            ? { ...p, editImages: [...(p.editImages || []), ...urls.map((u) => ({ file: null, preview: u, url: u }))] }
+            : p
+          ));
         }}
       />
     </div>

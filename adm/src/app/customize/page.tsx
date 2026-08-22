@@ -31,6 +31,7 @@ const SHOP_URL = process.env.NEXT_PUBLIC_SHOP_URL || "http://localhost:3001";
 
 export default function CustomizePage() {
   const [loading, setLoading] = useState(true);
+  const [sampleProductId, setSampleProductId] = useState<number | null>(null);
   const [error, setError] = useState<string>("");
   const [active, setActive] = useState<Preset | null>(null);
   const [config, setConfig] = useState<ShopUiConfig>(DEFAULT_CONFIG);
@@ -63,6 +64,14 @@ export default function CustomizePage() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // 미리보기 · 상세 페이지로 열 때 쓸 임의의 상품 ID 하나 캐싱 (activeProduct 우선)
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from("products").select("id").eq("is_active", true).limit(1).maybeSingle();
+      if (data?.id) setSampleProductId(data.id);
+    })();
+  }, []);
 
   const updateField = (section: string, key: string, value: unknown) => {
     setConfig((prev) => {
@@ -256,12 +265,27 @@ export default function CustomizePage() {
     } catch (e) {
       console.error("config 인코딩 실패:", e);
     }
-    const params = new URLSearchParams({
-      preview: "draft",
-      device: previewDevice,
-      c: encoded,
-    });
-    window.open(`${SHOP_URL}?${params.toString()}`, "_blank", "noopener");
+    // 실제 매장 페이지 경로 · 상세 편집이면 상품 상세 · 아니면 홈(상품 목록)
+    const targetPath = previewPage === "detail" && sampleProductId
+      ? `/product/${sampleProductId}`
+      : "/";
+    if (previewDevice === "mobile") {
+      // 모바일 · 진짜 모바일 뷰포트로 보려면 iframe으로 폭 강제 필요
+      // → shop의 /mobile-preview 페이지에 iframe으로 감싸서 정확한 모바일 렌더
+      const params = new URLSearchParams({
+        c: encoded,
+        path: targetPath,
+      });
+      window.open(`${SHOP_URL}/mobile-preview?${params.toString()}`, "_blank", "noopener");
+    } else {
+      // PC · 그냥 매장 열기
+      const params = new URLSearchParams({
+        preview: "draft",
+        device: "desktop",
+        c: encoded,
+      });
+      window.open(`${SHOP_URL}${targetPath}?${params.toString()}`, "_blank", "noopener");
+    }
   };
 
   return (

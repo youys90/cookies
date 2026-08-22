@@ -210,6 +210,15 @@ export default function Home() {
     setLoading(true);
     let query = supabase.from("products").select("*", { count: "exact" }).eq("is_active", true).neq("category", "Premium High-Quality");
 
+    // 잠긴 특수 카테고리 상품 제외 · 튕김 방지 (사장님 요구)
+    // 사용자가 아직 잠금해제 안 한 특수 카테고리 → 목록에서 아예 안 보이게
+    const lockedSpecialCatIds = dbCategories
+      .filter((c) => c.is_special && !unlockedCatIds.has(c.id))
+      .map((c) => c.id);
+    if (lockedSpecialCatIds.length > 0) {
+      query = query.not("category_id", "in", `(${lockedSpecialCatIds.join(",")})`);
+    }
+
     const cat = MIGNON_CATEGORIES.find((c) => c.key === selectedMignonCat);
     // DB 카테고리(adm 관리)에서 온 경우: selectedMignonCat이 name_ja 값
     const dbCat = dbCategories.find((c) => c.name_ja === selectedMignonCat);
