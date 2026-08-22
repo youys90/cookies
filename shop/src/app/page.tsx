@@ -404,8 +404,11 @@ export default function Home() {
       {/* ─── 히어로 · 관리자 설정 레이아웃/이미지 · 미리보기 iframe에서는 「메인」 편집 중일 때만 노출 ─── */}
       {(!isInnerFrame || previewPage === "mainTop") && (() => {
         const hero = shopUi.mainTop.hero;
-        const layout = hero.layout;
-        const imgs = hero.images;
+        const layout = hero.layout || "hero-2col";
+        // 방어 · 구 데이터 · images 없을 수 있음 · 최소 1장 (히어로 배경) 보장
+        const imgs = Array.isArray(hero.images) && hero.images.length > 0
+          ? hero.images
+          : [{ url: "/hero-bg.png", alt: "hero", link: "/?cat=all", fit: "cover" as const }];
         // 슬롯 그리드 클래스 · 첫 슬롯이 큰 이미지 + 텍스트 오버레이 · 나머지는 우측 세로 스택 (또는 격자)
         const slotClass: Record<string, string[]> = {
           "single": ["md:col-span-3 md:row-span-2"],

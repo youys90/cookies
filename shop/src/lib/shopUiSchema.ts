@@ -210,9 +210,13 @@ export function mergeWithDefaults(input: unknown): ShopUiConfig {
         boxMaxWidth: typeof hero.boxMaxWidth === "number" ? hero.boxMaxWidth : out.mainTop.hero.boxMaxWidth,
         boxPadding: typeof hero.boxPadding === "number" ? hero.boxPadding : out.mainTop.hero.boxPadding,
         boxRadius: typeof hero.boxRadius === "number" ? hero.boxRadius : out.mainTop.hero.boxRadius,
-        imageMain: typeof hero.imageMain === "string" ? hero.imageMain : out.mainTop.hero.imageMain,
-        imageTopRight: typeof hero.imageTopRight === "string" ? hero.imageTopRight : out.mainTop.hero.imageTopRight,
-        imageBottomRight: typeof hero.imageBottomRight === "string" ? hero.imageBottomRight : out.mainTop.hero.imageBottomRight,
+        layout: (["single", "hero-2col", "hero-3col", "grid-2x2", "mosaic-5", "carousel"] as const).includes(hero.layout as never) ? (hero.layout as typeof out.mainTop.hero.layout) : out.mainTop.hero.layout,
+        images: Array.isArray(hero.images) ? (hero.images as Record<string, unknown>[]).map((im) => ({
+          url: typeof im.url === "string" ? im.url : "",
+          alt: typeof im.alt === "string" ? im.alt : "",
+          link: typeof im.link === "string" ? im.link : "",
+          fit: im.fit === "contain" ? "contain" : "cover",
+        })) : out.mainTop.hero.images,
       };
     }
     // 혜택
