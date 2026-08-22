@@ -348,7 +348,7 @@ export default function BulkNewProductsPage() {
         name_ko: row.nameKo,
         price: Number(row.price),
         original_price: row.originalPrice ? Number(row.originalPrice) : null,
-        stock: null,
+        stock: 9999999999, // 재고 UI 미노출 · 큰 값으로 고정 (매장에서 재고 소진 오판 방지)
         category: row.categoryJa,
         category_ja: row.categoryJa,
         category_ko: catKo,
