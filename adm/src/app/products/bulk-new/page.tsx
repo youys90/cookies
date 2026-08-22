@@ -9,6 +9,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { translateKoJa } from "@/lib/translate";
+import ImageLibraryPicker from "@/components/ImageLibraryPicker";
 
 const categoriesJa = [
   "アクセサリー",
@@ -166,6 +167,9 @@ export default function BulkNewProductsPage() {
     });
   };
 
+  // 라이브러리 피커 활성 행 · null이면 닫힘
+  const [pickerRowKey, setPickerRowKey] = useState<number | null>(null);
+
   // 행 내부 이미지 드래그 순서 변경 상태
   const [rowDrag, setRowDrag] = useState<{ rowKey: number | null; from: number | null; over: number | null }>({ rowKey: null, from: null, over: null });
   const moveRowImage = (key: number, from: number, to: number) => {
@@ -252,6 +256,7 @@ export default function BulkNewProductsPage() {
         description_ja: row.descriptionJa || null,
         description_ko: row.descriptionKo || null,
         is_active: !!row.isActive,
+        source: "일괄",
       });
 
       if (error) {
@@ -405,8 +410,9 @@ export default function BulkNewProductsPage() {
                       </div>
                       );
                     })}
-                    <label className="cursor-pointer aspect-square border-2 border-dashed border-gray-300 rounded flex items-center justify-center text-gray-400 hover:border-gray-500">
-                      <span className="text-lg">+</span>
+                    <label className="cursor-pointer aspect-square border-2 border-dashed border-gray-300 rounded flex flex-col items-center justify-center text-gray-400 hover:border-gray-500">
+                      <span className="text-lg leading-none">+</span>
+                      <span className="text-[8px] mt-0.5">업로드</span>
                       <input
                         type="file"
                         accept="image/*"
@@ -415,6 +421,15 @@ export default function BulkNewProductsPage() {
                         onChange={(e) => e.target.files && addImagesToRow(row.key, e.target.files)}
                       />
                     </label>
+                    <button
+                      type="button"
+                      onClick={() => setPickerRowKey(row.key)}
+                      className="aspect-square border-2 border-dashed border-[var(--color-brand)]/40 rounded flex flex-col items-center justify-center text-[var(--color-brand)] hover:bg-[var(--color-brand)]/5"
+                      title="이미지 라이브러리에서 선택"
+                    >
+                      <span className="text-base leading-none">🗂️</span>
+                      <span className="text-[8px] mt-0.5">라이브러리</span>
+                    </button>
                   </div>
                 )}
               </div>
@@ -593,6 +608,18 @@ export default function BulkNewProductsPage() {
           {uploading ? "등록 중..." : `일괄 등록 (${validRows().length}건)`}
         </button>
       </div>
+
+      <ImageLibraryPicker
+        open={pickerRowKey !== null}
+        onClose={() => setPickerRowKey(null)}
+        onSelect={(urls) => {
+          if (pickerRowKey === null) return;
+          setRows((prev) => prev.map((r) => r.key === pickerRowKey
+            ? { ...r, images: [...r.images, ...urls.map((u) => ({ file: null, preview: u, url: u }))] }
+            : r
+          ));
+        }}
+      />
     </div>
   );
 }

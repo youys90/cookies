@@ -1,20 +1,25 @@
 "use client";
-// CSV 일괄 등록 모달
+// 상품 일괄 등록 모달 · xlsx + csv 지원
 // 드래그&드롭 파일 → 미리보기 → 등록 → 결과 리포트
+// 템플릿: 스타일링된 xlsx (브랜드 컬러 · 안내시트 · 데이터 검증 드롭다운)
 
 import { useRef, useState } from "react";
-import { parseCsvToObjects, downloadCsv } from "@/lib/csv";
+import { parseCsvToObjects } from "@/lib/csv";
+import { downloadProductTemplate, parseXlsxToObjects } from "@/lib/xlsxTemplate";
 
 export interface CsvImportResult {
   ok: number;
   failed: { row: number; reason: string }[];
+  /** 등록 성공한 상품 ID 목록 · 이미지 매핑 페이지 진입에 사용 */
+  okIds?: number[];
 }
 
 interface CsvImportModalProps {
   open: boolean;
   onClose: () => void;
   onImport: (rows: Record<string, string>[]) => Promise<CsvImportResult>;
-  templateHeader: string[];
+  /** 하위호환용 · 신규 UI에서는 xlsxTemplate.ts 고정 정의 사용 */
+  templateHeader?: string[];
   templateSample?: Record<string, string>;
   title?: string;
 }
@@ -23,8 +28,6 @@ export default function CsvImportModal({
   open,
   onClose,
   onImport,
-  templateHeader,
-  templateSample,
   title,
 }: CsvImportModalProps) {
   const [rows, setRows] = useState<Record<string, string>[]>([]);
@@ -39,9 +42,20 @@ export default function CsvImportModal({
   const handleFile = async (file: File) => {
     setFileName(file.name);
     setResult(null);
-    const text = await file.text();
-    const parsed = parseCsvToObjects(text);
-    setRows(parsed);
+    const name = file.name.toLowerCase();
+    try {
+      if (name.endsWith(".xlsx") || name.endsWith(".xls")) {
+        const parsed = await parseXlsxToObjects(file);
+        setRows(parsed);
+      } else {
+        const text = await file.text();
+        const parsed = parseCsvToObjects(text);
+        setRows(parsed);
+      }
+    } catch (err) {
+      console.error("파일 파싱 실패:", err);
+      alert("파일을 읽을 수 없습니다. 템플릿 형식을 확인해주세요.");
+    }
   };
 
   const handleImport = async () => {
@@ -57,19 +71,8 @@ export default function CsvImportModal({
     setBusy(false);
   };
 
-  const downloadTemplate = () => {
-    const sampleRow = templateSample || Object.fromEntries(templateHeader.map((h) => [h, ""]));
-    const csvContent =
-      "﻿" +
-      templateHeader.join(",") +
-      "\r\n" +
-      templateHeader
-        .map((h) => {
-          const v = sampleRow[h] || "";
-          return /[",\r\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
-        })
-        .join(",");
-    downloadCsv(csvContent, "template.csv");
+  const downloadTemplate = async () => {
+    await downloadProductTemplate();
   };
 
   const reset = () => {
@@ -88,7 +91,7 @@ export default function CsvImportModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-          <h3 className="text-lg font-medium text-gray-900">{title || "CSV 일괄 등록"}</h3>
+          <h3 className="text-lg font-medium text-gray-900">{title || "파일 일괄 등록 · xlsx / csv"}</h3>
           <button
             onClick={onClose}
             className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100"
@@ -100,28 +103,49 @@ export default function CsvImportModal({
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-5">
-          {/* 템플릿 다운로드 */}
-          <div className="p-3 bg-gray-50 rounded-lg space-y-2">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-700 font-medium">1️⃣ 먼저 템플릿을 다운로드</p>
-                <p className="text-xs text-gray-500 mt-0.5">엑셀에서 열어서 · 각 행에 상품 정보 입력</p>
+          {/* 템플릿 다운로드 · 재설계 */}
+          <div className="rounded-xl border border-[var(--color-brand)]/25 bg-gradient-to-br from-[var(--color-brand)]/5 to-transparent overflow-hidden">
+            {/* 헤더 · 브랜드 배너 */}
+            <div className="px-4 py-3 bg-gradient-to-r from-[var(--color-brand)] to-[var(--color-brand-dk)] flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <span className="text-xl">🛍️</span>
+                <div>
+                  <p className="text-[13px] font-semibold text-white leading-tight">1️⃣ 스타일링된 xlsx 템플릿 다운로드</p>
+                  <p className="text-[10.5px] text-white/85 mt-0.5">엑셀에서 열면 · 드롭다운 · 안내시트 · 컬럼 폭 세팅 완료</p>
+                </div>
               </div>
               <button
                 onClick={downloadTemplate}
-                className="px-3 py-1.5 text-sm bg-[var(--color-brand)] text-white rounded-lg hover:bg-[var(--color-brand-dk)] transition whitespace-nowrap font-medium shadow-sm"
+                className="px-3.5 py-2 text-[12.5px] bg-white text-[var(--color-brand-dk)] rounded-lg hover:bg-white/90 transition whitespace-nowrap font-semibold shadow-md flex items-center gap-1.5"
               >
-                📥 템플릿 CSV
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                XLSX 다운로드
               </button>
             </div>
-            <div className="pt-2 border-t border-gray-200">
-              <p className="text-[11px] text-gray-500 leading-relaxed">
-                <span className="font-semibold text-gray-700">컬럼 (필수+선택)</span>: {templateHeader.join(" · ")}
-              </p>
-              <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded p-2 mt-1.5 leading-relaxed">
-                📌 <b>이미지는 CSV에 포함하지 않습니다.</b> 등록 후 상품 목록에서 각 상품을 열어 이미지를 첨부해주세요.<br />
-                📌 <b>카테고리 · 하위카테고리</b>는 카테고리 관리에 등록된 <b>일본어 이름</b>과 정확히 일치해야 합니다.<br />
-                📌 <b>판매상태</b>: <code>판매중</code> 또는 <code>숨김</code>
+            {/* 특징 · 3분할 카드 */}
+            <div className="grid grid-cols-3 gap-2 p-3">
+              <div className="rounded-lg bg-white border border-gray-100 p-2.5">
+                <p className="text-[10px] text-gray-400 uppercase tracking-wider">디자인</p>
+                <p className="text-[11.5px] text-gray-700 font-medium mt-0.5">브랜드 컬러 헤더</p>
+                <p className="text-[10px] text-gray-500 mt-0.5 leading-snug">타이틀 · 서브 · 컬럼 배너</p>
+              </div>
+              <div className="rounded-lg bg-white border border-gray-100 p-2.5">
+                <p className="text-[10px] text-gray-400 uppercase tracking-wider">편의</p>
+                <p className="text-[11.5px] text-gray-700 font-medium mt-0.5">드롭다운 검증</p>
+                <p className="text-[10px] text-gray-500 mt-0.5 leading-snug">판매상태 · 숫자 필드</p>
+              </div>
+              <div className="rounded-lg bg-white border border-gray-100 p-2.5">
+                <p className="text-[10px] text-gray-400 uppercase tracking-wider">안심</p>
+                <p className="text-[11.5px] text-gray-700 font-medium mt-0.5">예시 자동 제외</p>
+                <p className="text-[10px] text-gray-500 mt-0.5 leading-snug">노란색 [예시] 행</p>
+              </div>
+            </div>
+            {/* 안내 배너 */}
+            <div className="mx-3 mb-3 p-2.5 rounded-lg bg-amber-50 border border-amber-200">
+              <p className="text-[11px] text-amber-900 leading-relaxed">
+                📌 <b>이미지</b>는 파일에 포함하지 않습니다 · 등록 후 상품 목록에서 「이미지 라이브러리」로 첨부<br />
+                📌 <b>카테고리 · 하위카테고리</b>는 「카테고리 관리」의 <b>일본어 명칭</b>과 정확히 일치<br />
+                📌 <b>업로드 파일</b>: <code>.xlsx</code> · <code>.csv</code> 모두 지원 (엑셀에서 「다른 이름으로 저장」 가능)
               </p>
             </div>
           </div>
@@ -158,13 +182,13 @@ export default function CsvImportModal({
                 <path d="M12 15V3M7 8l5-5 5 5M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
               </svg>
               <p className="text-sm text-gray-700">
-                CSV 파일을 <span className="font-medium">드래그&드롭</span>하거나 클릭
+                파일을 <span className="font-medium">드래그&드롭</span>하거나 클릭
               </p>
-              <p className="text-xs text-gray-400 mt-1">UTF-8, 첫 줄 = 컬럼명</p>
+              <p className="text-xs text-gray-400 mt-1">.xlsx · .csv (UTF-8)</p>
               <input
                 ref={inputRef}
                 type="file"
-                accept=".csv,text/csv"
+                accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (file) handleFile(file);
@@ -233,6 +257,26 @@ export default function CsvImportModal({
                   )}
                 </p>
               </div>
+              {/* 매핑 페이지 진입 CTA · 성공 등록 건이 있을 때만 */}
+              {result.ok > 0 && result.okIds && result.okIds.length > 0 && (
+                <div className="p-4 rounded-xl border border-[var(--color-brand)]/25 bg-gradient-to-br from-[var(--color-brand)]/10 to-transparent">
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <div>
+                      <p className="text-sm font-semibold text-[var(--color-brand-dk)] mb-1">📸 다음 단계 · 이미지 매핑</p>
+                      <p className="text-xs text-gray-600 leading-relaxed">
+                        방금 등록된 <b>{result.ok}건</b>은 이미지가 없습니다.<br />
+                        매핑 페이지에서 이미지를 업로드하고 한 번에 여러 상품에 연결하세요.
+                      </p>
+                    </div>
+                    <a
+                      href={`/products/image-mapping?scope=ids&ids=${result.okIds.join(",")}`}
+                      className="px-4 py-2 text-sm bg-[var(--color-brand)] text-white rounded-lg hover:bg-[var(--color-brand-dk)] font-medium shadow-sm whitespace-nowrap flex items-center gap-1.5"
+                    >
+                      매핑하러 가기 →
+                    </a>
+                  </div>
+                </div>
+              )}
               {result.failed.length > 0 && (
                 <div className="border border-red-200 rounded-lg overflow-auto max-h-48">
                   <table className="w-full text-xs">

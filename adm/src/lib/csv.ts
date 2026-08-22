@@ -92,14 +92,25 @@ export function parseCsv(text: string): string[][] {
 
 // ── 파싱 → 객체 배열 (header 자동) ─────────────────────
 export function parseCsvToObjects(text: string): Record<string, string>[] {
-  const rows = parseCsv(text);
-  if (rows.length < 2) return [];
-  const header = rows[0];
-  return rows.slice(1).map((r) => {
+  const raw = parseCsv(text);
+  if (raw.length === 0) return [];
+  // 상단 주석 행(#로 시작)은 헤더 이전에도 무시
+  let headerIdx = 0;
+  while (headerIdx < raw.length && (raw[headerIdx][0] || "").trim().startsWith("#")) headerIdx++;
+  if (headerIdx >= raw.length) return [];
+  const header = raw[headerIdx];
+  const dataRows = raw.slice(headerIdx + 1);
+  const result: Record<string, string>[] = [];
+  for (const r of dataRows) {
+    const first = (r[0] || "").trim();
+    if (!first && r.every((c) => !c || !c.trim())) continue; // 완전 빈 행 무시
+    if (first.startsWith("#")) continue; // 주석 행
+    if (first.startsWith("[예시]") || first.startsWith("[샘플]")) continue; // 예시 행 자동 스킵
     const obj: Record<string, string> = {};
     header.forEach((h, i) => {
       obj[h.trim()] = (r[i] ?? "").trim();
     });
-    return obj;
-  });
+    result.push(obj);
+  }
+  return result;
 }

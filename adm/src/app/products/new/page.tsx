@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import { translateKoJa } from "@/lib/translate";
+import ImageLibraryPicker from "@/components/ImageLibraryPicker";
 
 const categoriesJa = ["アクセサリー", "ヘアアクセサリー", "冬物アイテム", "キーリング", "メガネ／サングラス", "ファッション雑貨", "その他（ETC）", "➡ Premium High-Quality ✨"];
 const categoriesKo = ["악세사리", "헤어", "겨울상품", "키링", "안경/선글라스", "패션잡화", "기타", "➡ Premium High-Quality ✨"];
@@ -53,6 +54,7 @@ export default function NewProductPage() {
   const [aiHint, setAiHint] = useState<string>("");
 
   const [images, setImages] = useState<ImageItem[]>([]);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   // 옵션 관련 상태
   const [tempOptions, setTempOptions] = useState<TempOption[]>([]);
@@ -248,8 +250,8 @@ export default function NewProductPage() {
 
   const getTranslateButtonText = () => {
     if (translating) return '번역 중...';
-    if (formData.nameJa.trim()) return '🇯🇵 → 🇰🇷 재번역';
-    if (formData.nameKo.trim()) return '🇰🇷 → 🇯🇵 재번역';
+    if (formData.nameJa.trim()) return '일본어 → 한국어 재번역';
+    if (formData.nameKo.trim()) return '한국어 → 일본어 재번역';
     return '번역';
   };
 
@@ -382,6 +384,7 @@ export default function NewProductPage() {
         additional_price: opt.additional_price,
         stock: opt.stock,
         is_active: true,
+        source: "일반",
         sort_order: idx,
       }));
 
@@ -541,19 +544,32 @@ export default function NewProductPage() {
               </div>
             )}
 
-            <div
-              onClick={() => fileInputRef.current?.click()}
-              className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:border-gray-400 transition-colors"
-            >
-              <div className="py-4">
-                <svg className="w-10 h-10 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
-                </svg>
-                <p className="text-sm text-gray-500">
-                  {images.length === 0 ? '클릭하여 이미지 선택' : '이미지 추가'}
-                </p>
-                <p className="text-xs text-gray-400 mt-1">JPG, PNG (여러 장 선택 가능)</p>
+            <div className="grid grid-cols-2 gap-2">
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:border-gray-400 transition-colors"
+              >
+                <div className="py-4">
+                  <svg className="w-8 h-8 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
+                  </svg>
+                  <p className="text-sm text-gray-500">📤 새 이미지 업로드</p>
+                  <p className="text-xs text-gray-400 mt-1">JPG, PNG · 여러 장</p>
+                </div>
               </div>
+              <button
+                type="button"
+                onClick={() => setPickerOpen(true)}
+                className="border-2 border-dashed border-[var(--color-brand)]/40 rounded-lg p-4 text-center hover:border-[var(--color-brand)] hover:bg-[var(--color-brand)]/5 transition"
+              >
+                <div className="py-4">
+                  <svg className="w-8 h-8 text-[var(--color-brand)] mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <p className="text-sm text-[var(--color-brand-dk)] font-medium">🗂️ 라이브러리에서 선택</p>
+                  <p className="text-xs text-gray-500 mt-1">이미 업로드된 이미지 재사용</p>
+                </div>
+              </button>
             </div>
             <input
               ref={fileInputRef}
@@ -562,6 +578,11 @@ export default function NewProductPage() {
               multiple
               onChange={handleImageChange}
               className="hidden"
+            />
+            <ImageLibraryPicker
+              open={pickerOpen}
+              onClose={() => setPickerOpen(false)}
+              onSelect={(urls) => setImages((prev) => [...prev, ...urls.map((u) => ({ file: null, preview: u, url: u }))])}
             />
           </div>
 

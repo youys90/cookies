@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdmLanguage } from "@/contexts/LanguageContext";
 import ProfileModal from "./ProfileModal";
+import FlagIcon from "./FlagIcon";
 
 const menuItems = [
   { name: "대시보드", href: "/", icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" },
@@ -85,7 +86,7 @@ export default function Sidebar() {
                 aria-pressed={language === "ko"}
                 aria-label="한국어로 전환"
               >
-                <span className="text-sm leading-none">🇰🇷</span>
+                <FlagIcon code="KR" className="w-5 h-3.5 rounded-sm ring-1 ring-white/25 shadow-sm" />
                 <span className="text-[11px] tracking-wider">한국어</span>
               </button>
               <button
@@ -99,7 +100,7 @@ export default function Sidebar() {
                 aria-pressed={language === "ja"}
                 aria-label="日本語に切替"
               >
-                <span className="text-sm leading-none">🇯🇵</span>
+                <FlagIcon code="JP" className="w-5 h-3.5 rounded-sm ring-1 ring-white/25 shadow-sm" />
                 <span className="text-[11px] tracking-wider">日本語</span>
               </button>
             </div>

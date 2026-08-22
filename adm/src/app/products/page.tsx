@@ -32,6 +32,9 @@ interface Product {
   description_ja?: string;
   stock?: number;
   is_active?: boolean;
+  source?: string | null;
+  created_at?: string;
+  updated_at?: string;
 }
 
 const PAGE_SIZE_OPTIONS = [10, 50, 100];
@@ -85,6 +88,7 @@ export default function ProductsPage() {
   const [productList, setProductList] = useState<Product[]>([]);
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get("cat") || "전체");
   const [selectedSubCategory, setSelectedSubCategory] = useState(searchParams.get("sub") || "");
+  const [imageFilter, setImageFilter] = useState<"all" | "missing" | "attached">((searchParams.get("img") as "all" | "missing" | "attached") || "all");
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   // 관리자 = 한국인 · 한국어 표시. 필터링은 name_ja 문자열 기준 (products.category와 일치)
@@ -168,7 +172,7 @@ export default function ProductsPage() {
 
   useEffect(() => {
     fetchProducts();
-  }, [selectedCategory, selectedSubCategory, currentPage, pageSize, searchKeyword]);
+  }, [selectedCategory, selectedSubCategory, currentPage, pageSize, searchKeyword, imageFilter]);
 
   // 카테고리 DB 조회 · 최상위 + 하위 전부 · 한국어 표시 (필터 값은 name_ja)
   useEffect(() => {
@@ -217,6 +221,13 @@ export default function ProductsPage() {
       query = query.or(
         "name.ilike.%" + searchKeyword + "%,name_ko.ilike.%" + searchKeyword + "%"
       );
+    }
+
+    // 이미지 필터 · 미첨부 = image NULL & images NULL · 첨부 = image NOT NULL
+    if (imageFilter === "missing") {
+      query = query.is("image", null);
+    } else if (imageFilter === "attached") {
+      query = query.not("image", "is", null);
     }
 
     const from = (currentPage - 1) * pageSize;
@@ -447,6 +458,7 @@ export default function ProductsPage() {
         rec.image = "https://placehold.co/600x600/e5e7eb/9ca3af?text=No+Image";
         if (!rec.price) rec.price = 0;
         if (rec.is_active === undefined) rec.is_active = true;
+        rec.source = "CSV";
         return rec;
       });
 
@@ -468,7 +480,7 @@ export default function ProductsPage() {
     }
 
     if (ok.length > 0) fetchProducts();
-    return { ok: ok.length, failed };
+    return { ok: ok.length, failed, okIds: ok };
   };
 
   // ── 검색·카테고리·페이지 핸들러 ─────────────────
@@ -529,10 +541,17 @@ export default function ProductsPage() {
           <button
             onClick={() => setShowCsvImport(true)}
             className="px-3 py-2 text-sm text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
-            title="CSV 파일로 여러 상품 한 번에 등록"
+            title="xlsx / csv 파일로 여러 상품 한 번에 등록"
           >
-            📥 CSV 일괄등록
+            📥 파일 일괄등록
           </button>
+          <Link
+            href="/products/image-mapping?scope=no-image"
+            className="px-3 py-2 text-sm text-white bg-[var(--color-brand)] hover:bg-[var(--color-brand-dk)] rounded-lg transition font-medium shadow-sm"
+            title="이미지가 없는 상품을 우선 노출하여 일괄 매핑"
+          >
+            📸 이미지 매핑
+          </Link>
           <Link
             href="/products/bulk-new"
             className="px-4 py-2 text-sm text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
@@ -574,6 +593,40 @@ export default function ProductsPage() {
               indent
             />
           )}
+
+          {/* 이미지 첨부 상태 필터 */}
+          <div className="flex items-center gap-2 pt-1">
+            <span className="text-xs font-medium text-gray-500 whitespace-nowrap">{language === "ko" ? "이미지" : "画像"}</span>
+            {[
+              { v: "all" as const, ko: "전체", ja: "全て" },
+              { v: "missing" as const, ko: "미첨부", ja: "未添付", color: "red" },
+              { v: "attached" as const, ko: "첨부됨", ja: "添付済", color: "emerald" },
+            ].map((opt) => (
+              <button
+                key={opt.v}
+                onClick={() => { setImageFilter(opt.v); setCurrentPage(1); }}
+                className={`px-3 py-1 text-xs rounded-full border transition ${
+                  imageFilter === opt.v
+                    ? opt.color === "red"
+                      ? "bg-red-500 text-white border-red-500"
+                      : opt.color === "emerald"
+                        ? "bg-emerald-500 text-white border-emerald-500"
+                        : "bg-gray-900 text-white border-gray-900"
+                    : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                }`}
+              >
+                {language === "ko" ? opt.ko : opt.ja}
+              </button>
+            ))}
+            {imageFilter === "missing" && (
+              <Link
+                href="/products/image-mapping?scope=no-image"
+                className="ml-2 text-xs text-[var(--color-brand-dk)] hover:text-[var(--color-brand)] underline"
+              >
+                → {language === "ko" ? "매핑 페이지에서 일괄 처리" : "マッピングページで一括処理"}
+              </Link>
+            )}
+          </div>
 
           <div className="flex flex-wrap items-center gap-4 pt-1">
             {/* 검색 · 브랜드 focus 링 */}
@@ -684,6 +737,12 @@ export default function ProductsPage() {
                 <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 tracking-wider">
                   상태
                 </th>
+                <th className="px-4 py-4 text-left text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap">
+                  등록방식
+                </th>
+                <th className="px-4 py-4 text-left text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap">
+                  등록일 / 수정일
+                </th>
                 <th className="px-6 py-4 text-right text-xs font-medium text-gray-500 tracking-wider">
                   관리
                 </th>
@@ -781,6 +840,28 @@ export default function ProductsPage() {
                       >
                         {product.is_active !== false ? "판매중" : "판매중지"}
                       </button>
+                    </td>
+                    {/* 등록방식 · 색상 배지 · 관리자 즉시 인지 */}
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      {(() => {
+                        const src = product.source || "-";
+                        const badge = src === "일반" ? "bg-blue-50 text-blue-700 border-blue-200"
+                          : src === "일괄" ? "bg-purple-50 text-purple-700 border-purple-200"
+                          : src === "CSV" ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                          : "bg-gray-50 text-gray-500 border-gray-200";
+                        return (
+                          <span className={`inline-flex items-center text-[11px] font-semibold px-2 py-0.5 rounded-full border ${badge}`}>
+                            {src}
+                          </span>
+                        );
+                      })()}
+                    </td>
+                    {/* 등록일 / 수정일 */}
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <div className="text-[11px] text-gray-500 leading-tight">
+                        <div>등록 · {product.created_at ? product.created_at.slice(0, 10) : "-"}</div>
+                        <div className="text-gray-400 mt-0.5">수정 · {product.updated_at ? product.updated_at.slice(0, 10) : "-"}</div>
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end space-x-2">
@@ -911,7 +992,7 @@ export default function ProductsPage() {
         onImport={handleImport}
         templateHeader={CSV_HEADER}
         templateSample={CSV_SAMPLE}
-        title="상품 CSV 일괄 등록"
+        title="상품 일괄 등록 · xlsx / csv"
       />
 
       {/* ── 이미지 라이트박스 (썸네일 확대 · 다중 이미지 슬라이더) ───────────────────────── */}
