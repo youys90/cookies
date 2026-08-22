@@ -32,8 +32,23 @@ export function ShopUiProvider({ children }: { children: ReactNode }) {
       const params = new URLSearchParams(window.location.search);
       const preview = params.get("preview");
       const device = params.get("device");
+      const encoded = params.get("c");
       if (device === "mobile") setPreviewDevice("mobile");
       if (preview === "draft") {
+        // 1) URL 파라미터 c (Base64) 우선 · adm과 origin이 달라 sessionStorage 불가 시
+        if (encoded) {
+          try {
+            const json = decodeURIComponent(escape(atob(encoded)));
+            const cfg = JSON.parse(json);
+            setConfig(mergeWithDefaults(cfg));
+            setIsPreview(true);
+            setLoaded(true);
+            return;
+          } catch (e) {
+            console.error("미리보기 config 디코딩 실패:", e);
+          }
+        }
+        // 2) sessionStorage 폴백 (같은 origin에서 여는 경우)
         try {
           const raw = sessionStorage.getItem("shopUiPreviewDraft");
           if (raw) {

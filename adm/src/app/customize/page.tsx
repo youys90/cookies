@@ -445,9 +445,10 @@ function FieldControl({ field, value, onChange }: { field: FieldMeta; value: unk
     return (
       <div>
         {label}
-        <div className="flex items-center gap-3 flex-wrap">
-          {/* 스핌너 · ▼ 숫자 ▲ · 재고와 동일 UX (클릭 시 편집) */}
-          <div className="inline-flex items-center gap-0 rounded-lg border border-gray-300 bg-white overflow-hidden shadow-sm">
+        {/* 세로 세트 · 한 세트임이 명확 · 얇은 테두리로 그룹 표시 */}
+        <div className="inline-flex flex-col items-stretch gap-2 p-2.5 rounded-lg border border-gray-200 bg-gray-50/50">
+          {/* 상단: 스핌너 (▼ 숫자 ▲) · 재고와 동일 UX */}
+          <div className="inline-flex items-center gap-0 rounded-md border border-gray-300 bg-white overflow-hidden shadow-sm mx-auto">
             <button
               type="button"
               onClick={() => set(num - 1)}
@@ -463,7 +464,7 @@ function FieldControl({ field, value, onChange }: { field: FieldMeta; value: unk
               onChange={(e) => set(Number(e.target.value) || min)}
               min={min}
               max={max}
-              className="w-16 px-2 py-1.5 text-sm text-center font-semibold text-gray-900 border-x border-gray-200 focus:outline-none focus:bg-blue-50"
+              className="w-14 px-2 py-1.5 text-sm text-center font-semibold text-gray-900 border-x border-gray-200 focus:outline-none focus:bg-blue-50"
             />
             <button
               type="button"
@@ -474,19 +475,23 @@ function FieldControl({ field, value, onChange }: { field: FieldMeta; value: unk
             >
               ▲
             </button>
-            {field.suffix && <span className="px-2 text-sm text-gray-500">{field.suffix}</span>}
+            {field.suffix && <span className="px-2 text-sm text-gray-500 bg-gray-50">{field.suffix}</span>}
           </div>
-          {/* 슬라이더 · 나머지 시각적 조정용 · 값 완전 동일하게 연동 */}
-          <input
-            type="range"
-            min={min}
-            max={max}
-            step={1}
-            value={num}
-            onChange={(e) => set(Number(e.target.value))}
-            className="flex-1 min-w-[140px] max-w-[240px] accent-[var(--color-brand)]"
-            aria-label={field.label}
-          />
+          {/* 하단: 슬라이더 · min~max 시각적 조정 */}
+          <div className="flex items-center gap-2 px-1">
+            <span className="text-[9px] text-gray-400 font-mono">{min}</span>
+            <input
+              type="range"
+              min={min}
+              max={max}
+              step={1}
+              value={num}
+              onChange={(e) => set(Number(e.target.value))}
+              className="flex-1 accent-[var(--color-brand)]"
+              aria-label={field.label}
+            />
+            <span className="text-[9px] text-gray-400 font-mono">{max}</span>
+          </div>
         </div>
       </div>
     );
