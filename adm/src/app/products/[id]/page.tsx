@@ -220,6 +220,22 @@ export default function EditProductPage() {
     });
   };
 
+  // 드래그로 순서 변경 (HTML5 native drag/drop · 라이브러리 무의존)
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const onDragStart = (i: number) => setDragIndex(i);
+  const onDragOver = (e: React.DragEvent) => e.preventDefault();
+  const onDrop = (targetIndex: number) => {
+    if (dragIndex === null || dragIndex === targetIndex) return;
+    setImages((prev) => {
+      const a = [...prev];
+      const [moved] = a.splice(dragIndex, 1);
+      a.splice(targetIndex, 0, moved);
+      return a;
+    });
+    setDragIndex(null);
+  };
+  const onDragEnd = () => setDragIndex(null);
+
   const uploadImage = async (file: File): Promise<string> => {
     // 2026-08-03 fix: null 반환 대신 throw로 상위에서 명시적 실패 처리
     const fileExt = (file.name.split(".").pop() || "bin").toLowerCase();
@@ -454,8 +470,16 @@ export default function EditProductPage() {
               {images.length > 0 && (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mb-4">
                   {images.map((img, index) => (
-                    <div key={index} className="relative group">
-                      <div className={`relative aspect-square rounded-lg overflow-hidden border-2 ${index === 0 ? "border-blue-500" : "border-gray-200"}`}>
+                    <div
+                      key={index}
+                      className={`relative group ${dragIndex === index ? "opacity-40" : ""}`}
+                      draggable
+                      onDragStart={() => onDragStart(index)}
+                      onDragOver={onDragOver}
+                      onDrop={() => onDrop(index)}
+                      onDragEnd={onDragEnd}
+                    >
+                      <div className={`relative aspect-square rounded-lg overflow-hidden border-2 cursor-move ${index === 0 ? "border-blue-500" : "border-gray-200"} hover:border-blue-400`}>
                         <Image src={img.preview} alt={`이미지 ${index + 1}`} fill className="object-cover" unoptimized />
                         {index === 0 && (
                           <div className="absolute top-1 left-1 bg-blue-500 text-white text-xs px-1.5 py-0.5 rounded">메인</div>

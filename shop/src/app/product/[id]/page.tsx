@@ -203,15 +203,34 @@ export default function ProductDetail() {
 
   return (
     <div className="bg-white text-[var(--color-text)]">
-      {/* breadcrumb */}
+      {/* breadcrumb + 뒤로가기 */}
       <nav className="max-w-[1400px] mx-auto px-4 lg:px-8 pt-6 pb-3">
-        <ol className="flex items-center gap-2 text-[11px] tracking-[0.1em] text-[var(--color-text-mute)]">
-          <li><Link href="/" className="hover:text-[var(--color-text)]">HOME</Link></li>
-          <li>›</li>
-          <li><Link href="/?cat=all" className="hover:text-[var(--color-text)] uppercase">{brandLabel}</Link></li>
-          <li>›</li>
-          <li className="text-[var(--color-text)] truncate max-w-[260px]">{displayName}</li>
-        </ol>
+        <div className="flex items-center justify-between gap-4">
+          <ol className="flex items-center gap-2 text-[11px] tracking-[0.1em] text-[var(--color-text-mute)] min-w-0 flex-1">
+            <li><Link href="/" className="hover:text-[var(--color-text)]">HOME</Link></li>
+            <li>›</li>
+            <li><Link href="/?cat=all" className="hover:text-[var(--color-text)] uppercase">{brandLabel}</Link></li>
+            <li>›</li>
+            <li className="text-[var(--color-text)] truncate max-w-[260px]">{displayName}</li>
+          </ol>
+          {/* 뒤로가기 · 이전 페이지(목록·필터·페이지네이션) 상태 유지 */}
+          <button
+            type="button"
+            onClick={() => {
+              // 이전 페이지가 같은 사이트면 뒤로 · 아니면 홈으로
+              if (typeof window !== "undefined" && window.history.length > 1 && document.referrer && new URL(document.referrer).host === window.location.host) {
+                router.back();
+              } else {
+                router.push("/");
+              }
+            }}
+            className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 border border-[var(--color-line)] text-[11px] tracking-[0.15em] text-[var(--color-text-soft)] hover:text-[var(--color-text)] hover:border-[var(--color-text-soft)] transition rounded-full"
+            aria-label={language === "ja" ? "戻る" : "뒤로가기"}
+          >
+            <span>←</span>
+            <span>{language === "ja" ? "戻る" : "뒤로"}</span>
+          </button>
+        </div>
       </nav>
 
       <div className="max-w-[1400px] mx-auto px-4 lg:px-8 pb-20">
@@ -420,7 +439,16 @@ export default function ProductDetail() {
                   </button>
                   {openAcc === k && (
                     <div className="pb-5 text-[12px] text-[var(--color-text-soft)] leading-relaxed">
-                      {accBody[k]}
+                      {k === "info" ? (
+                        // 관리자에서 입력한 줄바꿈(\n) 유지 · 문단(\n\n) 사이 여백
+                        <div className="space-y-3 whitespace-pre-wrap break-words">
+                          {(accBody[k] || "").split(/\n{2,}/).map((para, i) => (
+                            <p key={i} className="whitespace-pre-wrap">{para}</p>
+                          ))}
+                        </div>
+                      ) : (
+                        accBody[k]
+                      )}
                     </div>
                   )}
                 </div>
