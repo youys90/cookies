@@ -127,6 +127,21 @@ export default function NewProductPage() {
     });
   };
 
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const onDragStart = (i: number) => setDragIndex(i);
+  const onDragOver = (e: React.DragEvent) => e.preventDefault();
+  const onDrop = (targetIndex: number) => {
+    if (dragIndex === null || dragIndex === targetIndex) return;
+    setImages((prev) => {
+      const a = [...prev];
+      const [moved] = a.splice(dragIndex, 1);
+      a.splice(targetIndex, 0, moved);
+      return a;
+    });
+    setDragIndex(null);
+  };
+  const onDragEnd = () => setDragIndex(null);
+
   const uploadImage = async (file: File): Promise<string> => {
     // 2026-08-03 fix: 실패 조용히 넘기지 않고 throw (수정 페이지와 일관)
     const fileExt = (file.name.split('.').pop() || 'bin').toLowerCase();
@@ -417,8 +432,16 @@ export default function NewProductPage() {
             {images.length > 0 && (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mb-4">
                 {images.map((img, index) => (
-                  <div key={index} className="relative group">
-                    <div className={`relative aspect-square rounded-lg overflow-hidden border-2 ${index === 0 ? 'border-blue-500' : 'border-gray-200'}`}>
+                  <div
+                    key={index}
+                    className={`relative group ${dragIndex === index ? 'opacity-40' : ''}`}
+                    draggable
+                    onDragStart={() => onDragStart(index)}
+                    onDragOver={onDragOver}
+                    onDrop={() => onDrop(index)}
+                    onDragEnd={onDragEnd}
+                  >
+                    <div className={`relative aspect-square rounded-lg overflow-hidden border-2 cursor-move ${index === 0 ? 'border-blue-500' : 'border-gray-200'} hover:border-blue-400`}>
                       <Image
                         src={img.preview}
                         alt={`이미지 ${index + 1}`}

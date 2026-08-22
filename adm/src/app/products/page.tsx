@@ -73,7 +73,8 @@ export default function ProductsPage() {
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get("cat") || "전체");
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [categories, setCategories] = useState<string[]>([]);
+  // 관리자 = 한국인 · 한국어 표시. 필터링은 name_ja 문자열 기준 (products.category와 일치)
+  const [categories, setCategories] = useState<Array<{ name_ja: string; name_ko: string }>>([]);
 
   // 페이지네이션
   const [currentPage, setCurrentPage] = useState(Number(searchParams.get("page")) || 1);
@@ -152,22 +153,23 @@ export default function ProductsPage() {
     fetchProducts();
   }, [selectedCategory, currentPage, pageSize, searchKeyword]);
 
-  // 카테고리 DB 조회 (지시 15/19: adm은 categories 테이블 관리 체계)
+  // 카테고리 DB 조회 · 최상위만 · 한국어 표시 (필터 값은 name_ja)
   useEffect(() => {
     const fetchCategories = async () => {
       const { data, error } = await supabase
         .from("categories")
-        .select("name_ja, sort_order")
+        .select("name_ja, name_ko, sort_order")
+        .is("parent_id", null)
         .eq("is_active", true)
         .order("sort_order", { ascending: true });
       if (error) {
         console.error("카테고리 조회 실패:", error);
         return;
       }
-      const names = (data || [])
-        .map((c: { name_ja: string | null }) => c.name_ja)
-        .filter((n): n is string => !!n);
-      setCategories(names);
+      const list = (data || [])
+        .filter((c): c is { name_ja: string; name_ko: string; sort_order: number } => !!c.name_ja)
+        .map((c) => ({ name_ja: c.name_ja, name_ko: c.name_ko || c.name_ja }));
+      setCategories(list);
     };
     fetchCategories();
   }, []);
@@ -493,25 +495,34 @@ export default function ProductsPage() {
 
       {/* Filters */}
       <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex items-center space-x-2">
-            <span className="text-sm text-gray-500">카테고리:</span>
-            {["전체", ...categories].map((cat) => (
-              <button
-                key={cat}
-                onClick={() => handleCategoryChange(cat)}
-                className={`px-3 py-1 text-sm rounded-full transition-colors ${
-                  selectedCategory === cat
-                    ? "bg-gray-900 text-white"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
+        <div className="flex flex-col gap-3">
+          {/* 카테고리 필터 · 한국어 · flex-wrap · 여러 줄 자연스럽게 */}
+          <div className="flex items-start gap-2">
+            <span className="text-sm text-gray-500 whitespace-nowrap pt-1.5 flex-shrink-0">카테고리</span>
+            <div className="flex flex-wrap gap-1.5 flex-1">
+              {[{ name_ja: "전체", name_ko: "전체" }, ...categories].map((cat) => {
+                const active = selectedCategory === cat.name_ja;
+                return (
+                  <button
+                    key={cat.name_ja}
+                    onClick={() => handleCategoryChange(cat.name_ja)}
+                    className={`px-3 py-1 text-sm rounded-full transition-colors whitespace-nowrap ${
+                      active
+                        ? "bg-gray-900 text-white shadow-sm"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    }`}
+                    title={cat.name_ja !== cat.name_ko ? cat.name_ja : undefined}
+                  >
+                    {cat.name_ko}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-          <div className="flex items-center space-x-2">
-            <input
+
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center space-x-2">
+              <input
               type="text"
               placeholder="상품명 검색..."
               value={searchInput}
@@ -553,6 +564,7 @@ export default function ProductsPage() {
               </button>
             ))}
           </div>
+        </div>
         </div>
       </div>
 
@@ -812,7 +824,7 @@ export default function ProductsPage() {
       {/* ── 벌크 액션 바 ──────────────────────────── */}
       <BulkActionBar
         count={selectedIds.size}
-        categories={categories}
+        categories={categories.map(c => c.name_ja)}
         onDelete={handleBulkDelete}
         onToggleActive={handleBulkActive}
         onChangeCategory={handleBulkCategory}
