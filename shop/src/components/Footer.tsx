@@ -6,7 +6,7 @@ import { useShopUi } from "@/contexts/ShopUiContext";
 
 export default function Footer() {
   const { isInnerFrame, previewSection } = useShopUi();
-  const spotlight = !isInnerFrame || !previewSection ? "" : previewSection === "footer" ? "relative z-30 outline outline-4 outline-[var(--color-brand)] outline-offset-[-4px]" : "opacity-30";
+  const spotlight = !isInnerFrame || !previewSection ? "" : previewSection === "footer" ? "shop-section-selected" : "shop-section-dimmed";
   const { language, t } = useLanguage();
 
   return (

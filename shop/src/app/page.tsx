@@ -100,7 +100,7 @@ export default function Home() {
   const { config: shopUi, isInnerFrame, previewPage, previewSection } = useShopUi();
   const spotlightClass = (sec: "hero" | "benefits" | "categories" | "footer") => {
     if (!isInnerFrame || !previewSection) return "";
-    return previewSection === sec ? "relative z-30 outline outline-4 outline-[var(--color-brand)] outline-offset-[-4px]" : "opacity-30";
+    return previewSection === sec ? "shop-section-selected" : "shop-section-dimmed";
   };
   const pageSizeOptions = shopUi.pagination.options.length > 0 ? shopUi.pagination.options : DEFAULT_PAGE_SIZE_OPTIONS;
   const defaultPageSize = shopUi.pagination.default || pageSizeOptions[0] || 25;

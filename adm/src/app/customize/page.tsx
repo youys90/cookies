@@ -101,7 +101,7 @@ export default function CustomizePage() {
   const [previewPage, setPreviewPage] = useState<"list" | "detail" | "mainTop">("mainTop");
   // 메인 화면 · 2뎁스 세부 영역 선택 · 사장님 요구 (스포트라이트 UX)
   type MainSection = "promoBar" | "header" | "hero" | "benefits" | "categories" | "footer";
-  const [mainSection, setMainSection] = useState<MainSection>("hero");
+  const [mainSection, setMainSection] = useState<MainSection>("promoBar");
 
   // 임시저장 · 사장님 명시 요청 시에만 저장/불러오기 (자동 감지 없음)
   // 진입 시 · 항상 라이브(활성 프리셋) 값으로 시작 · 임시저장 목록 팝업 없음
@@ -477,7 +477,7 @@ export default function CustomizePage() {
                       <span className="text-xl">🎁</span>
                       <div className="min-w-0">
                         <p className="text-sm font-bold text-gray-900">메인</p>
-                        <p className="text-[10px] text-gray-500">히어로 · 공지 배너 · 상단 영역</p>
+                        <p className="text-[10px] text-gray-500">메인 배너 · 상단바 · 하단바 · 문구띠</p>
                       </div>
                       {previewPage === "mainTop" && <span className="ml-auto text-[10px] font-semibold text-[var(--color-brand-dk)]">● 꾸미는 중</span>}
                     </div>
@@ -592,12 +592,12 @@ export default function CustomizePage() {
                     <div className="p-3">
                       <div className="grid grid-cols-3 gap-1.5">
                         {[
-                          { key: "promoBar" as MainSection, icon: "📣", label: "슬림바", desc: "최상단 슬라이드" },
-                          { key: "header" as MainSection, icon: "🅲", label: "헤더", desc: "로고 · 메뉴" },
-                          { key: "hero" as MainSection, icon: "🖼", label: "히어로", desc: "큰 배너 · 공지" },
-                          { key: "benefits" as MainSection, icon: "🎁", label: "혜택", desc: "무료 배송 등" },
-                          { key: "categories" as MainSection, icon: "🗂", label: "카테고리", desc: "메뉴 탭" },
-                          { key: "footer" as MainSection, icon: "🦶", label: "푸터", desc: "하단 정보" },
+                          { key: "promoBar" as MainSection, icon: "📣", label: "맨 위 문구띠", desc: "슬라이드 안내 문구" },
+                          { key: "header" as MainSection, icon: "🏷", label: "상단바", desc: "로고 · 메뉴" },
+                          { key: "hero" as MainSection, icon: "🖼", label: "메인 배너", desc: "큰 사진 · 공지" },
+                          { key: "benefits" as MainSection, icon: "🎁", label: "혜택 안내", desc: "배송비 무료 등" },
+                          { key: "categories" as MainSection, icon: "🗂", label: "카테고리 메뉴", desc: "상품 분류 탭" },
+                          { key: "footer" as MainSection, icon: "📄", label: "하단바", desc: "회사 정보 · 문의" },
                         ].map((s) => (
                           <button
                             key={s.key}
@@ -708,7 +708,7 @@ export default function CustomizePage() {
                       <div className="flex items-center gap-2">
                         <span className="text-xl">🖼</span>
                         <div>
-                          <h3 className="text-sm font-bold text-gray-900">히어로 · 공지 배너</h3>
+                          <h3 className="text-sm font-bold text-gray-900">메인 배너 · 공지 문구</h3>
                           <p className="text-[11px] text-gray-500">메인 큰 배너 안 · 제목 · 본문 · 하단 인사말 · 글자 선택 → 굵게/색상</p>
                         </div>
                       </div>
@@ -1110,7 +1110,7 @@ export default function CustomizePage() {
                       <div className="flex items-center gap-2">
                         <span className="text-xl">🅲</span>
                         <div>
-                          <h3 className="text-sm font-bold text-gray-900">헤더 · 로고 & 브랜드</h3>
+                          <h3 className="text-sm font-bold text-gray-900">상단바 · 로고 & 브랜드</h3>
                           <p className="text-[11px] text-gray-500">상단 로고 · 브랜드 워드마크 + 짧은 태그라인 (메뉴는 카테고리 관리에서)</p>
                         </div>
                       </div>
@@ -1170,7 +1170,7 @@ export default function CustomizePage() {
                         <div className="flex items-center gap-2">
                           <span className="text-xl">🦶</span>
                           <div>
-                            <h3 className="text-sm font-bold text-gray-900">푸터 · 하단 정보</h3>
+                            <h3 className="text-sm font-bold text-gray-900">하단바 · 회사 정보</h3>
                             <p className="text-[11px] text-gray-500">회사 소개 · 이용약관 · 문의 · 저작권 (편집 기능 · 순차 추가 예정)</p>
                           </div>
                         </div>

@@ -16,7 +16,7 @@ export default function Header() {
   // 스포트라이트 · 현재 선택된 섹션만 밝음 · 나머지는 어둡게 (내가 만지지 않는 곳도 인지)
   const spotlightClass = (sec: "promoBar" | "header") => {
     if (!isInnerFrame || !previewSection) return "";
-    return previewSection === sec ? "relative z-30 outline outline-4 outline-[var(--color-brand)] outline-offset-[-4px]" : "opacity-30";
+    return previewSection === sec ? "shop-section-selected" : "shop-section-dimmed";
   };
   const pathname = usePathname();
   const sp = useSearchParams();

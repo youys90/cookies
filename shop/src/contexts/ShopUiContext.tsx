@@ -118,6 +118,19 @@ export function ShopUiProvider({ children }: { children: ReactNode }) {
     root.style.setProperty("--shop-cat-cols-m", String(config.categoryTabs.columnsMobile));
   }, [config]);
 
+  // 스포트라이트 · 선택된 섹션으로 자동 스크롤 (관리자 미리보기 iframe에서만)
+  useEffect(() => {
+    if (!isInnerFrame || !previewSection || typeof document === "undefined") return;
+    // 살짝 지연 · DOM 갱신 대기
+    const t = setTimeout(() => {
+      const el = document.querySelector(`[data-section="${previewSection}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }, 100);
+    return () => clearTimeout(t);
+  }, [previewSection, isInnerFrame]);
+
   return (
     <ShopUiCtx.Provider value={{ config, loaded, isPreview, previewDevice, isInnerFrame, previewPage, previewSection }}>
       {isPreview && !isInnerFrame && (
