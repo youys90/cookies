@@ -81,7 +81,7 @@ export interface FieldMeta {
   key: string; // config[section][key]
   label: string;
   hint?: string;
-  type: "number" | "boolean" | "select" | "numberList" | "range";
+  type: "number" | "boolean" | "select" | "numberList" | "range" | "counter";
   options?: Array<{ label: string; value: string | number }>;
   min?: number;
   max?: number;
@@ -122,12 +122,8 @@ export const SHOP_UI_SCHEMA: SectionMeta[] = [
     icon: "📦",
     hint: "상품 카드 크기 · 노출 정보 · 배치",
     fields: [
-      { key: "columnsDesktop", label: "한 줄에 몇 개?", type: "select", hint: "모바일은 자동으로 절반 수준으로 조정돼요", options: [
-        { label: "2개", value: 2 }, { label: "3개", value: 3 }, { label: "4개", value: 4 },
-      ]},
-      { key: "columnsMobile", label: "모바일 열 수 · 자동", type: "select", hidden: true, options: [
-        { label: "1개", value: 1 }, { label: "2개", value: 2 }, { label: "3개", value: 3 },
-      ]},
+      { key: "columnsDesktop", label: "한 줄에 몇 개?", type: "counter", min: 1, max: 20, suffix: "개", hint: "모바일은 자동 조정 · 원하는 숫자 직접 입력 가능" },
+      { key: "columnsMobile", label: "모바일 열 수 · 자동", type: "counter", hidden: true, min: 1, max: 20, suffix: "개" },
       { key: "gap", label: "카드 사이 여백", type: "range", min: 0, max: 32, step: 2, suffix: "px" },
       { key: "showName", label: "상품명 보이기", type: "boolean" },
       { key: "showPrice", label: "가격 보이기", type: "boolean" },
@@ -157,12 +153,8 @@ export const SHOP_UI_SCHEMA: SectionMeta[] = [
     icon: "🗂️",
     hint: "화면 상단의 카테고리 버튼 줄",
     fields: [
-      { key: "columnsDesktop", label: "한 줄에 몇 개?", type: "select", hint: "모바일은 자동으로 절반 수준으로 조정돼요", options: [
-        { label: "4개", value: 4 }, { label: "5개", value: 5 }, { label: "6개", value: 6 }, { label: "7개", value: 7 }, { label: "8개", value: 8 }, { label: "10개", value: 10 },
-      ]},
-      { key: "columnsMobile", label: "모바일 열 수 · 자동", type: "select", hidden: true, options: [
-        { label: "3개", value: 3 }, { label: "4개", value: 4 }, { label: "5개", value: 5 },
-      ]},
+      { key: "columnsDesktop", label: "한 줄에 몇 개?", type: "counter", min: 1, max: 20, suffix: "개", hint: "모바일은 자동 조정 · 원하는 숫자 직접 입력 가능" },
+      { key: "columnsMobile", label: "모바일 열 수 · 자동", type: "counter", hidden: true, min: 1, max: 20, suffix: "개" },
       { key: "maxRows", label: "최대 줄 수", type: "select", options: [
         { label: "1줄 (넘치면 가로 스크롤)", value: 1 },
         { label: "2줄까지", value: 2 },

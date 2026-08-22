@@ -94,8 +94,19 @@ function ListView({ config, isMobile }: { config: ShopUiConfig; isMobile: boolea
         </div>
       </div>
 
-      {/* 상품 그리드 */}
+      {/* 상품 그리드 · 실제 shop 배치와 동일 · 페이지 개수는 그리드 위 우측 */}
       <div className="p-3">
+        {/* 페이지 개수 · 실제 shop과 같은 위치 (그리드 상단 오른쪽) */}
+        <div className="flex justify-end items-center gap-1 mb-3 text-[9px] text-gray-400">
+          <span className="mr-1">VIEW</span>
+          {config.pagination.options.map((v, i) => (
+            <span key={v} className="flex items-center">
+              <span className={v === config.pagination.default ? "text-gray-900 underline underline-offset-2 font-semibold" : ""}>{v}</span>
+              {i < config.pagination.options.length - 1 && <span className="mx-1 text-gray-300">|</span>}
+            </span>
+          ))}
+        </div>
+
         <div
           className="grid"
           style={{
@@ -106,13 +117,13 @@ function ListView({ config, isMobile }: { config: ShopUiConfig; isMobile: boolea
           {shownProducts.slice(0, prodCols * 4).map((p, i) => (
             <div key={i}>
               <div
-                className="relative bg-gray-100 overflow-hidden"
+                className="relative bg-gray-50 overflow-hidden flex items-center justify-center"
                 style={{
                   aspectRatio: config.productList.imageAspect === "portrait" ? "4/5" : config.productList.imageAspect === "landscape" ? "4/3" : "1/1",
                   borderRadius: `${config.productList.imageBorderRadius}px`,
                 }}
               >
-                <Image src={p.img} alt="" fill unoptimized className="object-cover" />
+                <Image src={p.img} alt="" fill unoptimized className="object-contain" />
               </div>
               {(config.productList.showName || config.productList.showPrice || config.productList.showCategory) && (
                 <div className="mt-1.5 space-y-0.5">
@@ -131,16 +142,15 @@ function ListView({ config, isMobile }: { config: ShopUiConfig; isMobile: boolea
           ))}
         </div>
 
-        {/* 페이지네이션 */}
-        <div className="flex justify-end items-center gap-1 mt-6 text-[9px] text-gray-400">
-          <span className="mr-1">VIEW</span>
-          {config.pagination.options.map((v, i) => (
-            <span key={v} className="flex items-center">
-              <span className={v === config.pagination.default ? "text-gray-900 underline underline-offset-2 font-semibold" : ""}>{v}</span>
-              {i < config.pagination.options.length - 1 && <span className="mx-1 text-gray-300">|</span>}
-            </span>
-          ))}
+        {/* 하단 페이지 네비게이션 · 실제 shop 하단 페이지 이동과 매칭 */}
+        <div className="flex justify-center items-center gap-2 mt-4 text-[9px] text-gray-400 tracking-widest">
+          <span>&lt; PREV</span>
+          <span className="text-gray-900 font-semibold">1</span>
+          <span>2</span>
+          <span>3</span>
+          <span>NEXT &gt;</span>
         </div>
+
       </div>
     </>
   );

@@ -437,6 +437,47 @@ function FieldControl({ field, value, onChange }: { field: FieldMeta; value: unk
     );
   }
 
+  if (field.type === "counter") {
+    const num = Number(value ?? field.min ?? 1);
+    const min = field.min ?? 1;
+    const max = field.max ?? 20;
+    const set = (n: number) => onChange(Math.max(min, Math.min(max, n)));
+    return (
+      <div>
+        {label}
+        <div className="inline-flex items-center gap-0 rounded-lg border border-gray-300 bg-white overflow-hidden shadow-sm">
+          <button
+            type="button"
+            onClick={() => set(num - 1)}
+            disabled={num <= min}
+            className="px-3 py-1.5 text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
+            title="감소"
+          >
+            ▼
+          </button>
+          <input
+            type="number"
+            value={num}
+            onChange={(e) => set(Number(e.target.value) || min)}
+            min={min}
+            max={max}
+            className="w-16 px-2 py-1.5 text-sm text-center font-semibold text-gray-900 border-x border-gray-200 focus:outline-none focus:bg-blue-50"
+          />
+          <button
+            type="button"
+            onClick={() => set(num + 1)}
+            disabled={num >= max}
+            className="px-3 py-1.5 text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
+            title="증가"
+          >
+            ▲
+          </button>
+          {field.suffix && <span className="px-2 text-sm text-gray-500">{field.suffix}</span>}
+        </div>
+      </div>
+    );
+  }
+
   if (field.type === "numberList") {
     const arr = Array.isArray(value) ? (value as number[]) : [];
     const count = field.count ?? 3;

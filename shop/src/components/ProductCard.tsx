@@ -56,12 +56,12 @@ export default function ProductCard({ product, returnQuery }: ProductCardProps) 
 
   return (
     <Link href={productUrl} className="group">
-      <div className={`relative ${aspectClass} overflow-hidden bg-gray-100`} style={radiusStyle}>
+      <div className={`relative ${aspectClass} overflow-hidden bg-gray-50 flex items-center justify-center`} style={radiusStyle}>
         <Image
           src={product.image}
           alt={getProductName()}
           fill
-          className="object-cover group-hover:scale-105 transition-transform duration-300"
+          className="object-contain group-hover:scale-105 transition-transform duration-300"
           sizes="(max-width: 768px) 50vw, 25vw"
         />
         {product.original_price && (
