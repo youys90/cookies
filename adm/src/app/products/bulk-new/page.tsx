@@ -419,19 +419,49 @@ export default function BulkNewProductsPage() {
                 }`}
               >
                 {row.images.length === 0 ? (
-                  <label className="cursor-pointer flex flex-col items-center justify-center h-full text-center py-4">
-                    <svg className="w-8 h-8 text-gray-400 mb-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                      <path d="M12 15V3M7 8l5-5 5 5M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
-                    </svg>
-                    <p className="text-xs text-gray-500">드래그 또는 클릭</p>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      className="hidden"
-                      onChange={(e) => e.target.files && addImagesToRow(row.key, e.target.files)}
-                    />
-                  </label>
+                  <div className="grid grid-cols-2 gap-2 h-full min-h-[110px]">
+                    {/* 새 사진 업로드 · 좌 */}
+                    <label className="cursor-pointer flex flex-col items-center justify-center text-center border-2 border-dashed border-gray-300 bg-white rounded hover:border-gray-500 hover:bg-gray-50 transition">
+                      <svg className="w-7 h-7 text-gray-400 mb-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <path d="M12 15V3M7 8l5-5 5 5M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
+                      </svg>
+                      <p className="text-[11px] text-gray-600 font-medium leading-tight">사진 올리기</p>
+                      <p className="text-[9px] text-gray-400 mt-0.5">드래그 또는 클릭</p>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        className="hidden"
+                        onChange={(e) => e.target.files && addImagesToRow(row.key, e.target.files)}
+                      />
+                    </label>
+                    {/* 세션 풀에서 선택 · 우 */}
+                    <button
+                      type="button"
+                      onClick={() => sessionPool.length > 0 ? setPickerRowKey(row.key) : sessionBulkInputRef.current?.click()}
+                      className={`flex flex-col items-center justify-center text-center rounded transition ${
+                        sessionPool.length === 0
+                          ? "border-2 border-dashed border-[var(--color-brand)]/50 bg-[var(--color-brand)]/5 text-[var(--color-brand-dk)] hover:bg-[var(--color-brand)]/10"
+                          : "bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-sm hover:shadow-md hover:-translate-y-0.5 border-2 border-emerald-500"
+                      }`}
+                      title={sessionPool.length === 0
+                        ? "여러 장 사진을 한 번에 담아두고 · 여러 상품에서 재사용하세요"
+                        : `담아둔 사진 ${sessionPool.length}장에서 골라 이 상품에 넣기`}
+                    >
+                      <span className="text-2xl leading-none mb-0.5">📸</span>
+                      {sessionPool.length === 0 ? (
+                        <>
+                          <p className="text-[11px] font-semibold leading-tight">사진 미리 담기</p>
+                          <p className="text-[9px] mt-0.5 opacity-90">여러 상품에 재사용</p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-[11px] font-semibold leading-tight">사진 고르기</p>
+                          <p className="text-[9px] mt-0.5 opacity-90">담아둔 {sessionPool.length}장</p>
+                        </>
+                      )}
+                    </button>
+                  </div>
                 ) : (
                   <div className="grid grid-cols-3 gap-1.5">
                     {row.images.map((img, i) => {
