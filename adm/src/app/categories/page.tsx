@@ -341,13 +341,14 @@ export default function CategoriesPage() {
   const roots = tree.get(null) || [];
 
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
+    <div>
+      {/* Header · 상품관리 스타일 통일 */}
+      <div className="flex items-center justify-between mb-8 flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-medium text-gray-900">카테고리 관리</h1>
-          <p className="text-sm text-gray-500 mt-1">하위 뎁스 · 아이콘 · 순서 · 활성 상태 관리</p>
+          <p className="text-sm text-gray-500 mt-1">하위 뎁스 · 아이콘 · 순서 · 활성 상태 관리 · 최상위 {roots.length}개 · 전체 {rows.length}개</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => openCreate(null, true)}
             className="px-4 py-2 bg-purple-700 text-white text-sm rounded-lg hover:bg-purple-800 shadow-sm"

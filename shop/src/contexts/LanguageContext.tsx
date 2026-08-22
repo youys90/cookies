@@ -271,6 +271,15 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     setMounted(true);
+    // 관리자 미리보기 · ?forceLang=ko 파라미터 · 메인 편집 시 강제 한국어 표시
+    if (typeof window !== "undefined") {
+      const forced = new URLSearchParams(window.location.search).get("forceLang");
+      if (forced === "ko" || forced === "ja") {
+        setLanguageState(forced);
+        fetchExchangeRate();
+        return;
+      }
+    }
     const saved = localStorage.getItem("language") as Language;
     if (saved && (saved === "ja" || saved === "ko")) {
       setLanguageState(saved);

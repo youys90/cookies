@@ -9,6 +9,63 @@
 
 // 파괴 감지 · 알파벳/공백/괄호 변형 다 커버 · 대소문자 무관
 const PLACEHOLDER = "★EN★"; // ★EN★ · 유니코드 별 문자 · 번역기가 변형하기 어려움
+// 마크다운 **강조** · 번역 후에도 보존 필요 · ** 그대로 두면 번역기가 제거하거나 공백 삽입해 깨짐
+const BOLD_OPEN = "⟦B⟧";
+const BOLD_CLOSE = "⟦/B⟧";
+
+function protectBold(text: string): string {
+  // **text** → ⟦B⟧text⟦/B⟧ · 안의 text는 그대로 번역됨
+  return text.replace(/\*\*([^*]+)\*\*/g, (_, inner) => `${BOLD_OPEN}${inner}${BOLD_CLOSE}`);
+}
+
+function restoreBold(text: string): string {
+  // ⟦B⟧text⟦/B⟧ → **text** · 마커가 파괴돼도 관용적 매치 시도
+  let result = text;
+  result = result.replace(new RegExp(`${BOLD_OPEN}([\\s\\S]*?)${BOLD_CLOSE}`, "g"), "**$1**");
+  // 파괴된 형태 · ⟦ B ⟧ 등의 여백 삽입 대응
+  result = result.replace(/⟦\s*B\s*⟧([\s\S]*?)⟦\s*\/\s*B\s*⟧/g, "**$1**");
+  // 완전 파괴된 경우 · 남은 ⟦ 관련 문자 제거
+  result = result.replace(/⟦[\s\S]{0,5}⟧/g, "");
+  return result;
+}
+
+// 파라미터 마커 (c/bg/sz/ff) 및 단일 마커 (i/u/s) 보호
+// hex/px/font 값은 별도로 저장 후 · 복원 시 원래 값 삽입
+interface MarkerStash {
+  hexes: string[]; // c
+  bgs: string[]; // bg
+  sizes: string[]; // sz
+  fonts: string[]; // ff
+}
+
+function protectMarkers(text: string): { protectedText: string; stash: MarkerStash } {
+  const stash: MarkerStash = { hexes: [], bgs: [], sizes: [], fonts: [] };
+  let s = text;
+  s = s.replace(/\[c:(#[0-9a-fA-F]{3,8})\]([\s\S]+?)\[\/c\]/g, (_, hex, inner) => { stash.hexes.push(hex); return `⟪C⟫${inner}⟪/C⟫`; });
+  s = s.replace(/\[bg:(#[0-9a-fA-F]{3,8})\]([\s\S]+?)\[\/bg\]/g, (_, hex, inner) => { stash.bgs.push(hex); return `⟪BG⟫${inner}⟪/BG⟫`; });
+  s = s.replace(/\[sz:(\d{1,3})\]([\s\S]+?)\[\/sz\]/g, (_, px, inner) => { stash.sizes.push(px); return `⟪SZ⟫${inner}⟪/SZ⟫`; });
+  s = s.replace(/\[ff:([^\]]+)\]([\s\S]+?)\[\/ff\]/g, (_, name, inner) => { stash.fonts.push(name); return `⟪FF⟫${inner}⟪/FF⟫`; });
+  s = s.replace(/\[i\]([\s\S]+?)\[\/i\]/g, (_, inner) => `⟪I⟫${inner}⟪/I⟫`);
+  s = s.replace(/\[u\]([\s\S]+?)\[\/u\]/g, (_, inner) => `⟪U⟫${inner}⟪/U⟫`);
+  s = s.replace(/\[s\]([\s\S]+?)\[\/s\]/g, (_, inner) => `⟪S⟫${inner}⟪/S⟫`);
+  return { protectedText: s, stash };
+}
+
+function restoreMarkers(text: string, stash: MarkerStash): string {
+  let cIdx = 0, bgIdx = 0, szIdx = 0, ffIdx = 0;
+  let s = text;
+  // 순서 무관 · 각 마커 쌍만 정확히 매칭 · 여백 파괴 대응
+  s = s.replace(/⟪\s*C\s*⟫([\s\S]*?)⟪\s*\/\s*C\s*⟫/g, (_, inner) => { const v = stash.hexes[cIdx++] || "#000000"; return `[c:${v}]${inner}[/c]`; });
+  s = s.replace(/⟪\s*BG\s*⟫([\s\S]*?)⟪\s*\/\s*BG\s*⟫/g, (_, inner) => { const v = stash.bgs[bgIdx++] || "#FFFF00"; return `[bg:${v}]${inner}[/bg]`; });
+  s = s.replace(/⟪\s*SZ\s*⟫([\s\S]*?)⟪\s*\/\s*SZ\s*⟫/g, (_, inner) => { const v = stash.sizes[szIdx++] || "14"; return `[sz:${v}]${inner}[/sz]`; });
+  s = s.replace(/⟪\s*FF\s*⟫([\s\S]*?)⟪\s*\/\s*FF\s*⟫/g, (_, inner) => { const v = stash.fonts[ffIdx++] || "sans-serif"; return `[ff:${v}]${inner}[/ff]`; });
+  s = s.replace(/⟪\s*I\s*⟫([\s\S]*?)⟪\s*\/\s*I\s*⟫/g, (_, inner) => `[i]${inner}[/i]`);
+  s = s.replace(/⟪\s*U\s*⟫([\s\S]*?)⟪\s*\/\s*U\s*⟫/g, (_, inner) => `[u]${inner}[/u]`);
+  s = s.replace(/⟪\s*S\s*⟫([\s\S]*?)⟪\s*\/\s*S\s*⟫/g, (_, inner) => `[s]${inner}[/s]`);
+  // 파괴 잔재 제거
+  s = s.replace(/⟪[\s\S]{0,6}⟫/g, "");
+  return s;
+}
 
 function protectEnglish(text: string): { preserved: string; parts: string[] } {
   const parts: string[] = [];
@@ -68,7 +125,10 @@ export async function translateKoJa(
   const cached = cache.get(ck);
   if (cached) return cached;
 
-  const { preserved, parts } = protectEnglish(text);
+  // 순서 · 확장 마커 보호 → 굵게 마커 보호 → 영단어 보호
+  const { protectedText: markerProtected, stash } = protectMarkers(text);
+  const boldProtected = protectBold(markerProtected);
+  const { preserved, parts } = protectEnglish(boldProtected);
   const expectedPlaceholders = parts.length;
 
   // 1차: Google Translate
@@ -81,7 +141,7 @@ export async function translateKoJa(
     if (translated && translated !== preserved) {
       // placeholder 파괴 감지 시 · MyMemory로 재시도
       if (expectedPlaceholders === 0 || !isPlaceholderBroken(translated, expectedPlaceholders)) {
-        const restored = restoreEnglish(translated, parts);
+        const restored = restoreMarkers(restoreBold(restoreEnglish(translated, parts)), stash);
         cache.set(ck, restored);
         return restored;
       }
@@ -105,7 +165,7 @@ export async function translateKoJa(
       translated !== preserved &&
       (expectedPlaceholders === 0 || !isPlaceholderBroken(translated, expectedPlaceholders))
     ) {
-      const restored = restoreEnglish(translated, parts);
+      const restored = restoreBold(restoreEnglish(translated, parts));
       cache.set(ck, restored);
       return restored;
     }

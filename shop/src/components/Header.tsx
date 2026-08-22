@@ -7,6 +7,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useCart } from "@/contexts/CartContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useShopUi } from "@/contexts/ShopUiContext";
+import { renderInlineFormat } from "@/lib/inlineFormat";
 
 export default function Header() {
   const { totalItems } = useCart();
@@ -20,13 +21,15 @@ export default function Header() {
   // 나머지 편집 대상 (상품 목록/상품 상세) 에서는 · 헤더 숨김 (상단 스크롤 최소화)
   if (isInnerFrame && previewPage !== "mainTop") return null;
 
-  // 슬림바 메시지 · 사장님이 「화면 꾸미기」에서 설정한 문구 우선 · 없으면 언어별 기본값
-  const configuredMsgs = (shopUi.mainTop?.promoBarMessages || []).filter((s) => s.trim().length > 0);
+  // 슬림바 메시지 · 한/일 이중 언어 · language에 따라 선택 · 편집은 관리자에서 한국어로 · 저장 시 일본어 자동 번역
+  const configuredMsgs = (shopUi.mainTop?.promoBarMessages || [])
+    .map((m) => (language === "ja" ? (m.ja || m.ko) : (m.ko || m.ja)))
+    .filter((s) => s && s.trim().length > 0);
   const promoMsgs = configuredMsgs.length > 0
     ? configuredMsgs
     : language === "ja"
       ? ["2026 S/S NEW RELEASE", "2万円以上ご購入で送料無料", "2万円以上ご購入で通関保証無料"]
-      : ["2026 S/S NEW RELEASE", "2만엔 이상 구매 시 배송비 무료", "2만엔 이상 구매 시 통관보장 무료"];
+      : ["2026 S/S 신제품 출시", "2만엔 이상 구매 시 배송비 무료", "2만엔 이상 구매 시 통관보장 무료"];
   const promoBarEnabled = shopUi.mainTop?.promoBarEnabled !== false;
 
   // 메뉴 정의 + active 매처 (현재 URL/쿼리 기준) - 3개 메뉴 (SHOP/REVIEW/BRAND)
@@ -67,8 +70,12 @@ export default function Header() {
               </svg>
             </button>
             <Link href="/" className="flex items-baseline gap-2">
-              <span className="font-serif text-2xl lg:text-[28px] tracking-[0.05em] text-[var(--color-text)] leading-none">CREAM</span>
-              <span className="hidden sm:inline font-serif italic text-[10px] text-[var(--color-text-mute)] leading-none">{language === "ja" ? "little happiness" : "작은 행복"}</span>
+              <span className="font-serif text-2xl lg:text-[28px] tracking-[0.05em] text-[var(--color-text)] leading-none">
+                {renderInlineFormat(shopUi.mainTop.logo.brand || "CREAM")}
+              </span>
+              <span className="hidden sm:inline font-serif italic text-[10px] text-[var(--color-text-mute)] leading-none">
+                {renderInlineFormat(language === "ja" ? (shopUi.mainTop.logo.tagline.ja || shopUi.mainTop.logo.tagline.ko) : (shopUi.mainTop.logo.tagline.ko || shopUi.mainTop.logo.tagline.ja))}
+              </span>
             </Link>
           </div>
 

@@ -201,12 +201,14 @@ export default function SchedulerPage() {
 
   return (
     <div>
-      {/* 헤더 */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-medium text-gray-900">스케쥴러</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          자동화 작업을 관리하고 수동으로 실행할 수 있습니다
-        </p>
+      {/* Header · 상품관리 스타일 통일 */}
+      <div className="flex items-center justify-between mb-8 flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-medium text-gray-900">스케줄러</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            자동화 작업 · 등록된 작업 {SCHEDULER_JOBS.length}개 · 오늘 실행 {Object.values(todayExecuted).filter(Boolean).length}개
+          </p>
+        </div>
       </div>
 
       {/* 스케쥴러 작업 카드 */}

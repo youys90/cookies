@@ -326,21 +326,33 @@ function BulkEditInner() {
   }
 
   return (
-    <div className="pb-8">
-      {/* 헤더 · bulk-new와 완전 동일한 구조 · EDIT 뱃지로 목적만 구분 */}
+    <div className="pb-8 -mx-8 -mt-8 px-8 pt-4 min-h-screen bg-gradient-to-br from-amber-50/60 via-white to-amber-50/40">
+      {/* 수정 모드 · 상단 굵은 앰버 스트라이프 · 개별 편집과 동일 · 실수 방지 */}
+      <div className="-mx-8 -mt-4 mb-0 h-2 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-500 shadow-md"></div>
+
+      {/* 헤더 배너 · 진한 앰버 · 흰 텍스트 · 일괄 수정 임팩트 */}
+      <div className="mt-6 mb-6 relative overflow-hidden rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 shadow-xl">
+        <div className="absolute -right-8 -top-8 w-40 h-40 rounded-full bg-white/10"></div>
+        <div className="absolute -right-4 -bottom-10 w-32 h-32 rounded-full bg-white/5"></div>
+        <div className="absolute left-0 top-4 bottom-4 w-1 bg-white/60 rounded-r-full"></div>
+        <div className="relative px-6 py-5 flex items-center gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center text-3xl shadow-inner">
+            ✏️
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-2xl md:text-3xl font-bold text-white leading-none">상품 일괄 수정 중</h1>
+              <span className="inline-flex items-center bg-white text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded-full tracking-widest uppercase shadow animate-pulse">BULK EDIT</span>
+              <span className="inline-flex items-center bg-white/20 backdrop-blur border border-white/40 text-white text-[11px] font-bold px-2.5 py-0.5 rounded-full">{products.length}개 선택</span>
+            </div>
+            <p className="text-amber-50 text-sm mt-1.5">⚠ 선택하신 상품들을 한 화면에서 수정합니다 · 저장 시 즉시 반영됩니다 · 각 행 이미지 드래그&드롭 가능</p>
+          </div>
+        </div>
+      </div>
+
       <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
         <div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-xl md:text-2xl font-medium text-gray-900">상품 일괄 수정</h1>
-            <span className="text-[11px] font-bold bg-amber-500 text-white px-2 py-0.5 rounded-full tracking-wider">EDIT</span>
-            <span className="text-xs bg-amber-50 text-amber-800 border border-amber-200 rounded-full px-2.5 py-0.5 font-medium">{products.length}개 선택</span>
-          </div>
-          <p className="text-sm text-gray-500 mt-1">
-            선택하신 상품들을 한 화면에서 확인하고 수정합니다. 각 행에 이미지를 드래그&드롭 할 수 있어요.
-          </p>
-          <div className="mt-3">
-            <DraftSaveButton onSave={manualSave} lastSavedAt={lastSavedAt} savedTick={savedTick} />
-          </div>
+          <DraftSaveButton onSave={manualSave} lastSavedAt={lastSavedAt} savedTick={savedTick} />
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {translateMsg && (

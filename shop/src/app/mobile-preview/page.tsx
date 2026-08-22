@@ -10,11 +10,13 @@ function MobilePreviewInner() {
   const sp = useSearchParams();
   const c = sp.get("c") || "";
   const targetPath = sp.get("path") || "/";
+  const forceLang = sp.get("forceLang") || "";
   const inner = new URLSearchParams({
     preview: "draft",
     device: "mobile",
     c,
   });
+  if (forceLang === "ko" || forceLang === "ja") inner.set("forceLang", forceLang);
   // 「미리보기 (새 탭)」 은 실제 매장 그대로 보여야 함 · innerFrame 파라미터 안 붙임 (헤더/마키/공지 다 노출)
   const src = `${targetPath}?${inner.toString()}`;
 

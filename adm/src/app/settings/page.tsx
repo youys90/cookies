@@ -95,10 +95,22 @@ export default function SettingsPage() {
 
   return (
     <div>
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-medium text-gray-900">설정</h1>
-        <p className="text-gray-500 mt-1">LINE 알림 설정을 관리합니다.</p>
+      {/* Header · 상품관리 스타일 통일 */}
+      <div className="flex items-center justify-between mb-8 flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-medium text-gray-900">LINE 알림</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            LINE Bot · 알림 수신자 {notifyUsers.length}명 (승인 {notifyUsers.filter(u => u.is_approved).length}명 · 대기 {notifyUsers.filter(u => !u.is_approved).length}명)
+          </p>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={fetchNotifyUsers}
+            className="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+          >
+            🔄 새로고침
+          </button>
+        </div>
       </div>
 
       {/* Bot Information */}

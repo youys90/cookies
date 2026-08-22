@@ -253,20 +253,22 @@ export default function OrdersPage() {
 
   return (
     <div>
-      {/* Header */}
-      <div className="mb-8 flex justify-between items-center">
+      {/* Header · 상품관리 스타일 통일 */}
+      <div className="flex items-center justify-between mb-8 flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-medium text-gray-900">주문 관리</h1>
           <p className="text-sm text-gray-500 mt-1">
             총 {totalCount}건 중 {totalCount > 0 ? startIndex : 0}-{endIndex}번
           </p>
         </div>
-        <button
-          onClick={fetchOrders}
-          className="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
-        >
-          새로고침
-        </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={fetchOrders}
+            className="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+          >
+            🔄 새로고침
+          </button>
+        </div>
       </div>
 
       {/* Filters */}

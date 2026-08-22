@@ -8,9 +8,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { SHOP_UI_SCHEMA, DEFAULT_CONFIG, mergeWithDefaults, deriveMobileValues, type ShopUiConfig, type FieldMeta } from "@/lib/shopUiSchema";
+import { translateKoJa } from "@/lib/translate";
 import FormActionBar from "@/components/FormActionBar";
 import ShopPreview from "@/components/ShopPreview";
 import DraftSaveButton from "@/components/DraftSaveButton";
+import InlineFormatInput from "@/components/InlineFormatInput";
 import { upsertDraft, deleteDraft, listDrafts } from "@/lib/adminDrafts";
 import { useSearchParams } from "next/navigation";
 
@@ -96,7 +98,7 @@ export default function CustomizePage() {
 
   // 미리보기 기기 (PC / 모바일) · 화면 시각화용
   const [previewDevice, setPreviewDevice] = useState<"desktop" | "mobile">("desktop");
-  const [previewPage, setPreviewPage] = useState<"list" | "detail" | "mainTop">("list");
+  const [previewPage, setPreviewPage] = useState<"list" | "detail" | "mainTop">("mainTop");
 
   // 임시저장 · 사장님 명시 요청 시에만 저장/불러오기 (자동 감지 없음)
   // 진입 시 · 항상 라이브(활성 프리셋) 값으로 시작 · 임시저장 목록 팝업 없음
@@ -130,6 +132,13 @@ export default function CustomizePage() {
   // 부분 저장 · 지금 편집 중인 화면의 섹션만 · 나머지는 서버 원본 유지
   const buildScopedConfig = (scope: "current" | "all"): ShopUiConfig => {
     if (scope === "all") return config;
+    // 메인 화면 (mainTop) 편집 중
+    if (previewPage === "mainTop") {
+      return {
+        ...originalConfig,
+        mainTop: config.mainTop,
+      };
+    }
     // current 편집 화면에 해당하는 섹션만 · 나머지는 originalConfig에서
     if (previewPage === "list") {
       return {
@@ -228,12 +237,54 @@ export default function CustomizePage() {
     setMsg("↺ 현재 적용된 화면으로 돌아갔어요.");
   };
 
+  // ko만 채워지고 ja 비어있으면 자동 번역 · 채워져있으면 유지
+  const autoTranslatePair = async (pair: { ko: string; ja: string }): Promise<{ ko: string; ja: string }> => {
+    if (pair.ko && pair.ko.trim() && (!pair.ja || pair.ja.trim() === "" || pair.ja === pair.ko)) {
+      try {
+        const ja = await translateKoJa(pair.ko, "ko", "ja");
+        return { ko: pair.ko, ja: ja || pair.ko };
+      } catch { return pair; }
+    }
+    return pair;
+  };
+
+  // 저장 직전 · 메인 화면 이중 언어 필드 전부 자동 번역 · 스타일 필드는 그대로 유지
+  const autoTranslateMainTop = async (cfg: ShopUiConfig): Promise<ShopUiConfig> => {
+    const mt = cfg.mainTop;
+    // 프로모 문구
+    const promo = await Promise.all((mt.promoBarMessages || []).map(autoTranslatePair));
+    // 히어로 · 3필드
+    const heroTitle = await autoTranslatePair(mt.hero.title);
+    const heroBody = await autoTranslatePair(mt.hero.body);
+    const heroFooter = await autoTranslatePair(mt.hero.footer);
+    // 혜택 · 항목별 ko→ja · color/bold 유지
+    const benefits = await Promise.all((mt.benefits || []).map(async (b) => {
+      const p = await autoTranslatePair({ ko: b.ko, ja: b.ja });
+      return { ...b, ko: p.ko, ja: p.ja };
+    }));
+    // 로고 · 태그라인
+    const tagline = await autoTranslatePair(mt.logo.tagline);
+    return {
+      ...cfg,
+      mainTop: {
+        ...mt,
+        promoBarMessages: promo,
+        hero: { ...mt.hero, title: heroTitle, body: heroBody, footer: heroFooter },
+        benefits,
+        logo: { ...mt.logo, tagline },
+      },
+    };
+  };
+
   const doSave = async (scope: "current" | "all") => {
     if (!active) return;
-    const finalConfig = buildScopedConfig(scope);
+    let finalConfig = buildScopedConfig(scope);
+    // 메인 화면 이중 언어 필드 · 저장 시 자동 일본어 번역
+    finalConfig = await autoTranslateMainTop(finalConfig);
+    const currentLabel = previewPage === "mainTop" ? "메인" : previewPage === "list" ? "상품 목록" : "상품 상세";
     const scopeLabel = scope === "all"
-      ? "전체 저장 · 상품 목록 화면 + 상품 상세 화면 · 지금 편집한 내용 모두 저장됩니다"
-      : `이번 저장 · 「${previewPage === "list" ? "상품 목록" : "상품 상세"} 화면」만 변경 · 다른 화면 설정은 그대로 유지됩니다`;
+      ? "전체 저장 · 메인 화면 + 상품 목록 화면 + 상품 상세 화면 · 지금 편집한 내용 모두 저장됩니다"
+      : `이번 저장 · 「${currentLabel} 화면」만 변경 · 다른 화면 설정은 그대로 유지됩니다`;
     if (!confirm(`${scopeLabel}\n\n계속하시겠어요?`)) return;
     setSaving(true);
     // 저장 전 · 현재 매장 반영 config를 이전 스냅샷으로 백업 · 「마지막 운영 화면으로 복원」 기능용
@@ -321,6 +372,8 @@ export default function CustomizePage() {
     const targetPath = previewPage === "detail" && sampleProductId
       ? `/product/${sampleProductId}`
       : "/";
+    // 메인 편집 · 한국어 원본 그대로 검수하도록 강제 한국어
+    const forceLangKo = previewPage === "mainTop";
     if (previewDevice === "mobile") {
       // 모바일 · 진짜 모바일 뷰포트로 보려면 iframe으로 폭 강제 필요
       // → shop의 /mobile-preview 페이지에 iframe으로 감싸서 정확한 모바일 렌더
@@ -328,6 +381,7 @@ export default function CustomizePage() {
         c: encoded,
         path: targetPath,
       });
+      if (forceLangKo) params.set("forceLang", "ko");
       window.open(`${SHOP_URL}/mobile-preview?${params.toString()}`, "_blank", "noopener");
     } else {
       // PC · 그냥 매장 열기
@@ -336,6 +390,7 @@ export default function CustomizePage() {
         device: "desktop",
         c: encoded,
       });
+      if (forceLangKo) params.set("forceLang", "ko");
       window.open(`${SHOP_URL}${targetPath}?${params.toString()}`, "_blank", "noopener");
     }
   };
@@ -418,7 +473,7 @@ export default function CustomizePage() {
                     <div className="flex items-center gap-2">
                       <span className="text-xl">🎁</span>
                       <div className="min-w-0">
-                        <p className="text-sm font-bold text-gray-900">메인 상단</p>
+                        <p className="text-sm font-bold text-gray-900">메인</p>
                         <p className="text-[10px] text-gray-500">히어로 · 공지 배너 · 상단 영역</p>
                       </div>
                       {previewPage === "mainTop" && <span className="ml-auto text-[10px] font-semibold text-[var(--color-brand-dk)]">● 꾸미는 중</span>}
@@ -542,34 +597,52 @@ export default function CustomizePage() {
                       </label>
                       {config.mainTop.promoBarEnabled && (
                         <div>
+                          <div className="mb-3 p-2.5 rounded-lg bg-amber-50 border border-amber-200 flex items-start gap-2">
+                            <span className="text-lg leading-none">🌐</span>
+                            <div className="flex-1">
+                              <p className="text-[11px] font-bold text-amber-900">한국어로만 입력해주세요 · 저장 시 일본어는 자동으로 번역돼요</p>
+                              <p className="text-[10px] text-amber-700 mt-0.5">한국어 손님에게는 한국어로 · 일본어 손님에게는 번역된 문구로 자동 노출됩니다.</p>
+                            </div>
+                          </div>
                           <p className="text-xs text-gray-500 mb-2">프로모 문구 · {config.mainTop.promoBarMessages.length}개</p>
                           <div className="space-y-1.5">
                             {config.mainTop.promoBarMessages.map((msg, i) => (
-                              <div key={i} className="flex items-center gap-2">
-                                <input
-                                  type="text"
-                                  value={msg}
-                                  onChange={(e) => {
-                                    const next = [...config.mainTop.promoBarMessages];
-                                    next[i] = e.target.value;
-                                    updateField("mainTop", "promoBarMessages", next);
-                                  }}
-                                  className="flex-1 px-2.5 py-1.5 text-sm border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-[var(--color-brand)]"
-                                />
-                                <button
-                                  onClick={() => {
-                                    const next = config.mainTop.promoBarMessages.filter((_, idx) => idx !== i);
-                                    updateField("mainTop", "promoBarMessages", next);
-                                  }}
-                                  className="p-1.5 text-red-500 hover:bg-red-50 rounded"
-                                  title="이 문구 삭제"
-                                >
-                                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 6l12 12M6 18L18 6" /></svg>
-                                </button>
+                              <div key={i}>
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="text"
+                                    value={msg.ko}
+                                    onChange={(e) => {
+                                      const next = [...config.mainTop.promoBarMessages];
+                                      next[i] = { ko: e.target.value, ja: msg.ja };
+                                      updateField("mainTop", "promoBarMessages", next);
+                                    }}
+                                    placeholder="한국어로 입력 (예: 2만엔 이상 구매 시 배송비 무료)"
+                                    className="flex-1 px-2.5 py-1.5 text-sm border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-[var(--color-brand)]"
+                                  />
+                                  <button
+                                    onClick={() => {
+                                      const next = config.mainTop.promoBarMessages.filter((_, idx) => idx !== i);
+                                      updateField("mainTop", "promoBarMessages", next);
+                                    }}
+                                    className="p-1.5 text-red-500 hover:bg-red-50 rounded"
+                                    title="이 문구 삭제"
+                                  >
+                                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 6l12 12M6 18L18 6" /></svg>
+                                  </button>
+                                </div>
+                                {msg.ko && msg.ko.trim() && (msg.ja && msg.ja !== msg.ko ? (
+                                  <p className="text-[10px] text-blue-600 pl-1 mt-1 flex items-center gap-1">
+                                    <span className="inline-block px-1.5 py-0.5 bg-blue-50 border border-blue-200 rounded text-[9px] font-bold">🇯🇵 번역됨</span>
+                                    <span className="text-gray-600">{msg.ja}</span>
+                                  </p>
+                                ) : (
+                                  <p className="text-[10px] text-gray-400 pl-1 mt-1 italic">💾 저장하면 일본어로 자동 번역됩니다</p>
+                                ))}
                               </div>
                             ))}
                             <button
-                              onClick={() => updateField("mainTop", "promoBarMessages", [...config.mainTop.promoBarMessages, ""])}
+                              onClick={() => updateField("mainTop", "promoBarMessages", [...config.mainTop.promoBarMessages, { ko: "", ja: "" }])}
                               className="w-full mt-1 py-2 text-xs border-2 border-dashed border-gray-300 rounded text-gray-500 hover:border-[var(--color-brand)] hover:text-[var(--color-brand-dk)]"
                             >
                               + 문구 추가
@@ -579,8 +652,449 @@ export default function CustomizePage() {
                       )}
                     </div>
                   </div>
+                  {/* ─── 히어로 · 큰 배너 · 텍스트 3필드 (Word 스타일 인라인 서식) ─── */}
+                  <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl">🖼</span>
+                        <div>
+                          <h3 className="text-sm font-bold text-gray-900">히어로 · 공지 배너</h3>
+                          <p className="text-[11px] text-gray-500">메인 큰 배너 안 · 제목 · 본문 · 하단 인사말 · 글자 선택 → 굵게/색상</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="p-4 space-y-3">
+                      <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 flex items-start gap-2">
+                        <span className="text-lg leading-none">🌐</span>
+                        <div className="flex-1">
+                          <p className="text-[11px] font-bold text-amber-900">한국어로만 입력 · 저장 시 일본어 자동 번역</p>
+                          <p className="text-[10px] text-amber-700 mt-0.5">글자를 <b>드래그로 선택</b> 하고 툴바의 <b>B (굵게)</b> · <b>색상</b> 버튼을 누르면 그 부분에만 서식이 적용돼요.</p>
+                        </div>
+                      </div>
+                      {[
+                        { key: "title", label: "제목 (큰 글씨)", placeholder: "예) 온라인 가격 정책 변경 안내", multi: false },
+                        { key: "body", label: "본문 (안내 문구)", placeholder: "예) 2만엔 이상 구매 시 배송비 무료로 제공합니다.", multi: true },
+                        { key: "footer", label: "하단 인사말", placeholder: "예) 항상 감사합니다.", multi: false },
+                      ].map((f) => {
+                        const v = config.mainTop.hero[f.key as "title" | "body" | "footer"];
+                        return (
+                          <div key={f.key}>
+                            <label className="text-[11px] font-semibold text-gray-700 mb-1 block">{f.label}</label>
+                            <InlineFormatInput
+                              value={v.ko}
+                              onChange={(nv) => {
+                                const nextHero = { ...config.mainTop.hero, [f.key]: { ko: nv, ja: v.ja } };
+                                updateField("mainTop", "hero", nextHero);
+                              }}
+                              placeholder={f.placeholder}
+                              multi={f.multi}
+                              rows={3}
+                            />
+                            {v.ko && v.ko.trim() && (v.ja && v.ja !== v.ko ? (
+                              <p className="text-[10px] text-blue-600 pl-1 mt-1 flex items-start gap-1">
+                                <span className="inline-block px-1.5 py-0.5 bg-blue-50 border border-blue-200 rounded text-[9px] font-bold shrink-0">🇯🇵 번역됨</span>
+                                <span className="text-gray-600 line-clamp-2">{v.ja}</span>
+                              </p>
+                            ) : (
+                              <p className="text-[10px] text-gray-400 pl-1 mt-1 italic">💾 저장하면 일본어로 자동 번역됩니다</p>
+                            ))}
+                          </div>
+                        );
+                      })}
+
+                      {/* ─── 텍스트 박스 배경 · 패널 전체 설정 · 여기는 인라인 아님 ─── */}
+                      <div className="pt-3 mt-3 border-t border-gray-200">
+                        <p className="text-[11px] font-bold text-gray-700 mb-2">📦 텍스트 박스 배경 (히어로 안 반투명 카드)</p>
+                        <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+                          <div>
+                            <label className="text-[10px] text-gray-600 block mb-0.5">배경색</label>
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="color"
+                                value={config.mainTop.hero.boxBgColor || "#FAF7F0"}
+                                onChange={(e) => updateField("mainTop", "hero", { ...config.mainTop.hero, boxBgColor: e.target.value })}
+                                className="w-8 h-8 rounded border border-gray-300 cursor-pointer"
+                              />
+                              <input
+                                type="text"
+                                value={config.mainTop.hero.boxBgColor}
+                                onChange={(e) => updateField("mainTop", "hero", { ...config.mainTop.hero, boxBgColor: e.target.value })}
+                                placeholder="#FAF7F0"
+                                className="flex-1 px-1.5 py-1 text-[11px] font-mono border border-gray-200 rounded"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="text-[10px] text-gray-600 flex items-center justify-between mb-0.5">
+                              <span>투명도</span>
+                              <span className="text-[10px] font-mono text-gray-500">{config.mainTop.hero.boxBgOpacity}%</span>
+                            </label>
+                            <input
+                              type="range"
+                              min={0}
+                              max={100}
+                              step={5}
+                              value={config.mainTop.hero.boxBgOpacity}
+                              onChange={(e) => updateField("mainTop", "hero", { ...config.mainTop.hero, boxBgOpacity: Number(e.target.value) })}
+                              className="w-full h-8 accent-[var(--color-brand)]"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] text-gray-600 flex items-center justify-between mb-0.5">
+                              <span>최대 너비</span>
+                              <span className="text-[10px] font-mono text-gray-500">{config.mainTop.hero.boxMaxWidth}px</span>
+                            </label>
+                            <input
+                              type="range"
+                              min={320}
+                              max={1280}
+                              step={10}
+                              value={config.mainTop.hero.boxMaxWidth}
+                              onChange={(e) => updateField("mainTop", "hero", { ...config.mainTop.hero, boxMaxWidth: Number(e.target.value) })}
+                              className="w-full h-8 accent-[var(--color-brand)]"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] text-gray-600 flex items-center justify-between mb-0.5">
+                              <span>안쪽 여백</span>
+                              <span className="text-[10px] font-mono text-gray-500">{config.mainTop.hero.boxPadding}px</span>
+                            </label>
+                            <input
+                              type="range"
+                              min={0}
+                              max={100}
+                              step={2}
+                              value={config.mainTop.hero.boxPadding}
+                              onChange={(e) => updateField("mainTop", "hero", { ...config.mainTop.hero, boxPadding: Number(e.target.value) })}
+                              className="w-full h-8 accent-[var(--color-brand)]"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] text-gray-600 flex items-center justify-between mb-0.5">
+                              <span>모서리 둥글기</span>
+                              <span className="text-[10px] font-mono text-gray-500">{config.mainTop.hero.boxRadius}px</span>
+                            </label>
+                            <input
+                              type="range"
+                              min={0}
+                              max={48}
+                              step={1}
+                              value={config.mainTop.hero.boxRadius}
+                              onChange={(e) => updateField("mainTop", "hero", { ...config.mainTop.hero, boxRadius: Number(e.target.value) })}
+                              className="w-full h-8 accent-[var(--color-brand)]"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* ─── 배경 이미지 · 레이아웃 + 이미지 슬롯 ─── */}
+                      <div className="pt-3 mt-3 border-t border-gray-200">
+                        <p className="text-[11px] font-bold text-gray-700 mb-2">🖼 배경 이미지 · 레이아웃 (자유 배치)</p>
+                        {/* 레이아웃 프리셋 */}
+                        <div className="mb-3">
+                          <label className="text-[10px] text-gray-600 block mb-1">배치 방식</label>
+                          <div className="grid grid-cols-3 gap-1.5">
+                            {[
+                              { key: "single", label: "단일 (1장)", slots: 1 },
+                              { key: "hero-2col", label: "1+2 (좌 큰 · 우 2)", slots: 3 },
+                              { key: "hero-3col", label: "1+3 (좌 큰 · 우 3)", slots: 4 },
+                              { key: "grid-2x2", label: "2×2 (4장)", slots: 4 },
+                              { key: "mosaic-5", label: "모자이크 (5장)", slots: 5 },
+                              { key: "carousel", label: "슬라이드 (N장)", slots: null },
+                            ].map((p) => (
+                              <button
+                                key={p.key}
+                                type="button"
+                                onClick={() => {
+                                  const nextLayout = p.key as typeof config.mainTop.hero.layout;
+                                  const cur = config.mainTop.hero.images;
+                                  let nextImages = cur;
+                                  if (p.slots !== null && cur.length !== p.slots) {
+                                    // 슬롯 개수 맞추기 · 부족하면 빈 슬롯 추가 · 넘치면 자르지 않고 그대로 (사장님이 삭제)
+                                    if (cur.length < p.slots) {
+                                      nextImages = [...cur, ...Array.from({ length: p.slots - cur.length }, () => ({ url: "", alt: "", link: "", fit: "cover" as const }))];
+                                    }
+                                  }
+                                  updateField("mainTop", "hero", { ...config.mainTop.hero, layout: nextLayout, images: nextImages });
+                                }}
+                                className={`px-2 py-2 text-[11px] rounded-lg border-2 transition text-left ${
+                                  config.mainTop.hero.layout === p.key
+                                    ? "border-[var(--color-brand)] bg-[var(--color-brand)]/8 font-bold text-[var(--color-brand-dk)]"
+                                    : "border-gray-200 bg-white hover:bg-gray-50 text-gray-700"
+                                }`}
+                              >
+                                {p.label}
+                              </button>
+                            ))}
+                          </div>
+                          <p className="text-[10px] text-gray-500 mt-1.5">💡 프리셋 선택 후 · 아래에서 이미지 URL/링크/alt 각각 설정</p>
+                        </div>
+                        {/* 이미지 슬롯 리스트 */}
+                        <div className="space-y-2">
+                          {config.mainTop.hero.images.map((im, i) => (
+                            <div key={i} className="p-2.5 border border-gray-200 rounded-lg bg-gray-50/50">
+                              <div className="flex items-center justify-between mb-1.5">
+                                <span className="text-[10px] font-semibold text-gray-700">사진 #{i + 1}</span>
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (i === 0) return;
+                                      const next = [...config.mainTop.hero.images];
+                                      [next[i - 1], next[i]] = [next[i], next[i - 1]];
+                                      updateField("mainTop", "hero", { ...config.mainTop.hero, images: next });
+                                    }}
+                                    disabled={i === 0}
+                                    className="p-0.5 text-gray-400 hover:text-gray-700 disabled:opacity-30"
+                                    title="위로"
+                                  >▲</button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (i === config.mainTop.hero.images.length - 1) return;
+                                      const next = [...config.mainTop.hero.images];
+                                      [next[i], next[i + 1]] = [next[i + 1], next[i]];
+                                      updateField("mainTop", "hero", { ...config.mainTop.hero, images: next });
+                                    }}
+                                    disabled={i === config.mainTop.hero.images.length - 1}
+                                    className="p-0.5 text-gray-400 hover:text-gray-700 disabled:opacity-30"
+                                    title="아래로"
+                                  >▼</button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const next = config.mainTop.hero.images.filter((_, idx) => idx !== i);
+                                      updateField("mainTop", "hero", { ...config.mainTop.hero, images: next });
+                                    }}
+                                    className="p-0.5 text-red-500 hover:bg-red-50 rounded"
+                                    title="이 사진 삭제"
+                                  >
+                                    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 6l12 12M6 18L18 6" /></svg>
+                                  </button>
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
+                                <div>
+                                  <label className="text-[9px] text-gray-500 block">이미지 URL</label>
+                                  <div className="flex items-center gap-1">
+                                    <input
+                                      type="text"
+                                      value={im.url}
+                                      onChange={(e) => {
+                                        const next = [...config.mainTop.hero.images];
+                                        next[i] = { ...im, url: e.target.value };
+                                        updateField("mainTop", "hero", { ...config.mainTop.hero, images: next });
+                                      }}
+                                      placeholder="/hero-bg.png 또는 https://..."
+                                      className="flex-1 px-2 py-1 text-[11px] border border-gray-200 rounded font-mono focus:outline-none focus:ring-1 focus:ring-[var(--color-brand)]"
+                                    />
+                                    <label className="cursor-pointer px-2 py-1 text-[10px] bg-blue-50 text-blue-700 border border-blue-200 rounded hover:bg-blue-100" title="파일 업로드 (Supabase Storage)">
+                                      📷
+                                      <input
+                                        type="file"
+                                        accept="image/*"
+                                        className="sr-only"
+                                        onChange={async (e) => {
+                                          const file = e.target.files?.[0];
+                                          if (!file) return;
+                                          const path = `hero/${Date.now()}_${file.name.replace(/\s+/g, "_")}`;
+                                          const { error: upErr } = await supabase.storage.from("public-images").upload(path, file, { upsert: false });
+                                          if (upErr) { alert("업로드 실패: " + upErr.message); e.target.value = ""; return; }
+                                          const { data } = supabase.storage.from("public-images").getPublicUrl(path);
+                                          const next = [...config.mainTop.hero.images];
+                                          next[i] = { ...im, url: data.publicUrl };
+                                          updateField("mainTop", "hero", { ...config.mainTop.hero, images: next });
+                                          e.target.value = "";
+                                        }}
+                                      />
+                                    </label>
+                                  </div>
+                                </div>
+                                <div>
+                                  <label className="text-[9px] text-gray-500 block">클릭 시 이동할 링크</label>
+                                  <input
+                                    type="text"
+                                    value={im.link}
+                                    onChange={(e) => {
+                                      const next = [...config.mainTop.hero.images];
+                                      next[i] = { ...im, link: e.target.value };
+                                      updateField("mainTop", "hero", { ...config.mainTop.hero, images: next });
+                                    }}
+                                    placeholder="/?cat=bag · 빈 값이면 링크 없음"
+                                    className="w-full px-2 py-1 text-[11px] border border-gray-200 rounded font-mono focus:outline-none focus:ring-1 focus:ring-[var(--color-brand)]"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-[9px] text-gray-500 block">alt 텍스트 (스크린리더 · SEO)</label>
+                                  <input
+                                    type="text"
+                                    value={im.alt}
+                                    onChange={(e) => {
+                                      const next = [...config.mainTop.hero.images];
+                                      next[i] = { ...im, alt: e.target.value };
+                                      updateField("mainTop", "hero", { ...config.mainTop.hero, images: next });
+                                    }}
+                                    placeholder="예: 크림 컬렉션 대표 이미지"
+                                    className="w-full px-2 py-1 text-[11px] border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-[var(--color-brand)]"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-[9px] text-gray-500 block">비율 처리 (fit)</label>
+                                  <div className="flex items-center gap-1">
+                                    {(["cover", "contain"] as const).map((f) => (
+                                      <button
+                                        key={f}
+                                        type="button"
+                                        onClick={() => {
+                                          const next = [...config.mainTop.hero.images];
+                                          next[i] = { ...im, fit: f };
+                                          updateField("mainTop", "hero", { ...config.mainTop.hero, images: next });
+                                        }}
+                                        className={`flex-1 px-2 py-1 text-[10px] rounded border ${im.fit === f ? "border-[var(--color-brand)] bg-[var(--color-brand)]/8 text-[var(--color-brand-dk)] font-bold" : "border-gray-200 bg-white text-gray-600"}`}
+                                      >
+                                        {f === "cover" ? "꽉 채움" : "비율 유지"}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                              {im.url && (
+                                <div className="mt-1.5 flex items-center gap-1.5">
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img src={im.url} alt={im.alt || `preview ${i + 1}`} className="w-14 h-14 object-cover rounded border border-gray-200" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                                  <span className="text-[9px] text-gray-400 truncate flex-1">{im.url}</span>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const next = [...config.mainTop.hero.images, { url: "", alt: "", link: "", fit: "cover" as const }];
+                              updateField("mainTop", "hero", { ...config.mainTop.hero, images: next });
+                            }}
+                            className="w-full py-2 text-xs border-2 border-dashed border-gray-300 rounded text-gray-500 hover:border-[var(--color-brand)] hover:text-[var(--color-brand-dk)]"
+                          >
+                            + 사진 추가
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ─── 혜택 강조 · 슬림 배너 항목 ─── */}
+                  <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl">🎁</span>
+                        <div>
+                          <h3 className="text-sm font-bold text-gray-900">혜택 강조 배너</h3>
+                          <p className="text-[11px] text-gray-500">히어로 아래 · 아이콘 옆 짧은 문구 (예: 배송비 무료)</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="p-4 space-y-3">
+                      <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 flex items-start gap-2">
+                        <span className="text-lg leading-none">🌐</span>
+                        <p className="text-[11px] font-bold text-amber-900">한국어 · 영문 서브 라벨 입력 · 일본어는 자동 번역</p>
+                      </div>
+                      {config.mainTop.benefits.map((b, i) => (
+                        <div key={i} className="p-3 border border-gray-200 rounded-lg space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-semibold text-gray-700">혜택 #{i + 1}</span>
+                            <button
+                              onClick={() => {
+                                const next = config.mainTop.benefits.filter((_, idx) => idx !== i);
+                                updateField("mainTop", "benefits", next);
+                              }}
+                              className="p-1 text-red-500 hover:bg-red-50 rounded"
+                              title="이 혜택 삭제"
+                            >
+                              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 6l12 12M6 18L18 6" /></svg>
+                            </button>
+                          </div>
+                          <InlineFormatInput
+                            value={b.ko}
+                            onChange={(nv) => {
+                              const next = [...config.mainTop.benefits];
+                              next[i] = { ...b, ko: nv };
+                              updateField("mainTop", "benefits", next);
+                            }}
+                            placeholder="한국어 라벨 (예: 배송비 무료)"
+                          />
+                          <input
+                            type="text"
+                            value={b.en}
+                            onChange={(e) => {
+                              const next = [...config.mainTop.benefits];
+                              next[i] = { ...b, en: e.target.value };
+                              updateField("mainTop", "benefits", next);
+                            }}
+                            placeholder="영문 서브 라벨 (예: FREE SHIPPING)"
+                            className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-[var(--color-brand)] uppercase tracking-widest"
+                          />
+                          {b.ko && b.ko.trim() && (b.ja && b.ja !== b.ko ? (
+                            <p className="text-[10px] text-blue-600 flex items-center gap-1">
+                              <span className="inline-block px-1.5 py-0.5 bg-blue-50 border border-blue-200 rounded text-[9px] font-bold">🇯🇵 번역됨</span>
+                              <span className="text-gray-600">{b.ja}</span>
+                            </p>
+                          ) : (
+                            <p className="text-[10px] text-gray-400 italic">💾 저장하면 일본어로 자동 번역됩니다</p>
+                          ))}
+                        </div>
+                      ))}
+                      <button
+                        onClick={() => updateField("mainTop", "benefits", [...config.mainTop.benefits, { ko: "", ja: "", en: "", color: "", bold: false }])}
+                        className="w-full py-2 text-xs border-2 border-dashed border-gray-300 rounded text-gray-500 hover:border-[var(--color-brand)] hover:text-[var(--color-brand-dk)]"
+                      >
+                        + 혜택 추가
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* ─── 로고 · 브랜드명 (영문 고정) + 태그라인 (한/일) ─── */}
+                  <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl">🅲</span>
+                        <div>
+                          <h3 className="text-sm font-bold text-gray-900">로고 · 브랜드</h3>
+                          <p className="text-[11px] text-gray-500">헤더 좌측 로고 · 브랜드 워드마크 + 옆의 짧은 태그라인</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="p-4 space-y-3">
+                      <div>
+                        <label className="text-[11px] font-semibold text-gray-700 mb-1 block">브랜드 워드마크 (영문 · 언어 관계 없이 고정)</label>
+                        <InlineFormatInput
+                          value={config.mainTop.logo.brand}
+                          onChange={(nv) => updateField("mainTop", "logo", { ...config.mainTop.logo, brand: nv })}
+                          placeholder="예) CREAM"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[11px] font-semibold text-gray-700 mb-1 block">태그라인 (한국어) · 저장 시 일본어 자동 번역</label>
+                        <InlineFormatInput
+                          value={config.mainTop.logo.tagline.ko}
+                          onChange={(nv) => updateField("mainTop", "logo", { ...config.mainTop.logo, tagline: { ko: nv, ja: config.mainTop.logo.tagline.ja } })}
+                          placeholder="예) 작은 행복"
+                        />
+                        {config.mainTop.logo.tagline.ko && config.mainTop.logo.tagline.ko.trim() && (
+                          config.mainTop.logo.tagline.ja && config.mainTop.logo.tagline.ja !== config.mainTop.logo.tagline.ko ? (
+                            <p className="text-[10px] text-blue-600 pl-1 mt-1 flex items-center gap-1">
+                              <span className="inline-block px-1.5 py-0.5 bg-blue-50 border border-blue-200 rounded text-[9px] font-bold">🇯🇵 번역됨</span>
+                              <span className="text-gray-600">{config.mainTop.logo.tagline.ja}</span>
+                            </p>
+                          ) : (
+                            <p className="text-[10px] text-gray-400 pl-1 mt-1 italic">💾 저장하면 일본어로 자동 번역됩니다</p>
+                          )
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-[11px] text-amber-800">
-                    ℹ 히어로 · 공지 배너 · 혜택 · 헤더 메뉴 · 로고 편집은 순차 추가 예정
+                    ℹ 헤더 메뉴 (SHOP · REVIEW · BRAND) 는 카테고리 관리에서 통합 편집 예정
                   </div>
                 </>
               )}
@@ -628,7 +1142,7 @@ export default function CustomizePage() {
               <div className="sticky top-6 space-y-3">
                 <div className="flex items-center justify-between bg-white rounded-xl border border-gray-200 px-3 py-2">
                   <div className="text-xs font-semibold text-gray-700">
-                    🔴 {previewPage === "list" ? "상품 목록" : "상품 상세"} 미리보기 · {previewDevice === "desktop" ? "PC" : "모바일"}
+                    🔴 {previewPage === "mainTop" ? "메인" : previewPage === "list" ? "상품 목록" : "상품 상세"} 미리보기 · {previewDevice === "desktop" ? "PC" : "모바일"}
                   </div>
                   <div className="text-[10px] text-gray-400">위에서 화면 선택</div>
                 </div>
@@ -642,7 +1156,9 @@ export default function CustomizePage() {
             status={(() => {
               if (msg) return <span className="text-emerald-700 font-medium">{msg}</span>;
               if (!dirty) return <span>변경사항 없음</span>;
-              // 화면별 실제 dirty 여부 · 상품 목록/상품 상세 각각 판정
+              // 화면별 실제 dirty 여부 · 메인/상품 목록/상품 상세 각각 판정
+              const mainTopDirty =
+                JSON.stringify(config.mainTop) !== JSON.stringify(originalConfig.mainTop);
               const listDirty =
                 JSON.stringify(config.productList) !== JSON.stringify(originalConfig.productList) ||
                 JSON.stringify(config.pagination) !== JSON.stringify(originalConfig.pagination) ||
@@ -652,6 +1168,11 @@ export default function CustomizePage() {
               return (
                 <span className="text-amber-700 inline-flex items-center gap-2 flex-wrap">
                   🔸 저장하지 않은 변경사항이 있어요
+                  {mainTopDirty && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-100 border border-amber-200 rounded-full text-[11px] font-medium text-amber-800">
+                      📣 메인
+                    </span>
+                  )}
                   {listDirty && (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-100 border border-amber-200 rounded-full text-[11px] font-medium text-amber-800">
                       🛍 상품 목록

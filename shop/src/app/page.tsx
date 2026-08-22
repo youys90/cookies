@@ -11,6 +11,7 @@ import { supabase } from "@/lib/supabase";
 import { BuiltinCategoryIcon, isBuiltinIcon, guessIconKey } from "@/lib/category-icons";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useShopUi } from "@/contexts/ShopUiContext";
+import { renderInlineFormat } from "@/lib/inlineFormat";
 
 interface Product {
   id: number;
@@ -400,113 +401,135 @@ export default function Home() {
 
   return (
     <div className="bg-white text-[var(--color-text)]">
-      {/* ─── 히어로 (큰 비주얼 모자이크: BEST 3개 상품 활용) ─── · 미리보기 iframe에서는 「메인 상단」 편집 중일 때만 노출 */}
-      {(!isInnerFrame || previewPage === "mainTop") && (
+      {/* ─── 히어로 · 관리자 설정 레이아웃/이미지 · 미리보기 iframe에서는 「메인」 편집 중일 때만 노출 ─── */}
+      {(!isInnerFrame || previewPage === "mainTop") && (() => {
+        const hero = shopUi.mainTop.hero;
+        const layout = hero.layout;
+        const imgs = hero.images;
+        // 슬롯 그리드 클래스 · 첫 슬롯이 큰 이미지 + 텍스트 오버레이 · 나머지는 우측 세로 스택 (또는 격자)
+        const slotClass: Record<string, string[]> = {
+          "single": ["md:col-span-3 md:row-span-2"],
+          "hero-2col": ["md:col-span-2 md:row-span-2", "hidden md:block", "hidden md:block"],
+          "hero-3col": ["md:col-span-2 md:row-span-3", "hidden md:block", "hidden md:block", "hidden md:block"],
+          "grid-2x2": ["md:col-span-1 md:row-span-1", "md:col-span-1 md:row-span-1", "md:col-span-1 md:row-span-1", "md:col-span-1 md:row-span-1"],
+          "mosaic-5": ["md:col-span-2 md:row-span-2", "hidden md:block", "hidden md:block", "hidden md:block md:col-span-1", "hidden md:block md:col-span-1"],
+          "carousel": imgs.map(() => "md:col-span-3 md:row-span-2"),
+        };
+        const gridCols = layout === "grid-2x2" ? "md:grid-cols-2 md:grid-rows-2" : layout === "hero-3col" || layout === "mosaic-5" ? "md:grid-cols-3 md:grid-rows-3" : "md:grid-cols-3 md:grid-rows-2";
+        return (
       <section className="bg-white">
         <div className="max-w-[1400px] mx-auto px-4 lg:px-8 pt-6 lg:pt-8 pb-10 lg:pb-12">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 lg:gap-4 h-[420px] md:h-[560px] lg:h-[640px]">
-            {/* 좌 큰 비주얼 + 카피 오버레이 */}
-            <Link href="/?cat=all" className="relative md:col-span-2 row-span-2 bg-[var(--color-bg-cream)] overflow-hidden group">
-              {/* 히어로 배경: 사장님 지정 고정 이미지 (public/hero-bg.png) */}
-              <Image src="/hero-bg.png" alt="hero" fill className="object-cover group-hover:scale-[1.02] transition-transform duration-700" sizes="(max-width: 768px) 100vw, 66vw" priority />
+          <div className={`grid grid-cols-1 ${gridCols} gap-3 lg:gap-4 h-[420px] md:h-[560px] lg:h-[640px]`}>
+            {/* 첫 슬롯 · 큰 이미지 + 텍스트 오버레이 */}
+            {imgs[0] && (
+            <Link href={imgs[0].link || "/?cat=all"} className={`relative bg-[var(--color-bg-cream)] overflow-hidden group ${(slotClass[layout] || slotClass["hero-2col"])[0] || ""}`}>
+              {imgs[0].url && (
+                <Image src={imgs[0].url} alt={imgs[0].alt || "hero"} fill className={`${imgs[0].fit === "contain" ? "object-contain" : "object-cover"} group-hover:scale-[1.02] transition-transform duration-700`} sizes="(max-width: 768px) 100vw, 66vw" priority />
+              )}
 
               {/* 히어로 안 오버레이: 크림 톤 정책 안내 (크림디자인팀 시안 A) */}
               <div className="absolute inset-0 bg-gradient-to-b from-white/10 via-white/5 to-white/20" />
+              <div className="absolute inset-0 bg-gradient-to-b from-white/10 via-white/5 to-white/20" />
               <div className="absolute inset-0 flex items-center justify-center px-4 md:px-8 lg:px-12">
-                <div className="relative text-center w-[calc(100%-1rem)] md:w-[calc(100%-3rem)] max-w-[720px] md:max-w-[820px] lg:max-w-[920px] bg-[var(--color-bg-cream)]/70 backdrop-blur-lg border border-white/40 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.25)] rounded-sm px-3 md:px-9 lg:px-14 py-5 md:py-11 lg:py-14 overflow-hidden before:absolute before:inset-0 before:bg-gradient-to-b before:from-white/25 before:via-transparent before:to-[var(--color-bg-cream)]/30 before:pointer-events-none [&>*]:relative">
-                  <h2 className="font-serif font-medium text-[15px] md:text-[30px] lg:text-[46px] leading-[1.35] md:leading-[1.25] tracking-[0.02em] mb-3 md:mb-7 text-[var(--color-text)] [word-break:keep-all] [overflow-wrap:break-word]">
-                    {language === "ja" ? "オンライン価格ポリシー変更のお知らせ" : "온라인 가격 정책 변경 안내"}
-                  </h2>
-                  <div className="text-[10.5px] md:text-[15px] lg:text-[17px] leading-[1.75] md:leading-[1.85] font-medium text-[var(--color-text)] space-y-2 md:space-y-3 [word-break:keep-all] [overflow-wrap:break-word]">
-                    {language === "ja" ? (
-                      <>
-                        <p>
-                          ご利用の便宜のため、<b className="font-bold text-[var(--color-point)]">2万円以上のご購入で送料と通関保証費用を無料</b>でご提供いたします。
-                        </p>
-                        <p>これに伴い、一部のオンライン商品の販売価格が若干調整されます。</p>
-                        <p>店舗に直接お越しのお客様には、従来通り店舗価格にて販売しております。</p>
-                      </>
-                    ) : (
-                      <>
-                        <p>
-                          이용 편의를 위해 <b className="font-bold text-[var(--color-point)]">2만엔 이상 구매 시 배송비와 통관보장 비용을 무료</b>로 제공합니다.
-                        </p>
-                        <p>이에 따라 일부 온라인 상품의 판매 가격이 소폭 조정됩니다.</p>
-                        <p>매장에 직접 방문하시는 고객님께는 기존 매장 가격 그대로 판매됩니다.</p>
-                      </>
-                    )}
-                  </div>
-                  <p className="mt-4 md:mt-8 text-[10px] md:text-[13px] lg:text-[15px] tracking-[0.18em] md:tracking-[0.28em] font-semibold text-[var(--color-text)] [word-break:keep-all] [overflow-wrap:break-word]">
-                    {language === "ja" ? "いつもご愛顧いただきありがとうございます." : "항상 감사합니다."}
-                  </p>
-                </div>
+                {(() => {
+                  const pick = (p: { ko: string; ja: string }) => language === "ja" ? (p.ja || p.ko) : (p.ko || p.ja);
+                  const titleText = pick(hero.title);
+                  const bodyText = pick(hero.body);
+                  const footerText = pick(hero.footer);
+                  const hexToRgba = (hex: string, opacity: number) => {
+                    if (!/^#[0-9a-f]{6}$/i.test(hex)) return "";
+                    const r = parseInt(hex.slice(1, 3), 16);
+                    const g = parseInt(hex.slice(3, 5), 16);
+                    const b = parseInt(hex.slice(5, 7), 16);
+                    return `rgba(${r}, ${g}, ${b}, ${Math.max(0, Math.min(100, opacity)) / 100})`;
+                  };
+                  const boxBg = hexToRgba(hero.boxBgColor || "#FAF7F0", hero.boxBgOpacity ?? 70) || "rgba(250, 247, 240, 0.7)";
+                  return (
+                    <div
+                      className="relative text-center w-[calc(100%-1rem)] backdrop-blur-lg border border-white/40 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.25)] overflow-hidden [&>*]:relative"
+                      style={{
+                        background: boxBg,
+                        maxWidth: `${hero.boxMaxWidth || 820}px`,
+                        padding: `${hero.boxPadding ?? 44}px`,
+                        borderRadius: `${hero.boxRadius ?? 4}px`,
+                      }}
+                    >
+                      <h2 className="font-serif font-medium text-[15px] md:text-[30px] lg:text-[46px] leading-[1.35] md:leading-[1.25] tracking-[0.02em] mb-3 md:mb-7 text-[var(--color-text)] [word-break:keep-all] [overflow-wrap:break-word]">
+                        {renderInlineFormat(titleText)}
+                      </h2>
+                      <div className="text-[10.5px] md:text-[15px] lg:text-[17px] leading-[1.75] md:leading-[1.85] font-medium text-[var(--color-text)] space-y-2 md:space-y-3 [word-break:keep-all] [overflow-wrap:break-word] whitespace-pre-line">
+                        {renderInlineFormat(bodyText)}
+                      </div>
+                      <p className="mt-4 md:mt-8 text-[10px] md:text-[13px] lg:text-[15px] tracking-[0.18em] md:tracking-[0.28em] font-semibold text-[var(--color-text)] [word-break:keep-all] [overflow-wrap:break-word]">
+                        {renderInlineFormat(footerText)}
+                      </p>
+                    </div>
+                  );
+                })()}
               </div>
             </Link>
+            )}
 
-            {/* 우 상단 */}
-            <Link href="/?cat=acc" className="relative bg-[var(--color-bg-soft)] overflow-hidden group hidden md:block">
-              {heroItems[1]?.image ? (
-                <Image src={heroItems[1].image} alt="acc" fill className="object-cover group-hover:scale-[1.04] transition-transform duration-700" sizes="33vw" />
-              ) : (
-                <div className="w-full h-full" />
-              )}
-              <div className="absolute left-5 bottom-5 text-white">
-                <p className="text-[10px] tracking-[0.3em] opacity-90 mb-1">CATEGORY</p>
-                <p className="font-serif text-[22px] lg:text-[26px] leading-none">ACC</p>
-              </div>
-              <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
-            </Link>
-
-            {/* 우 하단 */}
-            <Link href="/?cat=bag" className="relative bg-[var(--color-bg-soft)] overflow-hidden group hidden md:block">
-              {heroItems[2]?.image ? (
-                <Image src={heroItems[2].image} alt="bag" fill className="object-cover group-hover:scale-[1.04] transition-transform duration-700" sizes="33vw" />
-              ) : (
-                <div className="w-full h-full" />
-              )}
-              <div className="absolute left-5 bottom-5 text-white">
-                <p className="text-[10px] tracking-[0.3em] opacity-90 mb-1">CATEGORY</p>
-                <p className="font-serif text-[22px] lg:text-[26px] leading-none">BAG</p>
-              </div>
-              <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
-            </Link>
+            {/* 나머지 슬롯 · 배열 순회 · 각 이미지 URL/링크/fit 반영 */}
+            {imgs.slice(1).map((im, i) => (
+              <Link key={i + 1} href={im.link || "#"} className={`relative bg-[var(--color-bg-soft)] overflow-hidden group ${(slotClass[layout] || slotClass["hero-2col"])[i + 1] || "hidden md:block"}`}>
+                {im.url ? (
+                  <Image src={im.url} alt={im.alt || `slot-${i + 2}`} fill className={`${im.fit === "contain" ? "object-contain" : "object-cover"} group-hover:scale-[1.04] transition-transform duration-700`} sizes="33vw" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-gray-300 text-sm">이미지 없음</div>
+                )}
+                {im.alt && (
+                  <>
+                    <div className="absolute left-5 bottom-5 text-white">
+                      <p className="text-[10px] tracking-[0.3em] opacity-90 mb-1">CATEGORY</p>
+                      <p className="font-serif text-[22px] lg:text-[26px] leading-none uppercase">{im.alt}</p>
+                    </div>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+                  </>
+                )}
+              </Link>
+            ))}
           </div>
         </div>
       </section>
-      )}
+        );
+      })()}
 
-      {/* ─── 무료 혜택 강조 (슬림) ─── · 「메인 상단」 편집 중일 때만 노출 */}
-      {(!isInnerFrame || previewPage === "mainTop") && (
+      {/* ─── 혜택 강조 (슬림) ─── · 「메인」 편집 중일 때만 노출 · 항목 수 · 아이콘은 슬롯 기반 (0=배송, 1=통관보장, 그 외=원형 별) */}
+      {(!isInnerFrame || previewPage === "mainTop") && shopUi.mainTop.benefits.length > 0 && (
       <section className="bg-[var(--color-bg-cream)] border-y border-[var(--color-line-soft)]">
         <div className="max-w-[1400px] mx-auto px-4 lg:px-8 py-5 md:py-7">
-          <div className="flex items-center justify-center gap-6 md:gap-16">
-            <div className="flex items-center gap-2 md:gap-3">
-              <svg className="w-6 h-6 md:w-8 md:h-8 text-[var(--color-text)]" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <path d="M3 8h14v14H3z" />
-                <path d="M17 12h6l4 5v5h-10V12z" />
-                <circle cx="8" cy="24" r="2.5" fill="currentColor" />
-                <circle cx="22" cy="24" r="2.5" fill="currentColor" />
-              </svg>
-              <div className="text-left">
-                <p className="font-serif text-[13px] md:text-[16px] leading-tight text-[var(--color-text)] tracking-wide">
-                  {language === "ja" ? "送料無料" : "배송비 무료"}
-                </p>
-                <p className="text-[9px] md:text-[10px] text-[var(--color-text-mute)] tracking-widest mt-0.5">FREE SHIPPING</p>
+          <div className="flex items-center justify-center gap-6 md:gap-16 flex-wrap">
+            {shopUi.mainTop.benefits.map((b, i) => (
+              <div key={i} className="flex items-center gap-4 md:gap-6">
+                {i > 0 && <div className="hidden md:block w-px h-10 md:h-12 bg-[var(--color-line)] -ml-6 md:-ml-10" />}
+                <div className="flex items-center gap-2 md:gap-3">
+                  <svg className="w-6 h-6 md:w-8 md:h-8 text-[var(--color-text)]" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    {i === 0 ? (
+                      <>
+                        <path d="M3 8h14v14H3z" />
+                        <path d="M17 12h6l4 5v5h-10V12z" />
+                        <circle cx="8" cy="24" r="2.5" fill="currentColor" />
+                        <circle cx="22" cy="24" r="2.5" fill="currentColor" />
+                      </>
+                    ) : i === 1 ? (
+                      <>
+                        <path d="M16 3l11 4v9c0 7-5 12-11 13-6-1-11-6-11-13V7l11-4z" />
+                        <path d="M11 16l4 4 6-7" />
+                      </>
+                    ) : (
+                      <circle cx="16" cy="16" r="10" />
+                    )}
+                  </svg>
+                  <div className="text-left">
+                    <p className="font-serif text-[13px] md:text-[16px] leading-tight text-[var(--color-text)] tracking-wide">
+                      {renderInlineFormat(language === "ja" ? (b.ja || b.ko) : (b.ko || b.ja))}
+                    </p>
+                    {b.en && <p className="text-[9px] md:text-[10px] text-[var(--color-text-mute)] tracking-widest mt-0.5">{b.en}</p>}
+                  </div>
+                </div>
               </div>
-            </div>
-            <div className="w-px h-10 md:h-12 bg-[var(--color-line)]" />
-            <div className="flex items-center gap-2 md:gap-3">
-              <svg className="w-6 h-6 md:w-8 md:h-8 text-[var(--color-text)]" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <path d="M16 3l11 4v9c0 7-5 12-11 13-6-1-11-6-11-13V7l11-4z" />
-                <path d="M11 16l4 4 6-7" />
-              </svg>
-              <div className="text-left">
-                <p className="font-serif text-[13px] md:text-[16px] leading-tight text-[var(--color-text)] tracking-wide">
-                  {language === "ja" ? "通関保証無料" : "통관보장 무료"}
-                </p>
-                <p className="text-[9px] md:text-[10px] text-[var(--color-text-mute)] tracking-widest mt-0.5">CUSTOMS COVERED</p>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
       </section>
@@ -625,7 +648,7 @@ export default function Home() {
           <div className="bg-gray-100 border-2 border-dashed border-gray-300 rounded-2xl p-10 text-center">
             <p className="text-3xl mb-2">📦</p>
             <p className="text-sm font-bold text-gray-700 mb-1">상품 목록 영역 (편집 대상 아님)</p>
-            <p className="text-xs text-gray-500">현재 「메인 상단」을 꾸미고 있어요 · 상품 목록/카테고리는 별도 화면에서 편집</p>
+            <p className="text-xs text-gray-500">현재 「메인」을 꾸미고 있어요 · 상품 목록/카테고리는 별도 화면에서 편집</p>
           </div>
         </div>
       )}

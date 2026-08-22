@@ -54,6 +54,8 @@ export default function ShopPreview({ config, device, page, sampleProductId }: P
       innerFrame: "1",
       previewPage: page, // shop이 어느 화면 편집 중인지 알고 · 관련 영역만 노출
     });
+    // 메인 편집 미리보기 · 관리자가 편집한 한국어 원본 그대로 검수하도록 강제 한국어
+    if (page === "mainTop") params.set("forceLang", "ko");
     return `${SHOP_URL}${path}?${params.toString()}`;
   }, [debouncedConfig, device, page, sampleProductId]);
 
