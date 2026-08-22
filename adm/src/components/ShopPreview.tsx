@@ -93,13 +93,23 @@ export default function ShopPreview({ config, device, page, sampleProductId, sec
   // PC 모드에서 · wrapper 폭 감지해 scale 자동 계산
   // 콜백 ref · device 전환 시 wrapper가 언마운트/재마운트되어도 · 새 DOM에 옵저버 재부착됨
   const [wrapperEl, setWrapperEl] = useState<HTMLDivElement | null>(null);
+  // 초기값 · 첫 렌더에 iframe 안 보이지 않도록 최소한의 폭 확보
   const [wrapperWidth, setWrapperWidth] = useState(800);
   useEffect(() => {
     if (!wrapperEl) return;
-    // 즉시 폭 측정 (옵저버 첫 콜백 전에도 값 세팅)
-    setWrapperWidth(wrapperEl.getBoundingClientRect().width);
+    // 즉시 폭 측정 · 0이면 무시하고 다음 프레임에 다시 측정 (레이아웃 대기)
+    const measure = () => {
+      const w = wrapperEl.getBoundingClientRect().width;
+      // 0 방어 · width가 0이면 유지 (다음 프레임에 다시 시도)
+      if (w > 0) setWrapperWidth(w);
+      else requestAnimationFrame(measure);
+    };
+    measure();
     const ro = new ResizeObserver((entries) => {
-      for (const e of entries) setWrapperWidth(e.contentRect.width);
+      for (const e of entries) {
+        const w = e.contentRect.width;
+        if (w > 0) setWrapperWidth(w);
+      }
     });
     ro.observe(wrapperEl);
     return () => ro.disconnect();
@@ -147,7 +157,7 @@ export default function ShopPreview({ config, device, page, sampleProductId, sec
         <div className="text-[9px] text-gray-400">🖥 PC · {PC_VIEWPORT_WIDTH}px ({Math.round(scale * 100)}% 축소 미리보기)</div>
       </div>
       <div
-        ref={wrapperRef}
+        ref={setWrapperEl}
         style={{ height: displayedHeight, overflow: "hidden", position: "relative", width: "100%" }}
       >
         <iframe

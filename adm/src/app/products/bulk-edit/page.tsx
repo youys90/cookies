@@ -16,6 +16,7 @@ import FormActionBar from "@/components/FormActionBar";
 import ImageLibraryPicker from "@/components/ImageLibraryPicker";
 import { SESSION_KEYS, loadSession, saveSession } from "@/lib/sessionPersistence";
 import DraftSaveButton from "@/components/DraftSaveButton";
+import DraftListButton from "@/components/DraftListButton";
 import { upsertDraft, listDrafts } from "@/lib/adminDrafts";
 
 const PAGE_KEY = "bulk-edit";
@@ -217,9 +218,17 @@ function BulkEditInner() {
       pageLabel: PAGE_LABEL,
       data: { ids, products },
     });
+    if (!d) { alert("임시 저장 실패 · 브라우저 저장 공간 부족 또는 프라이빗 모드"); return; }
     setCurrentDraftId(d.id);
     setLastSavedAt(new Date());
     setSavedTick((n) => n + 1);
+  };
+  const loadDraftData = (data: unknown, draftId: string) => {
+    const obj = data as { ids?: unknown; products?: unknown } | undefined;
+    if (obj?.products && Array.isArray(obj.products)) {
+      setProducts(obj.products as never);
+      setCurrentDraftId(draftId);
+    }
   };
 
   // 이미지 파일 업로드 헬퍼 (저장 시)
@@ -353,6 +362,7 @@ function BulkEditInner() {
       <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
         <div>
           <DraftSaveButton onSave={manualSave} lastSavedAt={lastSavedAt} savedTick={savedTick} />
+          <DraftListButton pageKey={PAGE_KEY} onLoad={loadDraftData} />
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {translateMsg && (
