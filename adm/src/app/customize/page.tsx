@@ -13,6 +13,7 @@ import FormActionBar from "@/components/FormActionBar";
 import ShopPreview from "@/components/ShopPreview";
 import DraftSaveButton from "@/components/DraftSaveButton";
 import InlineFormatInput from "@/components/InlineFormatInput";
+import { getShopUrl } from "@/lib/shopUrl";
 import { upsertDraft, deleteDraft, listDrafts } from "@/lib/adminDrafts";
 import { useSearchParams } from "next/navigation";
 
@@ -29,7 +30,7 @@ interface Preset {
   updated_at: string;
 }
 
-const SHOP_URL = process.env.NEXT_PUBLIC_SHOP_URL || "http://localhost:3001";
+// shop URL · 런타임 자동 감지 (매장 PC 등 · 별도 설정 없이 동작)
 
 export default function CustomizePage() {
   const [loading, setLoading] = useState(true);
@@ -385,7 +386,7 @@ export default function CustomizePage() {
         path: targetPath,
       });
       if (forceLangKo) params.set("forceLang", "ko");
-      window.open(`${SHOP_URL}/mobile-preview?${params.toString()}`, "_blank", "noopener");
+      window.open(`${getShopUrl()}/mobile-preview?${params.toString()}`, "_blank", "noopener");
     } else {
       // PC · 그냥 매장 열기
       const params = new URLSearchParams({
@@ -394,7 +395,7 @@ export default function CustomizePage() {
         c: encoded,
       });
       if (forceLangKo) params.set("forceLang", "ko");
-      window.open(`${SHOP_URL}${targetPath}?${params.toString()}`, "_blank", "noopener");
+      window.open(`${getShopUrl()}${targetPath}?${params.toString()}`, "_blank", "noopener");
     }
   };
 

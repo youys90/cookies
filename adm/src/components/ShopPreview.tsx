@@ -8,6 +8,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ShopUiConfig } from "@/lib/shopUiSchema";
+import { getShopUrl } from "@/lib/shopUrl";
 
 type MainSection = "promoBar" | "header" | "hero" | "benefits" | "categories" | "footer";
 
@@ -22,7 +23,7 @@ interface Props {
   onSectionClick?: (s: MainSection) => void;
 }
 
-const SHOP_URL = process.env.NEXT_PUBLIC_SHOP_URL || "http://localhost:3001";
+// shop URL · 런타임 자동 감지 (매장 PC 등 · 별도 설정 없이 동작)
 const PC_VIEWPORT_WIDTH = 1280; // PC 표준 폭 · Tailwind lg: 이상 미디어쿼리 정상 발동
 const PC_VIEWPORT_HEIGHT = 900;
 const MOBILE_VIEWPORT_WIDTH = 390;
@@ -63,7 +64,7 @@ export default function ShopPreview({ config, device, page, sampleProductId, sec
     // 메인 편집 미리보기 · 관리자가 편집한 한국어 원본 그대로 검수하도록 강제 한국어
     if (page === "mainTop") params.set("forceLang", "ko");
     if (section) params.set("previewSection", section);
-    return `${SHOP_URL}${path}?${params.toString()}`;
+    return `${getShopUrl()}${path}?${params.toString()}`;
   }, [debouncedConfig, device, page, sampleProductId, section]);
 
   // iframe · shop에서 섹션 클릭 시 postMessage 수신 · 부모 콜백 호출
