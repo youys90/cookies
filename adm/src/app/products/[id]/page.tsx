@@ -460,17 +460,28 @@ export default function EditProductPage() {
   }
 
   return (
-    <div className="pb-8">
-      {/* 수정 모드 시각 구분 · 앰버 계열 · "✏️ 수정 중" · 상단 세로 바 · 실수 방지 */}
-      <div className="mb-6 relative pl-4 py-1 border-l-4 border-amber-500 bg-amber-50/40 rounded-r-lg">
-        <div className="absolute -left-1 top-0 bottom-0 w-1 bg-amber-500 rounded-full"></div>
-        <div className="flex items-center gap-2 flex-wrap py-1">
-          <h1 className="text-xl md:text-2xl font-medium text-gray-900">상품 수정</h1>
-          <span className="inline-flex items-center gap-1 bg-amber-500 text-white text-[11px] font-bold px-2.5 py-1 rounded-full shadow-sm tracking-wide">
-            ✏️ 수정 중
-          </span>
+    <div className="pb-8 -mx-8 -mt-8 px-8 pt-4 min-h-screen bg-gradient-to-br from-amber-50/60 via-white to-amber-50/40">
+      {/* 수정 모드 · 상단 굵은 앰버 스트라이프 · 경고 톤 · 실수 방지 */}
+      <div className="-mx-8 -mt-4 mb-0 h-2 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-500 shadow-md"></div>
+
+      {/* 헤더 배너 · 진한 앰버 · 흰 텍스트 · 수정 임팩트 */}
+      <div className="mt-6 mb-8 relative overflow-hidden rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 shadow-xl">
+        <div className="absolute -right-8 -top-8 w-40 h-40 rounded-full bg-white/10"></div>
+        <div className="absolute -right-4 -bottom-10 w-32 h-32 rounded-full bg-white/5"></div>
+        {/* 좌측 얇은 흰 세로 · 강조 */}
+        <div className="absolute left-0 top-4 bottom-4 w-1 bg-white/60 rounded-r-full"></div>
+        <div className="relative px-6 py-5 flex items-center gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center text-3xl shadow-inner">
+            ✏️
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-2xl md:text-3xl font-bold text-white leading-none">상품 수정 중</h1>
+              <span className="inline-flex items-center bg-white text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded-full tracking-widest uppercase shadow animate-pulse">EDIT</span>
+            </div>
+            <p className="text-amber-50 text-sm mt-1.5">⚠ 기존 상품을 수정합니다 · 변경 사항이 즉시 반영됩니다</p>
+          </div>
         </div>
-        <p className="text-sm text-amber-800/70 mt-1">기존 상품 정보를 수정합니다 (일본어/한국어)</p>
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
@@ -802,9 +813,9 @@ export default function EditProductPage() {
               <button
                 type="submit"
                 disabled={uploading}
-                className="w-full sm:w-auto px-6 py-3 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-800 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                className="w-full sm:w-auto px-8 py-3 bg-amber-500 text-white text-sm font-semibold rounded-lg hover:bg-amber-600 transition-all shadow-md hover:shadow-lg disabled:bg-gray-400 disabled:cursor-not-allowed"
               >
-                {uploading ? '수정 중...' : '수정하기'}
+                {uploading ? '수정 중...' : '✏️ 수정하기'}
               </button>
               <button
                 type="button"
