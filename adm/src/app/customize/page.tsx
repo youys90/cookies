@@ -9,6 +9,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { SHOP_UI_SCHEMA, DEFAULT_CONFIG, mergeWithDefaults, deriveMobileValues, type ShopUiConfig, type FieldMeta } from "@/lib/shopUiSchema";
 import FormActionBar from "@/components/FormActionBar";
+import ShopPreview from "@/components/ShopPreview";
 
 interface Preset {
   id: number;
@@ -78,6 +79,7 @@ export default function CustomizePage() {
 
   // 미리보기 기기 (PC / 모바일) · 화면 시각화용
   const [previewDevice, setPreviewDevice] = useState<"desktop" | "mobile">("desktop");
+  const [previewPage, setPreviewPage] = useState<"list" | "detail">("list");
 
   const saveOverwrite = async () => {
     if (!active) return;
@@ -147,7 +149,7 @@ export default function CustomizePage() {
   };
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-6 max-w-[1800px] mx-auto">
       {/* 헤더 */}
       <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
         <div>
@@ -224,37 +226,63 @@ export default function CustomizePage() {
             </div>
           </div>
 
-          {/* 섹션별 폼 · 스키마에서 자동 생성 */}
-          <div className="space-y-4">
-            {SHOP_UI_SCHEMA.map((sec) => (
-              <div key={sec.key} className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-                <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl">{sec.icon}</span>
-                    <div>
-                      <h3 className="text-sm font-bold text-gray-900">{sec.label}</h3>
-                      {sec.hint && <p className="text-[11px] text-gray-500">{sec.hint}</p>}
+          {/* 좌: 편집 폼 · 우: 실시간 미리보기 · 사장님 확인용 */}
+          <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-6">
+            {/* 편집 폼 · 스키마에서 자동 생성 */}
+            <div className="space-y-4">
+              {SHOP_UI_SCHEMA.map((sec) => (
+                <div key={sec.key} className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                  <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">{sec.icon}</span>
+                      <div>
+                        <h3 className="text-sm font-bold text-gray-900">{sec.label}</h3>
+                        {sec.hint && <p className="text-[11px] text-gray-500">{sec.hint}</p>}
+                      </div>
                     </div>
                   </div>
+                  <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {sec.fields
+                      .filter((f) => {
+                        if (f.hidden && config.linkMobileToDesktop) return false;
+                        return true;
+                      })
+                      .map((field) => (
+                        <FieldControl
+                          key={field.key}
+                          field={field}
+                          value={(config[sec.key as keyof ShopUiConfig] as Record<string, unknown>)[field.key]}
+                          onChange={(v) => updateField(sec.key, field.key, v)}
+                        />
+                      ))}
+                  </div>
                 </div>
-                <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {sec.fields
-                    .filter((f) => {
-                      // 링크 ON일 땐 hidden 필드 숨김 · OFF일 땐 노출 (독립 편집)
-                      if (f.hidden && config.linkMobileToDesktop) return false;
-                      return true;
-                    })
-                    .map((field) => (
-                      <FieldControl
-                        key={field.key}
-                        field={field}
-                        value={(config[sec.key as keyof ShopUiConfig] as Record<string, unknown>)[field.key]}
-                        onChange={(v) => updateField(sec.key, field.key, v)}
-                      />
-                    ))}
+              ))}
+            </div>
+
+            {/* 우 · 실시간 미리보기 · sticky */}
+            <div className="hidden xl:block">
+              <div className="sticky top-6 space-y-3">
+                <div className="flex items-center justify-between bg-white rounded-xl border border-gray-200 p-2">
+                  <div className="text-xs text-gray-500 pl-2">🔴 실시간 미리보기</div>
+                  <div className="inline-flex bg-gray-100 rounded-lg p-0.5">
+                    <button
+                      onClick={() => setPreviewPage("list")}
+                      className={`px-3 py-1 text-xs rounded-md font-medium ${previewPage === "list" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"}`}
+                    >
+                      🛍 상품 목록
+                    </button>
+                    <button
+                      onClick={() => setPreviewPage("detail")}
+                      className={`px-3 py-1 text-xs rounded-md font-medium ${previewPage === "detail" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"}`}
+                    >
+                      📦 상품 상세
+                    </button>
+                  </div>
                 </div>
+                <ShopPreview config={config} device={previewDevice} page={previewPage} />
               </div>
-            ))}
+            </div>
           </div>
 
           <FormActionBar
