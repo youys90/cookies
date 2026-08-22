@@ -38,11 +38,15 @@ export function ShopUiProvider({ children }: { children: ReactNode }) {
         // 1) URL 파라미터 c (Base64) 우선 · adm과 origin이 달라 sessionStorage 불가 시
         if (encoded) {
           try {
-            const json = decodeURIComponent(escape(atob(encoded)));
+            // 모던 UTF-8 안전 Base64 디코딩
+            const bin = atob(encoded.replace(/-/g, "+").replace(/_/g, "/"));
+            const bytes = Uint8Array.from(bin, (ch) => ch.charCodeAt(0));
+            const json = new TextDecoder().decode(bytes);
             const cfg = JSON.parse(json);
             setConfig(mergeWithDefaults(cfg));
             setIsPreview(true);
             setLoaded(true);
+            console.log("[shop preview] URL c 파라미터로 config 로드 성공", cfg);
             return;
           } catch (e) {
             console.error("미리보기 config 디코딩 실패:", e);
@@ -90,8 +94,18 @@ export function ShopUiProvider({ children }: { children: ReactNode }) {
   return (
     <ShopUiCtx.Provider value={{ config, loaded, isPreview, previewDevice }}>
       {isPreview && (
-        <div className="fixed top-2 left-1/2 -translate-x-1/2 z-50 px-4 py-1.5 bg-amber-500 text-white text-xs font-semibold rounded-full shadow-lg pointer-events-none">
-          🔍 미리보기 모드 · {previewDevice === "mobile" ? "📱 모바일 (390px)" : "🖥 PC"}
+        <div className="sticky top-0 z-50 bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 text-white shadow-lg">
+          <div className="max-w-6xl mx-auto flex items-center justify-between gap-3 px-4 py-2">
+            <div className="flex items-center gap-2 font-bold text-sm">
+              <span className="animate-pulse">🔍</span>
+              <span>미리보기 모드</span>
+              <span className="text-amber-100">·</span>
+              <span>{previewDevice === "mobile" ? "📱 모바일 (390px)" : "🖥 PC"}</span>
+            </div>
+            <div className="text-[11px] text-amber-100">
+              편집 중 화면입니다 · 실제 매장에는 아직 반영되지 않았어요
+            </div>
+          </div>
         </div>
       )}
       {/* 모바일 미리보기 · 뷰포트 폭 강제 */}

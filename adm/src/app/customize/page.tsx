@@ -34,6 +34,7 @@ export default function CustomizePage() {
   const [error, setError] = useState<string>("");
   const [active, setActive] = useState<Preset | null>(null);
   const [config, setConfig] = useState<ShopUiConfig>(DEFAULT_CONFIG);
+  const [originalConfig, setOriginalConfig] = useState<ShopUiConfig>(DEFAULT_CONFIG);
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string>("");
@@ -55,6 +56,7 @@ export default function CustomizePage() {
       const p: Preset = { ...data, config: mergeWithDefaults(data.config) };
       setActive(p);
       setConfig(p.config);
+      setOriginalConfig(p.config); // 서버 원본 스냅샷 · 부분 저장 시 참조
       setDirty(false);
     }
     setLoading(false);
@@ -155,26 +157,53 @@ export default function CustomizePage() {
     setAutoSaveEnabled(true);
   };
 
-  const saveOverwrite = async () => {
+  // 부분 저장 · 지금 편집 중인 화면의 섹션만 · 나머지는 서버 원본 유지
+  const buildScopedConfig = (scope: "current" | "all"): ShopUiConfig => {
+    if (scope === "all") return config;
+    // current 편집 화면에 해당하는 섹션만 · 나머지는 originalConfig에서
+    if (previewPage === "list") {
+      return {
+        ...originalConfig,
+        linkMobileToDesktop: config.linkMobileToDesktop,
+        productList: config.productList,
+        pagination: config.pagination,
+        categoryTabs: config.categoryTabs,
+      };
+    }
+    // detail
+    return {
+      ...originalConfig,
+      linkMobileToDesktop: config.linkMobileToDesktop,
+      productDetail: config.productDetail,
+    };
+  };
+
+  const doSave = async (scope: "current" | "all") => {
     if (!active) return;
-    if (!confirm("현재 활성 프리셋을 이 내용으로 덮어씁니다.\n\n계속하시겠어요?")) return;
+    const finalConfig = buildScopedConfig(scope);
+    const scopeLabel = scope === "all"
+      ? "전체 저장 · 상품 목록 화면 + 상품 상세 화면 · 지금 편집한 내용 모두 저장됩니다"
+      : `이번 저장 · 「${previewPage === "list" ? "상품 목록" : "상품 상세"} 화면」만 변경 · 다른 화면 설정은 그대로 유지됩니다`;
+    if (!confirm(`${scopeLabel}\n\n계속하시겠어요?`)) return;
     setSaving(true);
     const { error } = await supabase
       .from("shop_ui_presets")
-      .update({ config })
+      .update({ config: finalConfig })
       .eq("id", active.id);
     setSaving(false);
     if (error) {
       setMsg("저장 실패: " + error.message);
     } else {
-      setMsg("저장 완료 · 매장에 반영되었습니다");
+      setMsg("💾 저장 완료 · 실제 매장에 반영되었습니다 (매장 탭을 새로고침하면 확인 가능)");
       setDirty(false);
-      // 정식 저장 완료 시 · 임시저장은 정리
       if (currentDraftId) { deleteDraft(currentDraftId); setCurrentDraftId(null); }
       setLastSavedAt(null);
       load();
     }
   };
+
+  const saveOverwrite = () => doSave("current"); // 기본은 현재 화면만
+  const saveAll = () => doSave("all");
 
   const saveAsNew = async () => {
     const name = newName.trim();
@@ -216,10 +245,14 @@ export default function CustomizePage() {
 
   const openPreview = () => {
     // adm(3002)과 shop(3001)은 다른 origin · sessionStorage 공유 불가
-    // → config를 URL 파라미터로 전달 (Base64 · 데이터 크기 작음)
+    // → config를 URL 파라미터로 전달 (URL-safe Base64 · UTF-8 안전)
     let encoded = "";
     try {
-      encoded = btoa(unescape(encodeURIComponent(JSON.stringify(config))));
+      const json = JSON.stringify(config);
+      const bytes = new TextEncoder().encode(json);
+      let bin = "";
+      bytes.forEach((b) => { bin += String.fromCharCode(b); });
+      encoded = btoa(bin).replace(/\+/g, "-").replace(/\//g, "_");
     } catch (e) {
       console.error("config 인코딩 실패:", e);
     }
@@ -440,16 +473,23 @@ export default function CustomizePage() {
             cancelLabel="목록으로"
             status={
               msg ? <span className="text-emerald-700 font-medium">{msg}</span>
-              : dirty ? <span className="text-amber-700">🔸 저장하지 않은 변경사항이 있어요</span>
-              : <span>변경사항 없음</span>
+              : dirty ? (
+                <span className="text-amber-700">
+                  🔸 저장하지 않은 변경사항이 있어요
+                  <span className="ml-2 text-[10px] text-gray-500">
+                    「이 화면만」 = {previewPage === "list" ? "🛍 상품 목록만" : "📦 상품 상세만"} · 다른 화면 설정은 그대로 유지
+                  </span>
+                </span>
+              ) : <span>변경사항 없음</span>
             }
             secondary={[
               { label: "↺ 기본 화면으로", onClick: resetToDefault },
               { label: "👁 미리보기 (새 탭)", onClick: openPreview },
               { label: "💾 이름 붙여 저장", onClick: () => setShowSaveAs(true), disabled: saving },
+              { label: "📦 전체 저장", onClick: saveAll, disabled: saving || !dirty },
             ]}
             primary={{
-              label: saving ? "저장 중..." : "✓ 지금 화면에 반영",
+              label: saving ? "저장 중..." : `✓ 이 화면만 저장 (${previewPage === "list" ? "상품 목록" : "상품 상세"})`,
               onClick: saveOverwrite,
               disabled: saving || !dirty,
             }}

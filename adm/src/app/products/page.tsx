@@ -353,21 +353,8 @@ export default function ProductsPage() {
     );
   };
 
-  const handleBulkCategory = async (category: string) => {
-    if (selectedIds.size === 0) return;
-    const ids = Array.from(selectedIds);
-    const { error } = await supabase
-      .from("products")
-      .update({ category })
-      .in("id", ids);
-    if (error) {
-      alert("카테고리 변경 실패: " + error.message);
-      return;
-    }
-    setProductList((prev) =>
-      prev.map((p) => (ids.includes(p.id) ? { ...p, category } : p))
-    );
-  };
+  // 「일괄 카테고리 변경」 · 사장님 요청으로 삭제 (실수 시 되돌리기 어려움)
+  // 카테고리 변경은 개별 편집 or 일괄 수정 페이지에서만 · 명시적 확인 후
 
   // ── 인라인 편집 저장 ─────────────────────────────
   const saveField = async (id: number, field: keyof Product, value: unknown) => {
@@ -931,10 +918,8 @@ export default function ProductsPage() {
       {/* ── 벌크 액션 바 ──────────────────────────── */}
       <BulkActionBar
         count={selectedIds.size}
-        categories={topCategories.map(c => c.name_ja)}
         onDelete={handleBulkDelete}
         onToggleActive={handleBulkActive}
-        onChangeCategory={handleBulkCategory}
         onExportCsv={handleExportSelected}
         onBulkEdit={() => router.push(`/products/bulk-edit?ids=${Array.from(selectedIds).join(",")}`)}
         onClear={clearSelection}

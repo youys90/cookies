@@ -47,38 +47,7 @@ export default function BulkActionBar({
         판매중지 ↓
       </button>
 
-      {categories && onChangeCategory && (
-        <div className="relative">
-          <select
-            onChange={(e) => {
-              if (e.target.value) {
-                onChangeCategory(e.target.value);
-                e.target.value = "";
-              }
-            }}
-            defaultValue=""
-            className="appearance-none px-3 py-1.5 text-xs rounded bg-gray-800 text-white hover:bg-gray-700 transition cursor-pointer pr-6"
-          >
-            <option value="" disabled>
-              카테고리 변경…
-            </option>
-            {categories.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-          <svg
-            className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 pointer-events-none"
-            viewBox="0 0 12 12"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-          >
-            <path d="M3 5l3 3 3-3" />
-          </svg>
-        </div>
-      )}
+      {/* 카테고리 변경 · 실수 시 되돌리기 어려워 제거 · 개별 편집 or 일괄 수정에서만 가능 */}
 
       {onBulkEdit && (
         <button
