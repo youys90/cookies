@@ -333,6 +333,24 @@ export default function ExcelImportPage() {
       if (error) {
         setRows((prev) => prev.map((x) => x.key === r.key ? { ...x, status: "failed", error: error.message } : x));
       } else {
+        // 옵션이 있으면 함께 저장 · 실패해도 상품 등록은 성공으로 처리 (한 번 더 편집 가능)
+        if (r.options.length > 0 && data?.id) {
+          const optionsPayload = r.options
+            .filter((o) => o.option_name.trim())
+            .map((o, idx) => ({
+              product_id: data.id,
+              option_name: o.option_name.trim(),
+              additional_price: o.additional_price || 0,
+              stock: o.stock || 0,
+              is_active: true,
+              source: "CSV",
+              sort_order: idx,
+            }));
+          if (optionsPayload.length > 0) {
+            const { error: optError } = await supabase.from("product_options").insert(optionsPayload);
+            if (optError) console.error(`옵션 저장 실패 (상품 ${data.id}):`, optError.message);
+          }
+        }
         ok++;
         setRows((prev) => prev.map((x) => x.key === r.key ? { ...x, status: "success", productId: data?.id } : x));
       }
@@ -551,19 +569,123 @@ export default function ExcelImportPage() {
                         </div>
                       </button>
 
-                      {r.imageUrls.length > 0 && r.status !== "success" && (
-                        <div className="px-3 pb-2 flex items-center gap-1 flex-wrap border-t border-gray-100 pt-2">
-                          {r.imageUrls.map((u) => (
-                            <div key={u} className="relative w-8 h-8 rounded border border-gray-200 overflow-hidden group">
-                              <Image src={u} alt="" fill unoptimized className="object-cover" />
+                      {r.status !== "success" && (
+                        <div className="px-3 pb-3 border-t border-gray-100 pt-3 space-y-3">
+                          {/* 사진 그리드 · 드래그 재정렬 · 개별 업로드 (bulk-new 수준) */}
+                          <div>
+                            <div className="flex items-center justify-between mb-1.5">
+                              <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">📷 사진 · 첫 번째가 메인</p>
+                              <label className="cursor-pointer text-[10px] text-[var(--color-brand-dk)] hover:underline">
+                                + 이 상품에 사진 올리기
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  multiple
+                                  className="hidden"
+                                  onChange={(e) => {
+                                    if (e.target.files) uploadDirectToRow(r.key, Array.from(e.target.files));
+                                    e.target.value = "";
+                                  }}
+                                />
+                              </label>
+                            </div>
+                            <div className="flex flex-wrap gap-1.5">
+                              {r.imageUrls.map((u, i) => {
+                                const isDragging = rowImgDrag.rowKey === r.key && rowImgDrag.from === i;
+                                const isOver = rowImgDrag.rowKey === r.key && rowImgDrag.over === i && rowImgDrag.from !== i;
+                                return (
+                                  <div
+                                    key={u}
+                                    className={`relative group transition-transform ${isDragging ? "opacity-30 scale-95" : ""} ${isOver ? "scale-105" : ""}`}
+                                    draggable
+                                    onDragStart={() => setRowImgDrag({ rowKey: r.key, from: i, over: null })}
+                                    onDragOver={(e) => { e.preventDefault(); if (rowImgDrag.rowKey === r.key && rowImgDrag.from !== null && rowImgDrag.from !== i && rowImgDrag.over !== i) setRowImgDrag({ ...rowImgDrag, over: i }); }}
+                                    onDragLeave={() => rowImgDrag.over === i && setRowImgDrag({ ...rowImgDrag, over: null })}
+                                    onDrop={(e) => { e.preventDefault(); e.stopPropagation(); if (rowImgDrag.rowKey === r.key && rowImgDrag.from !== null && rowImgDrag.from !== i) moveRowImage(r.key, rowImgDrag.from, i); setRowImgDrag({ rowKey: null, from: null, over: null }); }}
+                                    onDragEnd={() => setRowImgDrag({ rowKey: null, from: null, over: null })}
+                                  >
+                                    <div className={`relative w-12 h-12 rounded overflow-hidden border-2 cursor-move transition-all ${
+                                      isOver ? "border-blue-500 ring-2 ring-blue-200 shadow" :
+                                      i === 0 ? "border-blue-500" : "border-gray-200 hover:border-blue-400"
+                                    }`}>
+                                      <Image src={u} alt="" fill unoptimized className="object-cover" />
+                                      <div className="absolute top-0 right-0 w-4 h-4 bg-gray-900/85 text-white text-[8px] font-bold rounded-bl flex items-center justify-center">
+                                        {i + 1}
+                                      </div>
+                                      {i === 0 && (
+                                        <span className="absolute top-0 left-0 bg-blue-500 text-white text-[8px] font-bold px-1 rounded-br">M</span>
+                                      )}
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => { e.stopPropagation(); removeImgFromRow(r.key, u); }}
+                                      className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full text-[10px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition z-10"
+                                      title="이 사진 빼기"
+                                    >✕</button>
+                                  </div>
+                                );
+                              })}
+                              {r.imageUrls.length === 0 && (
+                                <p className="text-[10.5px] text-gray-400 italic">사진이 없어요 · 위 「+ 이 상품에 사진 올리기」 or 왼쪽에서 골라주세요</p>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* 옵션 · 색상/사이즈 등 (개별 등록/수정과 동일 · 여러 개 가능) */}
+                          <div>
+                            <div className="flex items-center justify-between mb-1.5">
+                              <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">🎨 옵션 (색상 등)</p>
                               <button
                                 type="button"
-                                onClick={(e) => { e.stopPropagation(); removeImgFromRow(r.key, u); }}
-                                className="absolute inset-0 bg-black/60 text-white text-[10px] opacity-0 group-hover:opacity-100 flex items-center justify-center"
-                                title="이 상품에서 사진 빼기"
-                              >✕</button>
+                                onClick={(e) => { e.stopPropagation(); addRowOption(r.key); }}
+                                className="text-[10px] text-[var(--color-brand-dk)] hover:underline"
+                              >
+                                + 옵션 추가
+                              </button>
                             </div>
-                          ))}
+                            {r.options.length === 0 ? (
+                              <p className="text-[10.5px] text-gray-400 italic">옵션 없음 · 필요하시면 「+ 옵션 추가」</p>
+                            ) : (
+                              <div className="space-y-1.5">
+                                {r.options.map((opt, oi) => (
+                                  <div key={oi} className="flex items-center gap-1.5 bg-gray-50 rounded p-1.5">
+                                    <input
+                                      type="text"
+                                      value={opt.option_name}
+                                      onChange={(e) => updateRowOption(r.key, oi, { option_name: e.target.value })}
+                                      onClick={(e) => e.stopPropagation()}
+                                      placeholder="옵션명 (예 · 골드)"
+                                      className="flex-1 px-2 py-1 text-xs border border-gray-200 rounded"
+                                    />
+                                    <span className="text-[10px] text-gray-500">+₩</span>
+                                    <input
+                                      type="number"
+                                      value={opt.additional_price}
+                                      onChange={(e) => updateRowOption(r.key, oi, { additional_price: Number(e.target.value) })}
+                                      onClick={(e) => e.stopPropagation()}
+                                      placeholder="추가가격"
+                                      className="w-24 px-2 py-1 text-xs border border-gray-200 rounded"
+                                    />
+                                    <span className="text-[10px] text-gray-500">재고</span>
+                                    <input
+                                      type="number"
+                                      value={opt.stock}
+                                      onChange={(e) => updateRowOption(r.key, oi, { stock: Number(e.target.value) })}
+                                      onClick={(e) => e.stopPropagation()}
+                                      placeholder="재고"
+                                      className="w-16 px-2 py-1 text-xs border border-gray-200 rounded"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={(e) => { e.stopPropagation(); removeRowOption(r.key, oi); }}
+                                      className="text-red-500 hover:bg-red-50 rounded px-1"
+                                      title="이 옵션 삭제"
+                                    >✕</button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>
