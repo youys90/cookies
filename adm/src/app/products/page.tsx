@@ -544,51 +544,56 @@ export default function ProductsPage() {
             />
           )}
 
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="flex items-center space-x-2">
-              <input
-              type="text"
-              placeholder="상품명 검색..."
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-              className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 w-48"
-            />
-            <button
-              onClick={handleSearch}
-              className="px-3 py-1.5 text-sm bg-gray-900 text-white rounded-lg hover:bg-gray-800"
-            >
-              검색
-            </button>
-            {searchKeyword && (
+          <div className="flex flex-wrap items-center gap-4 pt-1">
+            {/* 검색 · 브랜드 focus 링 */}
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                <input
+                  type="text"
+                  placeholder={language === "ko" ? "상품명 검색..." : "商品名検索..."}
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                  className="pl-9 pr-3 py-1.5 text-sm border border-gray-200 rounded-full focus:outline-none focus:ring-2 focus:ring-[var(--color-brand)]/40 focus:border-[var(--color-brand)] w-52 bg-white transition"
+                />
+              </div>
               <button
-                onClick={() => {
-                  setSearchKeyword("");
-                  setSearchInput("");
-                }}
-                className="px-2 py-1 text-xs text-gray-500 hover:text-gray-700"
+                onClick={handleSearch}
+                className="px-4 py-1.5 text-sm bg-[var(--color-brand)] text-white rounded-full hover:bg-[var(--color-brand-dk)] font-medium shadow-sm transition"
               >
-                초기화
+                {language === "ko" ? "검색" : "検索"}
               </button>
-            )}
+              {searchKeyword && (
+                <button
+                  onClick={() => { setSearchKeyword(""); setSearchInput(""); }}
+                  className="px-2 py-1 text-xs text-gray-500 hover:text-[var(--color-brand-dk)] transition"
+                >
+                  {language === "ko" ? "초기화" : "リセット"}
+                </button>
+              )}
+            </div>
+
+            {/* 표시 개수 · 브랜드 활성 */}
+            <div className="flex items-center gap-2 ml-auto">
+              <span className="text-xs font-medium text-gray-500 whitespace-nowrap">{language === "ko" ? "표시" : "表示"}</span>
+              <div className="inline-flex items-center bg-white rounded-full p-0.5 border border-gray-200 shadow-sm">
+              {PAGE_SIZE_OPTIONS.map((size) => (
+                <button
+                  key={size}
+                  onClick={() => handlePageSizeChange(size)}
+                  className={`px-3 py-1 text-xs rounded-full transition-all font-medium ${
+                    pageSize === size
+                      ? "bg-[var(--color-brand)] text-white shadow-sm"
+                      : "text-gray-500 hover:text-[var(--color-brand-dk)]"
+                  }`}
+                >
+                  {size}
+                </button>
+              ))}
+              </div>
+            </div>
           </div>
-          <div className="flex items-center space-x-2 ml-auto">
-            <span className="text-sm text-gray-500">표시:</span>
-            {PAGE_SIZE_OPTIONS.map((size) => (
-              <button
-                key={size}
-                onClick={() => handlePageSizeChange(size)}
-                className={`px-3 py-1 text-sm rounded-full transition-colors ${
-                  pageSize === size
-                    ? "bg-gray-900 text-white"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                }`}
-              >
-                {size}개씩
-              </button>
-            ))}
-          </div>
-        </div>
         </div>
       </div>
 

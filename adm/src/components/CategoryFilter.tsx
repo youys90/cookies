@@ -96,68 +96,75 @@ export default function CategoryFilter({ language, categories, selected, onChang
 
   return (
     <div className={`flex items-start gap-2 ${indent ? "pl-4 border-l-2 border-gray-200" : ""}`}>
-      <div className="flex items-center gap-2 pt-1 flex-shrink-0 relative">
-        <span className={`whitespace-nowrap ${indent ? "text-xs text-gray-400" : "text-sm text-gray-500"}`}>{label}</span>
-        {/* 뷰 전환 토글 · 아이콘 + 라벨 · 최상위(!indent)만 · 하위는 자동 sync */}
+      <div className="flex items-center gap-2 pt-1 flex-shrink-0">
+        <span className={`whitespace-nowrap font-medium ${indent ? "text-xs text-gray-400" : "text-sm text-gray-600"}`}>{label}</span>
+        {/* 뷰 전환 토글 · 브랜드 컬러 활성 · 최상위(!indent)만 · 하위는 자동 sync */}
         {!indent && (
-          <>
-            <div className="inline-flex items-center bg-gray-100 rounded-lg p-0.5 ml-1 border border-gray-200" role="group" aria-label={language === "ko" ? "카테고리 보기 방식" : "カテゴリー表示方式"}>
-              <button
-                type="button"
-                onClick={() => changeView("pill")}
-                className={`flex items-center gap-1 px-2 py-1 rounded-md transition text-[11px] font-medium ${view === "pill" ? "bg-gray-900 text-white shadow-sm" : "text-gray-500 hover:text-gray-800"}`}
-                title={language === "ko" ? "모든 카테고리를 한 눈에 보기" : "全カテゴリーを一覧表示"}
-                aria-pressed={view === "pill"}
-              >
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 6h16M4 12h16M4 18h16" /></svg>
-                <span>{language === "ko" ? "간편" : "簡易"}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => changeView("dropdown")}
-                className={`flex items-center gap-1 px-2 py-1 rounded-md transition text-[11px] font-medium ${view === "dropdown" ? "bg-gray-900 text-white shadow-sm" : "text-gray-500 hover:text-gray-800"}`}
-                title={language === "ko" ? "검색해서 빠르게 찾기 · 카테고리 많을 때 편리" : "検索で素早く探す"}
-                aria-pressed={view === "dropdown"}
-              >
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                <span>{language === "ko" ? "검색" : "検索"}</span>
-              </button>
-            </div>
-            <FirstVisitHint language={language} />
-          </>
+          <div className="inline-flex items-center bg-white rounded-full p-0.5 ml-1 border border-gray-200 shadow-sm" role="group" aria-label={language === "ko" ? "카테고리 보기 방식" : "カテゴリー表示方式"}>
+            <button
+              type="button"
+              onClick={() => changeView("pill")}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-full transition-all text-[11px] font-semibold ${
+                view === "pill"
+                  ? "bg-[var(--color-brand)] text-white shadow-md"
+                  : "text-gray-500 hover:text-[var(--color-brand-dk)] hover:bg-[var(--color-brand)]/5"
+              }`}
+              title={language === "ko" ? "모든 카테고리를 한 눈에 · 개수 적을 때 편리" : "全カテゴリー一覧 · 少ない時に便利"}
+              aria-pressed={view === "pill"}
+            >
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 6h16M4 12h16M4 18h16" /></svg>
+              <span>{language === "ko" ? "간편" : "簡易"}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => changeView("dropdown")}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-full transition-all text-[11px] font-semibold ${
+                view === "dropdown"
+                  ? "bg-[var(--color-brand)] text-white shadow-md"
+                  : "text-gray-500 hover:text-[var(--color-brand-dk)] hover:bg-[var(--color-brand)]/5"
+              }`}
+              title={language === "ko" ? "검색으로 빠르게 · 카테고리 많을 때 편리" : "検索で素早く · 多い時に便利"}
+              aria-pressed={view === "dropdown"}
+            >
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+              <span>{language === "ko" ? "검색" : "検索"}</span>
+            </button>
+          </div>
         )}
       </div>
 
       {useDropdown ? (
-        // ─── 드롭다운 방식 (카테고리 13개 이상) ─────────────────
+        // ─── 드롭다운 방식 · 브랜드 톤 ─────────────────
         <div ref={boxRef} className="relative flex-1 max-w-md">
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
-            className="w-full flex items-center justify-between px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-sm hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 transition"
+            className={`w-full flex items-center justify-between px-4 py-1.5 bg-white border rounded-full text-sm transition shadow-sm ${
+              open ? "border-[var(--color-brand)] ring-2 ring-[var(--color-brand)]/20" : "border-gray-200 hover:border-[var(--color-brand)]/60"
+            }`}
             aria-haspopup="listbox"
             aria-expanded={open}
           >
             <span className="flex items-center gap-2 min-w-0">
               {selected && selected !== "전체" && selected !== "全体" && (
-                <span className="w-1.5 h-1.5 bg-gray-900 rounded-full flex-shrink-0" aria-hidden></span>
+                <span className="w-2 h-2 bg-[var(--color-brand)] rounded-full flex-shrink-0" aria-hidden></span>
               )}
-              <span className={`truncate ${selected && selected !== "전체" && selected !== "全体" ? "text-gray-900 font-medium" : "text-gray-500"}`}>
+              <span className={`truncate ${selected && selected !== "전체" && selected !== "全体" ? "text-gray-900 font-semibold" : "text-gray-500"}`}>
                 {selectedLabel}
               </span>
-              <span className="text-[10px] text-gray-400 flex-shrink-0">({categories.length})</span>
+              <span className="text-[10px] text-gray-400 flex-shrink-0 bg-gray-100 rounded-full px-1.5 py-0.5 font-medium">{categories.length}</span>
             </span>
-            <svg className={`w-4 h-4 text-gray-400 transition-transform flex-shrink-0 ${open ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className={`w-4 h-4 transition-transform flex-shrink-0 ${open ? "rotate-180 text-[var(--color-brand)]" : "text-gray-400"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </button>
 
           {open && (
-            <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl z-40 overflow-hidden">
-              {/* 검색 */}
-              <div className="p-2 border-b border-gray-100 bg-gray-50">
+            <div className="absolute left-0 right-0 top-full mt-2 bg-white border border-gray-200 rounded-2xl shadow-2xl z-40 overflow-hidden">
+              {/* 검색 · 브랜드 focus 링 */}
+              <div className="p-3 border-b border-gray-100 bg-gradient-to-b from-gray-50 to-white">
                 <div className="relative">
-                  <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                   <input
@@ -166,15 +173,15 @@ export default function CategoryFilter({ language, categories, selected, onChang
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     placeholder={language === "ko" ? "카테고리 검색..." : "カテゴリー検索..."}
-                    className="w-full pl-8 pr-3 py-1.5 text-sm bg-white border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-900"
+                    className="w-full pl-9 pr-3 py-2 text-sm bg-white border border-gray-200 rounded-full focus:outline-none focus:ring-2 focus:ring-[var(--color-brand)]/40 focus:border-[var(--color-brand)] transition"
                   />
                 </div>
               </div>
 
               {/* 목록 */}
-              <div className="max-h-72 overflow-y-auto" role="listbox">
+              <div className="max-h-72 overflow-y-auto py-1" role="listbox">
                 {filtered.length === 0 ? (
-                  <div className="px-3 py-6 text-center text-sm text-gray-400">
+                  <div className="px-3 py-8 text-center text-sm text-gray-400">
                     {language === "ko" ? "검색 결과 없음" : "該当なし"}
                   </div>
                 ) : (
@@ -186,18 +193,20 @@ export default function CategoryFilter({ language, categories, selected, onChang
                         type="button"
                         onClick={() => { onChange(cat.name_ja); setOpen(false); setQuery(""); }}
                         className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition ${
-                          active ? "bg-gray-900 text-white" : "text-gray-700 hover:bg-gray-100"
+                          active
+                            ? "bg-[var(--color-brand)]/10 text-[var(--color-brand-dk)] font-semibold border-l-2 border-[var(--color-brand)]"
+                            : "text-gray-700 hover:bg-gray-50 border-l-2 border-transparent"
                         }`}
                         role="option"
                         aria-selected={active}
                       >
                         <span className="flex-1 truncate">{pick(cat)}</span>
                         {tooltip(cat) !== pick(cat) && (
-                          <span className={`text-[10px] truncate max-w-[40%] ${active ? "text-white/60" : "text-gray-400"}`}>{tooltip(cat)}</span>
+                          <span className={`text-[10px] truncate max-w-[40%] ${active ? "text-[var(--color-brand-dk)]/70" : "text-gray-400"}`}>{tooltip(cat)}</span>
                         )}
                         {active && (
-                          <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                          <svg className="w-4 h-4 flex-shrink-0 text-[var(--color-brand)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                           </svg>
                         )}
                       </button>
@@ -209,7 +218,7 @@ export default function CategoryFilter({ language, categories, selected, onChang
           )}
         </div>
       ) : (
-        // ─── Pill 방식 (12개 이하) ─────────────────────────────
+        // ─── Pill 방식 (12개 이하) · 브랜드 컬러 활성 ─────────────────
         <div className="flex flex-wrap gap-1.5 flex-1">
           {categories.map((cat) => {
             const active = selected === cat.name_ja;
@@ -219,10 +228,14 @@ export default function CategoryFilter({ language, categories, selected, onChang
               <button
                 key={cat.id || "all"}
                 onClick={() => onChange(cat.name_ja)}
-                className={`transition-colors whitespace-nowrap ${
+                className={`transition-all whitespace-nowrap font-medium ${
                   indent
-                    ? `px-2.5 py-0.5 text-xs rounded-full ${active ? "bg-gray-700 text-white" : "bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200"}`
-                    : `px-3 py-1 text-sm rounded-full ${active ? "bg-gray-900 text-white shadow-sm" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`
+                    ? active
+                      ? "px-3 py-1 text-xs rounded-full bg-[var(--color-brand)] text-white shadow-sm"
+                      : "px-3 py-1 text-xs rounded-full bg-white text-gray-600 border border-gray-200 hover:border-[var(--color-brand)] hover:text-[var(--color-brand-dk)]"
+                    : active
+                      ? "px-3.5 py-1.5 text-sm rounded-full bg-[var(--color-brand)] text-white shadow-md ring-2 ring-[var(--color-brand)]/20"
+                      : "px-3.5 py-1.5 text-sm rounded-full bg-gray-50 text-gray-700 border border-gray-200 hover:border-[var(--color-brand)] hover:text-[var(--color-brand-dk)] hover:bg-white"
                 }`}
                 title={t !== l ? t : undefined}
               >
@@ -236,52 +249,3 @@ export default function CategoryFilter({ language, categories, selected, onChang
   );
 }
 
-// ─── 첫 방문 안내 popover · localStorage로 한 번만 노출 ───
-function FirstVisitHint({ language }: { language: "ko" | "ja" }) {
-  const [show, setShow] = useState(false);
-  const HINT_KEY = "adm.categoryFilter.hintSeen";
-
-  useEffect(() => {
-    try {
-      if (localStorage.getItem(HINT_KEY) === "1") return;
-      const t = setTimeout(() => setShow(true), 400);
-      return () => clearTimeout(t);
-    } catch {}
-  }, []);
-
-  useEffect(() => {
-    if (!show) return;
-    const t = setTimeout(() => dismiss(), 6000);
-    return () => clearTimeout(t);
-  }, [show]);
-
-  const dismiss = () => {
-    setShow(false);
-    try { localStorage.setItem(HINT_KEY, "1"); } catch {}
-  };
-
-  if (!show) return null;
-
-  return (
-    <div className="absolute top-full left-16 mt-2 z-50 animate-fade-in">
-      <div className="relative bg-blue-600 text-white text-xs rounded-lg shadow-xl px-3 py-2 max-w-[280px] leading-relaxed">
-        {/* 화살표 */}
-        <div className="absolute -top-1.5 left-4 w-3 h-3 bg-blue-600 rotate-45"></div>
-        <div className="relative flex items-start gap-2">
-          <span className="text-base leading-none">💡</span>
-          <div className="flex-1">
-            <p className="font-semibold mb-0.5">
-              {language === "ko" ? "보기 방식 전환 가능" : "表示方式を切替可"}
-            </p>
-            <p className="text-blue-100 text-[11px]">
-              {language === "ko"
-                ? "카테고리가 많으면 '검색'으로 · 적으면 '간편'으로."
-                : "多い時は「検索」・少ない時は「簡易」で。"}
-            </p>
-          </div>
-          <button type="button" onClick={dismiss} className="text-blue-200 hover:text-white flex-shrink-0" aria-label="닫기">✕</button>
-        </div>
-      </div>
-    </div>
-  );
-}
