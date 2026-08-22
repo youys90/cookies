@@ -8,6 +8,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useCart } from "@/contexts/CartContext";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useShopUi } from "@/contexts/ShopUiContext";
 
 interface Product {
   id: number;
@@ -45,6 +46,8 @@ export default function ProductDetail() {
   const { addToCart } = useCart();
   const router = useRouter();
   const { language, t, formatPrice } = useLanguage();
+  const { config: shopUi } = useShopUi();
+  const detailUi = shopUi.productDetail;
   const productId = Number(params.id);
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
@@ -282,16 +285,24 @@ export default function ProductDetail() {
             {/* 상품명 라벨 (이미지 하단 중앙) */}
             <p className="text-center text-[11px] tracking-[0.25em] text-[var(--color-text-soft)] mt-3">{displayName}</p>
 
-            {/* 썸네일 (3-5개) */}
+            {/* 썸네일 · 관리자 설정 반영 (열 수 · 최대 줄 · 크기 · 간격) */}
             {galleryImgs.length > 1 && (
-              <div className="mt-3 flex gap-2 justify-center">
-                {galleryImgs.slice(0, 5).map((u, i) => (
+              <div
+                className="mt-3 grid mx-auto"
+                style={{
+                  gridTemplateColumns: `repeat(${detailUi.thumbColumns}, ${detailUi.thumbSize}px)`,
+                  gap: `${detailUi.thumbGap}px`,
+                  justifyContent: "center",
+                }}
+              >
+                {galleryImgs.slice(0, detailUi.thumbColumns * detailUi.thumbMaxRows).map((u, i) => (
                   <button
                     key={i}
                     onClick={() => setImgIdx(i)}
-                    className={`relative w-16 h-16 bg-[var(--color-bg-soft)] overflow-hidden border ${i === imgIdx ? "border-[var(--color-text)]" : "border-transparent hover:border-[var(--color-line)]"}`}
+                    style={{ width: `${detailUi.thumbSize}px`, height: `${detailUi.thumbSize}px` }}
+                    className={`relative bg-[var(--color-bg-soft)] overflow-hidden border ${i === imgIdx ? "border-[var(--color-text)]" : "border-transparent hover:border-[var(--color-line)]"}`}
                   >
-                    <Image src={u} alt={`thumb-${i}`} fill className="object-cover" sizes="80px" />
+                    <Image src={u} alt={`thumb-${i}`} fill className="object-cover" sizes="120px" />
                   </button>
                 ))}
               </div>

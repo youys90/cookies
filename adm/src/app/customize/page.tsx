@@ -7,7 +7,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-import { SHOP_UI_SCHEMA, DEFAULT_CONFIG, mergeWithDefaults, type ShopUiConfig, type FieldMeta } from "@/lib/shopUiSchema";
+import { SHOP_UI_SCHEMA, DEFAULT_CONFIG, mergeWithDefaults, deriveMobileValues, type ShopUiConfig, type FieldMeta } from "@/lib/shopUiSchema";
+import FormActionBar from "@/components/FormActionBar";
 
 interface Preset {
   id: number;
@@ -56,13 +57,27 @@ export default function CustomizePage() {
 
   const updateField = (section: string, key: string, value: unknown) => {
     setConfig((prev) => {
-      const next = JSON.parse(JSON.stringify(prev));
-      (next as Record<string, Record<string, unknown>>)[section][key] = value;
-      return next;
+      const next = JSON.parse(JSON.stringify(prev)) as ShopUiConfig;
+      (next as unknown as Record<string, Record<string, unknown>>)[section][key] = value;
+      // 링크 ON일 때만 · PC 값 조정 시 모바일 자동 동기화
+      return next.linkMobileToDesktop ? deriveMobileValues(next) : next;
     });
     setDirty(true);
     setMsg("");
   };
+
+  const toggleLink = () => {
+    setConfig((prev) => {
+      const linked = !prev.linkMobileToDesktop;
+      const next: ShopUiConfig = { ...prev, linkMobileToDesktop: linked };
+      return linked ? deriveMobileValues(next) : next;
+    });
+    setDirty(true);
+    setMsg("");
+  };
+
+  // 미리보기 기기 (PC / 모바일) · 화면 시각화용
+  const [previewDevice, setPreviewDevice] = useState<"desktop" | "mobile">("desktop");
 
   const saveOverwrite = async () => {
     if (!active) return;
@@ -122,11 +137,13 @@ export default function CustomizePage() {
 
   const openPreview = () => {
     // 편집 중 config를 sessionStorage에 담아 shop이 preview 모드로 읽음
-    const payload = { config, ts: Date.now() };
+    const payload = { config, ts: Date.now(), device: previewDevice };
     try {
       sessionStorage.setItem("shopUiPreviewDraft", JSON.stringify(payload));
     } catch {}
-    window.open(`${SHOP_URL}?preview=draft`, "_blank", "noopener");
+    // 모바일 미리보기 · 기기 크기 힌트 URL 파라미터로 전달
+    const params = new URLSearchParams({ preview: "draft", device: previewDevice });
+    window.open(`${SHOP_URL}?${params.toString()}`, "_blank", "noopener");
   };
 
   return (
@@ -173,6 +190,40 @@ export default function CustomizePage() {
         </div>
       ) : (
         <>
+          {/* PC ↔ 모바일 링크 · 기기 미리보기 */}
+          <div className="mb-4 p-4 rounded-2xl bg-white border border-gray-200 flex items-center justify-between gap-3 flex-wrap">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={config.linkMobileToDesktop}
+                onChange={toggleLink}
+                className="w-4 h-4 accent-[var(--color-brand)]"
+              />
+              <span className="text-sm text-gray-800">
+                <b>모바일도 자동으로 맞춰주기</b>
+                <span className="ml-2 text-[11px] text-gray-500">
+                  {config.linkMobileToDesktop ? "PC 값 조정 시 · 모바일도 자동" : "PC와 모바일을 따로 편집"}
+                </span>
+              </span>
+            </label>
+            <div className="inline-flex bg-gray-100 rounded-lg p-0.5">
+              <button
+                onClick={() => setPreviewDevice("desktop")}
+                className={`px-3 py-1 text-xs rounded-md font-medium ${previewDevice === "desktop" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"}`}
+                title="PC 미리보기"
+              >
+                🖥 PC
+              </button>
+              <button
+                onClick={() => setPreviewDevice("mobile")}
+                className={`px-3 py-1 text-xs rounded-md font-medium ${previewDevice === "mobile" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"}`}
+                title="모바일 미리보기"
+              >
+                📱 모바일
+              </button>
+            </div>
+          </div>
+
           {/* 섹션별 폼 · 스키마에서 자동 생성 */}
           <div className="space-y-4">
             {SHOP_UI_SCHEMA.map((sec) => (
@@ -187,57 +238,44 @@ export default function CustomizePage() {
                   </div>
                 </div>
                 <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {sec.fields.map((field) => (
-                    <FieldControl
-                      key={field.key}
-                      field={field}
-                      value={(config[sec.key as keyof ShopUiConfig] as Record<string, unknown>)[field.key]}
-                      onChange={(v) => updateField(sec.key, field.key, v)}
-                    />
-                  ))}
+                  {sec.fields
+                    .filter((f) => {
+                      // 링크 ON일 땐 hidden 필드 숨김 · OFF일 땐 노출 (독립 편집)
+                      if (f.hidden && config.linkMobileToDesktop) return false;
+                      return true;
+                    })
+                    .map((field) => (
+                      <FieldControl
+                        key={field.key}
+                        field={field}
+                        value={(config[sec.key as keyof ShopUiConfig] as Record<string, unknown>)[field.key]}
+                        onChange={(v) => updateField(sec.key, field.key, v)}
+                      />
+                    ))}
                 </div>
               </div>
             ))}
           </div>
 
-          {/* 액션 바 · 하단 sticky */}
-          <div className="sticky bottom-4 mt-6 p-4 rounded-2xl bg-gray-900 text-white shadow-xl flex items-center justify-between flex-wrap gap-3">
-            <div className="text-xs">
-              {msg && <span className="opacity-90">{msg}</span>}
-              {!msg && dirty && <span className="opacity-70">🔸 저장하지 않은 변경사항이 있어요</span>}
-              {!msg && !dirty && <span className="opacity-50">변경사항 없음</span>}
-            </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <button
-                onClick={resetToDefault}
-                className="px-3 py-1.5 text-xs text-gray-300 border border-gray-700 rounded-lg hover:bg-gray-800"
-                title="처음 제공한 기본 화면으로 되돌리기"
-              >
-                ↺ 기본 화면으로
-              </button>
-              <button
-                onClick={openPreview}
-                className="px-4 py-1.5 text-xs bg-white/10 text-white rounded-lg hover:bg-white/20 font-medium border border-white/20"
-                title="지금 편집한 내용으로 매장 화면 미리보기 (새 탭)"
-              >
-                👁 미리보기 (새 탭)
-              </button>
-              <button
-                onClick={() => setShowSaveAs(true)}
-                disabled={saving}
-                className="px-4 py-1.5 text-xs bg-[var(--color-brand)] text-white rounded-lg hover:bg-[var(--color-brand-dk)] font-semibold disabled:opacity-50"
-              >
-                💾 이름 붙여 저장
-              </button>
-              <button
-                onClick={saveOverwrite}
-                disabled={saving || !dirty}
-                className="px-5 py-1.5 text-xs bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 font-semibold disabled:opacity-40"
-              >
-                {saving ? "저장 중..." : "✓ 지금 화면에 반영"}
-              </button>
-            </div>
-          </div>
+          <FormActionBar
+            cancelHref="/customize/list"
+            cancelLabel="목록으로"
+            status={
+              msg ? <span className="text-emerald-700 font-medium">{msg}</span>
+              : dirty ? <span className="text-amber-700">🔸 저장하지 않은 변경사항이 있어요</span>
+              : <span>변경사항 없음</span>
+            }
+            secondary={[
+              { label: "↺ 기본 화면으로", onClick: resetToDefault },
+              { label: "👁 미리보기 (새 탭)", onClick: openPreview },
+              { label: "💾 이름 붙여 저장", onClick: () => setShowSaveAs(true), disabled: saving },
+            ]}
+            primary={{
+              label: saving ? "저장 중..." : "✓ 지금 화면에 반영",
+              onClick: saveOverwrite,
+              disabled: saving || !dirty,
+            }}
+          />
         </>
       )}
 

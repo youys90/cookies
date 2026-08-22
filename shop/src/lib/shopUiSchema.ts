@@ -3,6 +3,7 @@
 
 export interface ShopUiConfig {
   version: number;
+  linkMobileToDesktop: boolean;
   productList: {
     columnsDesktop: number;
     columnsMobile: number;
@@ -22,11 +23,20 @@ export interface ShopUiConfig {
     columnsMobile: number;
     maxRows: number;
   };
+  productDetail: {
+    thumbColumns: number;
+    thumbMaxRows: number;
+    thumbSize: number;
+    thumbGap: number;
+    showBrandCategory: boolean;
+    showDescription: boolean;
+  };
 }
 
 // ⚠ 원칙: 현재 shop 실제 화면의 값과 동일하게 유지 (adm/lib/shopUiSchema.ts와 동기화)
 export const DEFAULT_CONFIG: ShopUiConfig = {
   version: 1,
+  linkMobileToDesktop: true,
   productList: {
     columnsDesktop: 4,
     columnsMobile: 2,
@@ -39,12 +49,22 @@ export const DEFAULT_CONFIG: ShopUiConfig = {
   },
   pagination: { options: [25, 50, 100], default: 25 },
   categoryTabs: { columnsDesktop: 8, columnsMobile: 4, maxRows: 2 },
+  productDetail: {
+    thumbColumns: 5,
+    thumbMaxRows: 1,
+    thumbSize: 64,
+    thumbGap: 8,
+    showBrandCategory: true,
+    showDescription: false,
+  },
 };
 
 export function mergeWithDefaults(input: unknown): ShopUiConfig {
   const rec = (input && typeof input === "object") ? input as Record<string, unknown> : {};
   const out = JSON.parse(JSON.stringify(DEFAULT_CONFIG)) as ShopUiConfig;
-  const sections = ["productList", "pagination", "categoryTabs"] as const;
+  // 최상위 스칼라
+  if (typeof rec.linkMobileToDesktop === "boolean") out.linkMobileToDesktop = rec.linkMobileToDesktop;
+  const sections = ["productList", "pagination", "categoryTabs", "productDetail"] as const;
   for (const sec of sections) {
     const secVal = rec[sec];
     if (secVal && typeof secVal === "object") {

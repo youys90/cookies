@@ -7,6 +7,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useShopUi } from "@/contexts/ShopUiContext";
 
 interface Product {
   id: number;
@@ -31,6 +32,16 @@ interface ProductCardProps {
 
 export default function ProductCard({ product, returnQuery }: ProductCardProps) {
   const { language, t } = useLanguage();
+  const { config } = useShopUi();
+  const showName = config.productList.showName;
+  const showPrice = config.productList.showPrice;
+  const showCategory = config.productList.showCategory;
+  const aspectClass = config.productList.imageAspect === "portrait"
+    ? "aspect-[4/5]"
+    : config.productList.imageAspect === "landscape"
+      ? "aspect-[4/3]"
+      : "aspect-square";
+  const radiusStyle = { borderRadius: `${config.productList.imageBorderRadius}px` };
 
   const getProductName = () =>
     language === "ja" ? product.name_ja || product.name : product.name_ko || product.name;
@@ -45,7 +56,7 @@ export default function ProductCard({ product, returnQuery }: ProductCardProps) 
 
   return (
     <Link href={productUrl} className="group">
-      <div className="relative aspect-square overflow-hidden bg-gray-100 rounded-lg">
+      <div className={`relative ${aspectClass} overflow-hidden bg-gray-100`} style={radiusStyle}>
         <Image
           src={product.image}
           alt={getProductName()}
@@ -59,11 +70,28 @@ export default function ProductCard({ product, returnQuery }: ProductCardProps) 
           </span>
         )}
       </div>
-      <div className="mt-3 md:mt-4 px-0.5">
-        <h3 className="text-[13px] md:text-sm font-medium text-gray-900 group-hover:text-gray-600 line-clamp-2 min-h-[2.6em]">
-          {getProductName()}
-        </h3>
-      </div>
+      {(showCategory || showName || showPrice) && (
+        <div className="mt-3 md:mt-4 px-0.5 space-y-1">
+          {showCategory && (
+            <p className="text-[11px] text-gray-500 tracking-widest uppercase">{getCategory()}</p>
+          )}
+          {showName && (
+            <h3 className="text-[13px] md:text-sm font-medium text-gray-900 group-hover:text-gray-600 line-clamp-2 min-h-[2.6em]">
+              {getProductName()}
+            </h3>
+          )}
+          {showPrice && (
+            <p className="text-sm font-semibold text-gray-900">
+              ¥{Number(product.price).toLocaleString("ja-JP")}
+              {product.original_price && (
+                <span className="ml-2 text-xs text-gray-400 line-through">
+                  ¥{Number(product.original_price).toLocaleString("ja-JP")}
+                </span>
+              )}
+            </p>
+          )}
+        </div>
+      )}
     </Link>
   );
 }

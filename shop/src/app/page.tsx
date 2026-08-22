@@ -502,7 +502,9 @@ export default function Home() {
       <section className="border-b border-[var(--color-line-soft)] bg-white">
         <div className="max-w-[1400px] mx-auto px-4 lg:px-8 py-7 lg:py-9">
           {/* dbCategories(adm 카테고리 관리)가 있으면 그것 우선 렌더, 없으면 하드코딩 fallback */}
-          <div className={`grid gap-y-5 gap-x-2 ${dbCategories.length > 0 ? (dbCategories.length <= 4 ? "grid-cols-4" : dbCategories.length <= 8 ? "grid-cols-4 md:grid-cols-8" : "grid-cols-4 md:grid-cols-8 lg:grid-cols-10") : "grid-cols-4 md:grid-cols-8"}`}>
+          <div
+            className="shop-category-tabs grid gap-y-5 gap-x-2"
+          >
             {dbCategories.length > 0 ? (
               dbCategories.map((cat) => {
                 const active = selectedMignonCat === cat.name_ja;

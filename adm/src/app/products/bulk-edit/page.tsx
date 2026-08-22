@@ -12,6 +12,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import { useAdmLanguage } from "@/contexts/LanguageContext";
+import FormActionBar from "@/components/FormActionBar";
 
 interface Product {
   id: number;
@@ -129,22 +130,6 @@ function BulkEditInner() {
         <p className="text-sm text-amber-800/70 mt-1">각 상품의 값을 확인·변경한 뒤 상단 저장 버튼을 누르세요</p>
       </div>
 
-      {/* 액션 바 */}
-      <div className="sticky top-0 z-10 -mx-6 md:-mx-8 px-6 md:px-8 py-3 bg-white/85 backdrop-blur border-y border-gray-200 mb-4 flex items-center justify-between gap-3">
-        <div className="text-sm text-gray-600">
-          {msg ? <span className="text-green-700 font-medium">{msg}</span> : `${products.length}개 상품 편집 중`}
-        </div>
-        <div className="flex items-center gap-2">
-          <Link href="/products" className="px-4 py-1.5 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 transition">취소</Link>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="px-5 py-1.5 text-sm bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-medium shadow-sm transition disabled:opacity-50"
-          >
-            {saving ? "저장 중..." : "✏️ 일괄 저장"}
-          </button>
-        </div>
-      </div>
 
       {/* 상품 카드 목록 */}
       <div className="space-y-3">
@@ -265,6 +250,17 @@ function BulkEditInner() {
           </div>
         ))}
       </div>
+
+      <FormActionBar
+        cancelHref="/products"
+        cancelLabel="취소"
+        status={msg ? <span className="text-green-700 font-medium">{msg}</span> : `${products.length}개 상품 편집 중`}
+        primary={{
+          label: saving ? "저장 중..." : "✏️ 일괄 저장",
+          onClick: handleSave,
+          disabled: saving,
+        }}
+      />
     </div>
   );
 }

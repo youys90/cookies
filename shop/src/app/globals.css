@@ -26,6 +26,15 @@
 .shop-product-grid > * img {
   border-radius: var(--shop-list-radius);
 }
+/* 카테고리 탭 · 관리자 설정에 따른 열 수 */
+.shop-category-tabs {
+  grid-template-columns: repeat(var(--shop-cat-cols-m), minmax(0, 1fr));
+}
+@media (min-width: 768px) {
+  .shop-category-tabs {
+    grid-template-columns: repeat(var(--shop-cat-cols-d), minmax(0, 1fr));
+  }
+}
 
 :root {
   /* 베이스: 화이트 + 다크 텍스트 (미니멀 셀렉트샵 톤) */

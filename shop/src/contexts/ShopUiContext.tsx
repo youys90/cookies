@@ -13,9 +13,10 @@ interface Ctx {
   config: ShopUiConfig;
   loaded: boolean;
   isPreview: boolean;
+  previewDevice: "desktop" | "mobile";
 }
 
-const ShopUiCtx = createContext<Ctx>({ config: DEFAULT_CONFIG, loaded: false, isPreview: false });
+const ShopUiCtx = createContext<Ctx>({ config: DEFAULT_CONFIG, loaded: false, isPreview: false, previewDevice: "desktop" });
 
 export function useShopUi() { return useContext(ShopUiCtx); }
 
@@ -23,18 +24,22 @@ export function ShopUiProvider({ children }: { children: ReactNode }) {
   const [config, setConfig] = useState<ShopUiConfig>(DEFAULT_CONFIG);
   const [loaded, setLoaded] = useState(false);
   const [isPreview, setIsPreview] = useState(false);
+  const [previewDevice, setPreviewDevice] = useState<"desktop" | "mobile">("desktop");
 
   useEffect(() => {
     // 미리보기 모드 우선
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       const preview = params.get("preview");
+      const device = params.get("device");
+      if (device === "mobile") setPreviewDevice("mobile");
       if (preview === "draft") {
         try {
           const raw = sessionStorage.getItem("shopUiPreviewDraft");
           if (raw) {
             const parsed = JSON.parse(raw);
             setConfig(mergeWithDefaults(parsed.config));
+            if (parsed.device === "mobile") setPreviewDevice("mobile");
             setIsPreview(true);
             setLoaded(true);
             return;
@@ -68,13 +73,22 @@ export function ShopUiProvider({ children }: { children: ReactNode }) {
   }, [config]);
 
   return (
-    <ShopUiCtx.Provider value={{ config, loaded, isPreview }}>
+    <ShopUiCtx.Provider value={{ config, loaded, isPreview, previewDevice }}>
       {isPreview && (
         <div className="fixed top-2 left-1/2 -translate-x-1/2 z-50 px-4 py-1.5 bg-amber-500 text-white text-xs font-semibold rounded-full shadow-lg pointer-events-none">
-          🔍 미리보기 모드 · 이 창은 임시입니다
+          🔍 미리보기 모드 · {previewDevice === "mobile" ? "📱 모바일 (390px)" : "🖥 PC"}
         </div>
       )}
-      {children}
+      {/* 모바일 미리보기 · 뷰포트 폭 강제 */}
+      {isPreview && previewDevice === "mobile" ? (
+        <div className="min-h-screen bg-gray-100 flex justify-center py-6">
+          <div className="w-[390px] bg-white shadow-2xl overflow-hidden">
+            {children}
+          </div>
+        </div>
+      ) : (
+        children
+      )}
     </ShopUiCtx.Provider>
   );
 }
