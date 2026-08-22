@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAdmLanguage } from "@/contexts/LanguageContext";
 import ProfileModal from "./ProfileModal";
 
 const menuItems = [
@@ -23,6 +24,7 @@ const adminOnlyMenuItems = [
 export default function Sidebar() {
   const pathname = usePathname();
   const { username, isAdmin, logout } = useAuth();
+  const { language, setLanguage } = useAdmLanguage();
   const [showProfileModal, setShowProfileModal] = useState(false);
 
   const allMenuItems = isAdmin ? [...menuItems, ...adminOnlyMenuItems] : menuItems;
@@ -65,6 +67,30 @@ export default function Sidebar() {
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
               </svg>
+            </button>
+          </div>
+
+          {/* 언어 스위처 · 한국인 관리자 · 기본 KO · 일본인 고객 응대 시 JP */}
+          <div className="mt-3 flex items-center bg-gray-800 rounded-lg p-0.5" role="group" aria-label="언어 전환">
+            <button
+              type="button"
+              onClick={() => setLanguage("ko")}
+              className={`flex-1 py-1.5 text-xs font-medium rounded-md transition ${
+                language === "ko" ? "bg-white text-gray-900 shadow" : "text-gray-400 hover:text-white"
+              }`}
+              aria-pressed={language === "ko"}
+            >
+              🇰🇷 한국어
+            </button>
+            <button
+              type="button"
+              onClick={() => setLanguage("ja")}
+              className={`flex-1 py-1.5 text-xs font-medium rounded-md transition ${
+                language === "ja" ? "bg-white text-gray-900 shadow" : "text-gray-400 hover:text-white"
+              }`}
+              aria-pressed={language === "ja"}
+            >
+              🇯🇵 日本語
             </button>
           </div>
         </div>

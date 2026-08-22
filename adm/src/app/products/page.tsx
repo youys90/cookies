@@ -11,6 +11,7 @@ import InlineEditCell from "@/components/InlineEditCell";
 import CsvImportModal from "@/components/CsvImportModal";
 import type { CsvImportResult } from "@/components/CsvImportModal";
 import { generateCsv, downloadCsv } from "@/lib/csv";
+import { useAdmLanguage } from "@/contexts/LanguageContext";
 
 interface Product {
   id: number;
@@ -69,6 +70,7 @@ const CSV_SAMPLE: Record<string, string> = {
 
 export default function ProductsPage() {
   const searchParams = useSearchParams();
+  const { language, pickName, pickCategory } = useAdmLanguage();
   const [productList, setProductList] = useState<Product[]>([]);
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get("cat") || "전체");
   const [selectedSubCategory, setSelectedSubCategory] = useState(searchParams.get("sub") || "");
@@ -729,13 +731,13 @@ export default function ProductsPage() {
                           <span className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition text-white text-lg">🔍</span>
                         </button>
                         <div className="ml-4">
-                          <p className="text-sm font-medium text-gray-900">{product.name}</p>
-                          <p className="text-xs text-gray-500">{product.name_ko || ""}</p>
+                          {/* 한 언어만 명확 노출 · 반대 언어는 툴팁으로 참고 */}
+                          <p className="text-sm font-medium text-gray-900" title={language === "ko" ? (product.name_ja || product.name || "") : (product.name_ko || "")}>{pickName(product)}</p>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="text-sm text-gray-600">{product.category}</span>
+                      <span className="text-sm text-gray-600" title={language === "ko" ? (product.category_ja || product.category) : (product.category_ko || "")}>{pickCategory(product)}</span>
                     </td>
                     <td className="px-6 py-4">
                       <InlineEditCell

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Noto_Sans_KR, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { AdmLanguageProvider } from "@/contexts/LanguageContext";
 import LayoutContent from "@/components/LayoutContent";
 import DevBanner from "@/components/DevBanner";
 
@@ -33,7 +34,9 @@ export default function RootLayout({
       <body className={`${notoSansKr.variable} ${playfairAdm.variable} font-sans antialiased`}>
         <DevBanner />
         <AuthProvider>
-          <LayoutContent>{children}</LayoutContent>
+          <AdmLanguageProvider>
+            <LayoutContent>{children}</LayoutContent>
+          </AdmLanguageProvider>
         </AuthProvider>
       </body>
     </html>

@@ -3,16 +3,22 @@
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
+import { useAdmLanguage } from "@/contexts/LanguageContext";
 
 interface Product {
   id: number;
   name: string;
+  name_ja?: string | null;
+  name_ko?: string | null;
   category: string;
+  category_ja?: string | null;
+  category_ko?: string | null;
   stock?: number;
   is_active?: boolean;
 }
 
 export default function Dashboard() {
+  const { pickName, pickCategory } = useAdmLanguage();
   const [lowStockProducts, setLowStockProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
@@ -40,7 +46,7 @@ export default function Dashboard() {
 
     const { data: lowStock } = await supabase
       .from('products')
-      .select('id, name, category, stock, is_active')
+      .select('id, name, name_ja, name_ko, category, category_ja, category_ko, stock, is_active')
       .lte('stock', 10)
       .order('stock', { ascending: true })
       .limit(5);
@@ -142,8 +148,8 @@ export default function Dashboard() {
                   {lowStockProducts.map((product) => (
                     <div key={product.id} className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm font-medium text-gray-900">{product.name}</p>
-                        <p className="text-xs text-gray-500">{product.category}</p>
+                        <p className="text-sm font-medium text-gray-900">{pickName(product)}</p>
+                        <p className="text-xs text-gray-500">{pickCategory(product)}</p>
                       </div>
                       <div className="text-right">
                         <p className={`text-sm font-medium ${(product.stock || 0) === 0 ? "text-red-600" : "text-yellow-600"}`}>
