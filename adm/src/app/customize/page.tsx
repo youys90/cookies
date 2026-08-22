@@ -445,34 +445,48 @@ function FieldControl({ field, value, onChange }: { field: FieldMeta; value: unk
     return (
       <div>
         {label}
-        <div className="inline-flex items-center gap-0 rounded-lg border border-gray-300 bg-white overflow-hidden shadow-sm">
-          <button
-            type="button"
-            onClick={() => set(num - 1)}
-            disabled={num <= min}
-            className="px-3 py-1.5 text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
-            title="감소"
-          >
-            ▼
-          </button>
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* 스핌너 · ▼ 숫자 ▲ · 재고와 동일 UX (클릭 시 편집) */}
+          <div className="inline-flex items-center gap-0 rounded-lg border border-gray-300 bg-white overflow-hidden shadow-sm">
+            <button
+              type="button"
+              onClick={() => set(num - 1)}
+              disabled={num <= min}
+              className="px-3 py-1.5 text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
+              title="감소"
+            >
+              ▼
+            </button>
+            <input
+              type="number"
+              value={num}
+              onChange={(e) => set(Number(e.target.value) || min)}
+              min={min}
+              max={max}
+              className="w-16 px-2 py-1.5 text-sm text-center font-semibold text-gray-900 border-x border-gray-200 focus:outline-none focus:bg-blue-50"
+            />
+            <button
+              type="button"
+              onClick={() => set(num + 1)}
+              disabled={num >= max}
+              className="px-3 py-1.5 text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
+              title="증가"
+            >
+              ▲
+            </button>
+            {field.suffix && <span className="px-2 text-sm text-gray-500">{field.suffix}</span>}
+          </div>
+          {/* 슬라이더 · 나머지 시각적 조정용 · 값 완전 동일하게 연동 */}
           <input
-            type="number"
-            value={num}
-            onChange={(e) => set(Number(e.target.value) || min)}
+            type="range"
             min={min}
             max={max}
-            className="w-16 px-2 py-1.5 text-sm text-center font-semibold text-gray-900 border-x border-gray-200 focus:outline-none focus:bg-blue-50"
+            step={1}
+            value={num}
+            onChange={(e) => set(Number(e.target.value))}
+            className="flex-1 min-w-[140px] max-w-[240px] accent-[var(--color-brand)]"
+            aria-label={field.label}
           />
-          <button
-            type="button"
-            onClick={() => set(num + 1)}
-            disabled={num >= max}
-            className="px-3 py-1.5 text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
-            title="증가"
-          >
-            ▲
-          </button>
-          {field.suffix && <span className="px-2 text-sm text-gray-500">{field.suffix}</span>}
         </div>
       </div>
     );
