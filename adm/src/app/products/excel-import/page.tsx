@@ -111,7 +111,7 @@ function ExcelImportInner() {
     if (Array.isArray(obj.pool)) setPool(obj.pool as never);
     if (Array.isArray(obj.rows)) setRows(obj.rows as never);
     if (typeof obj.fileName === "string") setFileName(obj.fileName);
-    if (Array.isArray(obj.picked)) setPicked(new Set(obj.picked as number[]));
+    if (Array.isArray(obj.picked)) setPicked(new Set(obj.picked as string[]));
     setCurrentDraftId(draftId);
   };
 
