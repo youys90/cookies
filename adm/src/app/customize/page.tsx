@@ -10,6 +10,7 @@ import { supabase } from "@/lib/supabase";
 import { SHOP_UI_SCHEMA, DEFAULT_CONFIG, mergeWithDefaults, deriveMobileValues, type ShopUiConfig, type FieldMeta } from "@/lib/shopUiSchema";
 import FormActionBar from "@/components/FormActionBar";
 import ShopPreview from "@/components/ShopPreview";
+import DraftSaveButton from "@/components/DraftSaveButton";
 import { getLatestDraft, upsertDraft, deleteDraft, listDrafts } from "@/lib/adminDrafts";
 import { useSearchParams } from "next/navigation";
 
@@ -239,19 +240,12 @@ export default function CustomizePage() {
           <p className="text-sm text-gray-500 mt-1">
             매장(고객용) 화면의 배치 · 크기 · 노출 정보를 사장님이 직접 조정할 수 있어요
           </p>
-          <div className="flex items-center gap-2 mt-1.5 text-[11px]">
-            <button
-              onClick={manualSave}
-              className="px-2 py-0.5 bg-white border border-gray-200 text-gray-600 rounded-md hover:bg-gray-50 flex items-center gap-1"
-              title="현재 편집 상태를 즉시 임시저장"
-            >
-              💾 임시저장
-            </button>
-            <span key={savedTick} className={`text-gray-400 ${savedTick > 0 ? "animate-fade-in" : ""}`}>
-              {lastSavedAt
-                ? `방금 저장됨 · ${lastSavedAt.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`
-                : "자동 임시저장 · 페이지 이동해도 유지"}
-            </span>
+          <div className="mt-3">
+            <DraftSaveButton
+              onSave={manualSave}
+              lastSavedAt={lastSavedAt}
+              savedTick={savedTick}
+            />
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">

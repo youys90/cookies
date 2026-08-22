@@ -317,7 +317,7 @@ export default function ExcelImportPage() {
         name_ja: nameJa || r.name_ko,
         price: r.price,
         original_price: r.original_price,
-        stock: 9999999999, // 재고 UI 미노출 · 큰 값 고정
+        stock: 2147483647, // 재고 UI 미노출 · 큰 값 고정
         category: topCat.name_ja,
         category_ja: topCat.name_ja,
         category_ko: topCat.name_ko,

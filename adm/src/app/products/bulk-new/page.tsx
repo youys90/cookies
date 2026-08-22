@@ -12,6 +12,7 @@ import { translateKoJa } from "@/lib/translate";
 import ImageLibraryPicker from "@/components/ImageLibraryPicker";
 import FormActionBar from "@/components/FormActionBar";
 import { SESSION_KEYS, loadSession, saveSession, clearSession, clearManySessions } from "@/lib/sessionPersistence";
+import DraftSaveButton from "@/components/DraftSaveButton";
 
 const categoriesJa = [
   "アクセサリー",
@@ -348,7 +349,7 @@ export default function BulkNewProductsPage() {
         name_ko: row.nameKo,
         price: Number(row.price),
         original_price: row.originalPrice ? Number(row.originalPrice) : null,
-        stock: 9999999999, // 재고 UI 미노출 · 큰 값으로 고정 (매장에서 재고 소진 오판 방지)
+        stock: 2147483647, // 재고 UI 미노출 · 큰 값으로 고정 (매장에서 재고 소진 오판 방지)
         category: row.categoryJa,
         category_ja: row.categoryJa,
         category_ko: catKo,
@@ -424,19 +425,12 @@ export default function BulkNewProductsPage() {
           <p className="text-sm text-gray-500 mt-1">
             여러 상품을 한 번에 등록합니다. 각 행에 이미지를 드래그&드롭 하세요.
           </p>
-          <div className="flex items-center gap-2 mt-1.5 text-[11px]">
-            <button
-              onClick={manualSave}
-              className="px-2 py-0.5 bg-white border border-gray-200 text-gray-600 rounded-md hover:bg-gray-50 flex items-center gap-1"
-              title="현재까지 작성한 내용을 지금 즉시 임시저장"
-            >
-              💾 임시저장
-            </button>
-            <span key={savedTick} className={`text-gray-400 ${savedTick > 0 ? "animate-fade-in" : ""}`}>
-              {lastSavedAt
-                ? `방금 저장됨 · ${lastSavedAt.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`
-                : "자동 임시저장 · 페이지 이동해도 유지"}
-            </span>
+          <div className="mt-3">
+            <DraftSaveButton
+              onSave={manualSave}
+              lastSavedAt={lastSavedAt}
+              savedTick={savedTick}
+            />
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
