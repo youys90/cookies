@@ -4,13 +4,14 @@
 // - 스키마 기반 폼 자동 생성 (shopUiSchema.ts 수정만으로 새 항목 추가 가능)
 // - 활성 프리셋 로드 · 변경 · 저장 · 다른 이름으로 저장 · 원복 · 미리보기
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { SHOP_UI_SCHEMA, DEFAULT_CONFIG, mergeWithDefaults, deriveMobileValues, type ShopUiConfig, type FieldMeta } from "@/lib/shopUiSchema";
 import { translateKoJa } from "@/lib/translate";
 import FormActionBar from "@/components/FormActionBar";
 import ShopPreview from "@/components/ShopPreview";
+import BigPreviewEditor from "@/components/customize/BigPreviewEditor";
 import DraftSaveButton from "@/components/DraftSaveButton";
 import DraftListButton from "@/components/DraftListButton";
 import InlineFormatInput from "@/components/InlineFormatInput";
@@ -618,18 +619,25 @@ export default function CustomizePage() {
                   ? "border-[var(--color-brand)] bg-[var(--color-brand)]/10 text-[var(--color-brand-dk)]"
                   : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
               }`}
-              title="미리보기가 큰 화면 · 좌측 설정은 접힘 (아이콘 클릭 시 펼침)"
+              title="큰 화면에서 요소를 직접 클릭 · 드래그로 크기 조절"
             >
-              🔍 큰 미리보기
+              🖌 큰 화면 편집
             </button>
           </div>
-          <div className={`grid grid-cols-1 gap-6 transition-all ${
-            editorMode === "split"
-              ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
-              : "lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)]"
-          }`}>
+          {/* 「큰 화면 편집」 모드 · 편집 폼/미리보기 대신 BigPreviewEditor 전체 폭 · react-moveable 리사이즈 */}
+          {editorMode === "preview" ? (
+            <BigPreviewEditor
+              config={config}
+              device={previewDevice}
+              page={previewPage}
+              sampleProductId={sampleProductId}
+              updateField={updateField}
+              section={previewPage === "mainTop" ? mainSection : null}
+            />
+          ) : (
+          <div className={`grid grid-cols-1 gap-6 transition-all lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]`}>
             {/* 편집 폼 · 선택된 화면에 해당하는 섹션만 노출 */}
-            <div className={`space-y-4 ${editorMode === "preview" ? "lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto lg:pr-2" : ""}`}>
+            <div className="space-y-4">
               {previewPage === "mainTop" && (
                 <>
                   {/* ─── 2뎁스 · 세부 영역 선택 · 사장님 요구 (스포트라이트 UX) ─── */}
@@ -1460,10 +1468,12 @@ export default function CustomizePage() {
                   device={previewDevice}
                   page={previewPage}
                   sampleProductId={sampleProductId}
+                  section={previewPage === "mainTop" ? mainSection : null}
                 />
               </div>
             </div>
           </div>
+          )}
 
           <FormActionBar
             hideCancel

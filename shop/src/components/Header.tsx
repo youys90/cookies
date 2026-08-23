@@ -12,7 +12,14 @@ import { renderInlineFormat } from "@/lib/inlineFormat";
 export default function Header() {
   const { totalItems } = useCart();
   const { t, language } = useLanguage();
-  const { isInnerFrame, previewPage, config: shopUi } = useShopUi();
+  const { isInnerFrame, previewPage, previewSection, config: shopUi } = useShopUi();
+
+  // 관리자 미리보기 iframe · 스포트라이트 대상 세부 영역 강조 · 나머지 dim
+  // - promoBar / header 두 섹션에 대해서만 · isInnerFrame + previewSection 있을 때만 적용
+  const spotlight = (section: "promoBar" | "header") => {
+    if (!isInnerFrame || !previewSection) return "";
+    return previewSection === section ? "shop-section-selected" : "shop-section-dimmed";
+  };
   const pathname = usePathname();
   const sp = useSearchParams();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -48,7 +55,7 @@ export default function Header() {
     <header className="sticky top-0 z-50 bg-white">
       {/* ─── 상단 슬림바 (텍스트 무한 루프) · 사장님 설정에 따라 표시/숨김 ─── */}
       {promoBarEnabled && (
-        <div className="bg-[var(--color-text)] text-white text-[11px] tracking-widest h-8 flex items-center overflow-hidden">
+        <div data-section="promoBar" className={`bg-[var(--color-text)] text-white text-[11px] tracking-widest h-8 flex items-center overflow-hidden ${spotlight("promoBar")}`}>
           <div className="marquee-track">
             {Array.from({ length: 2 }).flatMap((_, dup) =>
               promoMsgs.map((m, i) => (
@@ -60,7 +67,7 @@ export default function Header() {
       )}
 
       {/* ─── 메인 헤더 ─── */}
-      <div className="border-b border-[var(--color-line)]">
+      <div data-section="header" className={`border-b border-[var(--color-line)] ${spotlight("header")}`}>
         <div className="max-w-[1400px] mx-auto px-4 lg:px-8 h-16 lg:h-[72px] grid grid-cols-[1fr_auto_1fr] items-center gap-6">
           {/* 좌: 로고 + 모바일 햄버거 */}
           <div className="flex items-center gap-2">

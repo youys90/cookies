@@ -9,6 +9,9 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import { supabase } from "@/lib/supabase";
 import { DEFAULT_CONFIG, mergeWithDefaults, type ShopUiConfig } from "@/lib/shopUiSchema";
 
+/** 관리자 「메인」 편집 시 · 스포트라이트 대상 세부 영역 · adm에서 postMessage(shop-set-section)로 전달 */
+export type PreviewSection = "promoBar" | "header" | "hero" | "benefits" | "categories" | "footer" | null;
+
 interface Ctx {
   config: ShopUiConfig;
   loaded: boolean;
@@ -18,9 +21,11 @@ interface Ctx {
   isInnerFrame: boolean;
   /** 미리보기에서 편집 중인 대상 · 관련 영역만 렌더 · 나머지 placeholder */
   previewPage: "list" | "detail" | "mainTop" | null;
+  /** 관리자 「메인」 편집 세부 영역 · 스포트라이트 대상 · 해당 영역만 밝게, 다른 영역은 dim 처리 */
+  previewSection: PreviewSection;
 }
 
-const ShopUiCtx = createContext<Ctx>({ config: DEFAULT_CONFIG, loaded: false, isPreview: false, previewDevice: "desktop", isInnerFrame: false, previewPage: null });
+const ShopUiCtx = createContext<Ctx>({ config: DEFAULT_CONFIG, loaded: false, isPreview: false, previewDevice: "desktop", isInnerFrame: false, previewPage: null, previewSection: null });
 
 export function useShopUi() { return useContext(ShopUiCtx); }
 
@@ -31,6 +36,8 @@ export function ShopUiProvider({ children }: { children: ReactNode }) {
   const [previewDevice, setPreviewDevice] = useState<"desktop" | "mobile">("desktop");
   const [isInnerFrame, setIsInnerFrame] = useState(false);
   const [previewPage, setPreviewPage] = useState<"list" | "detail" | "mainTop" | null>(null);
+  const [previewSection, setPreviewSection] = useState<PreviewSection>(null);
+  const [isBigEditor, setIsBigEditor] = useState(false);
 
   useEffect(() => {
     // 미리보기 모드 우선
@@ -43,6 +50,8 @@ export function ShopUiProvider({ children }: { children: ReactNode }) {
       const pv = params.get("previewPage");
       if (device === "mobile") setPreviewDevice("mobile");
       if (inner === "1") setIsInnerFrame(true);
+      // 「큰 화면 편집」 모드 · 클릭 차단 리스너 비활성 조건 · react-moveable 편집 클릭 통과용
+      if (params.get("bigEditor") === "1") setIsBigEditor(true);
       if (pv === "list" || pv === "detail" || pv === "mainTop") setPreviewPage(pv);
       if (preview === "draft") {
         // 1) URL 파라미터 c (Base64) 우선 · adm과 origin이 달라 sessionStorage 불가 시
@@ -89,6 +98,71 @@ export function ShopUiProvider({ children }: { children: ReactNode }) {
     })();
   }, []);
 
+  // 사장님 지시 · innerFrame(관리자 미리보기 iframe) 상태일 때 · 링크 이동/클릭 실행/form submit 만 차단
+  // - hover · cursor · 스크롤 · 라이브 편집 실시간 반영 · 매장 원 시각 효과는 100% 유지
+  // - Enter keydown 은 전역 차단 안 함 · 키보드 자체는 정상 · Enter 로 발동되는 실제 기능은:
+  //   (1) 검색 form (page.tsx) · 리뷰 password form (StaffPasswordModal) · 리뷰 작성 form (ReviewWriteModal)
+  //       → 브라우저 기본 동작으로 submit 이벤트 발동 → 아래 `submit` capture 로 차단됨
+  //   (2) submit 안 거치고 Enter 직접 실행하는 곳 (ReviewWriteModal:313 주문조회 · reviews/page.tsx:586 비번확인)
+  //       → 모두 모달 안 · 모달을 여는 버튼 클릭이 아래 `click` capture 로 차단되어 애초에 접근 불가
+  //   → 따라서 submit + click capture 만으로 실제 기능 실행이 전부 차단됨
+  // - 「큰 화면 편집」 모드 (isBigEditor=true) 에서는 · react-moveable 편집 클릭 통과 필요 · 리스너 등록 안 함
+  // - 실 매장 방문자 (isInnerFrame=false) → 리스너 등록 안 함 · 원 매장 동작 100%
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    if (!isInnerFrame || isBigEditor) return;
+    const onClick = (e: MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    const onSubmit = (e: Event) => {
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    document.addEventListener("click", onClick, true);
+    document.addEventListener("submit", onSubmit, true);
+    return () => {
+      document.removeEventListener("click", onClick, true);
+      document.removeEventListener("submit", onSubmit, true);
+    };
+  }, [isInnerFrame, isBigEditor]);
+
+  // adm의 postMessage `shop-set-section` 수신 → 스포트라이트 대상 영역 갱신
+  // - innerFrame=1 (관리자 미리보기 iframe) 일 때만 의미 있음 · 실 매장 방문자에는 message 안 옴
+  // - shop-section-click 발동 안 함 (사장님 원 요구 아님 · 라이브 화면은 순수 표시)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const on = (e: MessageEvent) => {
+      const d = e.data as { type?: unknown; section?: unknown } | null;
+      if (!d || typeof d !== "object" || d.type !== "shop-set-section") return;
+      const s = d.section;
+      if (
+        s === null ||
+        s === "promoBar" ||
+        s === "header" ||
+        s === "hero" ||
+        s === "benefits" ||
+        s === "categories" ||
+        s === "footer"
+      ) {
+        setPreviewSection(s as PreviewSection);
+      }
+    };
+    window.addEventListener("message", on);
+    return () => window.removeEventListener("message", on);
+  }, []);
+
+  // previewSection 변경 시 · 대응 영역으로 자동 스크롤 (사장님이 편집 중인 영역이 화면 밖에 있으면 안 보임)
+  // - data-section="{key}" 요소를 찾아 scrollIntoView
+  // - innerFrame + previewSection이 있어야 실행 (실 매장 방문자에서 오작동 방지)
+  useEffect(() => {
+    if (!isInnerFrame || !previewSection) return;
+    if (typeof document === "undefined") return;
+    const el = document.querySelector(`[data-section="${previewSection}"]`) as HTMLElement | null;
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [previewSection, isInnerFrame]);
+
   // 문서 root에 CSS 변수 적용
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -102,7 +176,7 @@ export function ShopUiProvider({ children }: { children: ReactNode }) {
   }, [config]);
 
   return (
-    <ShopUiCtx.Provider value={{ config, loaded, isPreview, previewDevice, isInnerFrame, previewPage }}>
+    <ShopUiCtx.Provider value={{ config, loaded, isPreview, previewDevice, isInnerFrame, previewPage, previewSection }}>
       {isPreview && !isInnerFrame && (
         <>
           {/* 상단 스티키 배너 · 눈에 확 띄는 미리보기 표시 (실제 매장과 오해 방지) */}

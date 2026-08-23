@@ -67,6 +67,10 @@ export interface ShopUiConfig {
         link: string;
         /** object-fit · cover(꽉채움) · contain(비율유지) */
         fit: "cover" | "contain";
+        /** PPT식 편집기 · 리사이즈 결과 폭 (px) · 없으면 CSS 기본 사용 · 하위호환 유지 */
+        width?: number;
+        /** PPT식 편집기 · 리사이즈 결과 높이 (px) · 없으면 CSS 기본 사용 · 하위호환 유지 */
+        height?: number;
       }>;
     };
     /** 혜택 강조 슬림바 · 항목 리스트 (WYSIWYG 마커로 색상/굵게 표현) */
@@ -362,12 +366,20 @@ export function mergeWithDefaults(input: unknown): ShopUiConfig {
         boxPadding: typeof hero.boxPadding === "number" ? hero.boxPadding : out.mainTop.hero.boxPadding,
         boxRadius: typeof hero.boxRadius === "number" ? hero.boxRadius : out.mainTop.hero.boxRadius,
         layout: (["single", "hero-2col", "hero-3col", "grid-2x2", "mosaic-5", "carousel"] as const).includes(hero.layout as never) ? (hero.layout as typeof out.mainTop.hero.layout) : out.mainTop.hero.layout,
-        images: Array.isArray(hero.images) ? (hero.images as Record<string, unknown>[]).map((im) => ({
-          url: typeof im.url === "string" ? im.url : "",
-          alt: typeof im.alt === "string" ? im.alt : "",
-          link: typeof im.link === "string" ? im.link : "",
-          fit: im.fit === "contain" ? "contain" : "cover",
-        })) : out.mainTop.hero.images,
+        images: Array.isArray(hero.images) ? (hero.images as Record<string, unknown>[]).map((im) => {
+          const base: {
+            url: string; alt: string; link: string; fit: "cover" | "contain";
+            width?: number; height?: number;
+          } = {
+            url: typeof im.url === "string" ? im.url : "",
+            alt: typeof im.alt === "string" ? im.alt : "",
+            link: typeof im.link === "string" ? im.link : "",
+            fit: im.fit === "contain" ? "contain" : "cover",
+          };
+          if (typeof im.width === "number" && Number.isFinite(im.width) && im.width > 0) base.width = im.width;
+          if (typeof im.height === "number" && Number.isFinite(im.height) && im.height > 0) base.height = im.height;
+          return base;
+        }) : out.mainTop.hero.images,
       };
     }
     // 혜택

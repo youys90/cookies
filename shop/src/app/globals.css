@@ -3,6 +3,35 @@
 /* 그리드 클래스 사전 컴파일 - 상품/카테고리 열 수를 자유롭게 바꾸기 위해 safelist */
 @source inline("grid-cols-{1,2,3,4,5,6,7,8,9,10,12} md:grid-cols-{1,2,3,4,5,6,7,8,9,10,12} lg:grid-cols-{1,2,3,4,5,6,7,8,9,10,12}");
 
+/* ─── 관리자 미리보기 스포트라이트 ───
+   · adm의 「메인」 세부 영역 편집 시 · 대상 영역만 밝게 (shop-section-selected) · 다른 영역 빗금 어둡게 (shop-section-dimmed)
+   · innerFrame=1 + shop-set-section postMessage 수신 시 · ShopUiContext가 클래스 부여
+   · 실 매장 방문자에는 부착 0 (innerFrame 조건 · isInnerFrame 상태로 조건부) */
+.shop-section-selected {
+  position: relative;
+  z-index: 30;
+  outline: 4px solid var(--color-point);
+  outline-offset: -4px;
+}
+.shop-section-dimmed {
+  filter: grayscale(1) brightness(0.4);
+  position: relative;
+}
+.shop-section-dimmed::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    135deg,
+    transparent 0,
+    transparent 6px,
+    rgba(200, 60, 60, 0.35) 6px,
+    rgba(200, 60, 60, 0.35) 12px
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
 /* 매장 화면 커스터마이징 · 관리자에서 조정 · CSS 변수는 ShopUiContext가 root에 주입 */
 /* 초기값 = shop 원래 화면과 동일 · 관리자 미설정 시 폴백 */
 :root {

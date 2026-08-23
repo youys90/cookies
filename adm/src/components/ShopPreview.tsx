@@ -6,15 +6,24 @@
 // - 모바일 모드: iframe 390px 폭 (실제 폰 뷰포트)
 // - config 변경 350ms debounce → iframe 리로드 (깜빡임 최소화)
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { ShopUiConfig } from "@/lib/shopUiSchema";
 import { getShopUrl } from "@/lib/shopUrl";
+
+/** 관리자가 편집 중인 「메인」 세부 영역 · shop 스포트라이트 대상 · null이면 스포트라이트 안 함 */
+export type PreviewSection = "promoBar" | "header" | "hero" | "benefits" | "categories" | "footer" | null;
 
 interface Props {
   config: ShopUiConfig;
   device: "desktop" | "mobile";
   page: "list" | "detail" | "mainTop";
   sampleProductId?: number | null;
+  /** 편집기 오버레이 슬롯 · iframe wrapper 안에 렌더 (scale 자동 전달) · react-moveable 등 절대 좌표 요소 배치용 */
+  renderOverlay?: (info: { scale: number }) => ReactNode;
+  /** 「메인」 편집 시 · 현재 편집 중인 세부 영역 (스포트라이트 대상) · shop에 postMessage로 전달 */
+  section?: PreviewSection;
+  /** 「큰 화면 편집」 모드 · shop 링크 이동/클릭 차단 리스너 비활성 (react-moveable 편집 클릭 통과) */
+  bigEditor?: boolean;
 }
 
 // shop URL · 런타임 자동 감지 (매장 PC 등 · 별도 설정 없이 동작)
@@ -35,7 +44,7 @@ function encodeConfig(config: ShopUiConfig): string {
   }
 }
 
-export default function ShopPreview({ config, device, page, sampleProductId }: Props) {
+export default function ShopPreview({ config, device, page, sampleProductId, renderOverlay, section, bigEditor }: Props) {
   const isMobile = device === "mobile";
   const [debouncedConfig, setDebouncedConfig] = useState<ShopUiConfig>(config);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -46,6 +55,22 @@ export default function ShopPreview({ config, device, page, sampleProductId }: P
     timerRef.current = setTimeout(() => setDebouncedConfig(config), 350);
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, [config]);
+
+  // section 변경 시 · shop iframe에 postMessage `shop-set-section` 전달
+  // - shop이 스포트라이트 CSS (.shop-section-selected / .shop-section-dimmed)를 적용
+  // - iframe load 이후에 보내야 함 · onLoad 시점 + section change 시점 두 곳에서 발동
+  const postSection = () => {
+    try {
+      iframeRef.current?.contentWindow?.postMessage(
+        { type: "shop-set-section", section: section ?? null },
+        "*"
+      );
+    } catch {}
+  };
+  useEffect(() => {
+    postSection();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [section]);
 
   const src = useMemo(() => {
     const encoded = encodeConfig(debouncedConfig);
@@ -59,8 +84,10 @@ export default function ShopPreview({ config, device, page, sampleProductId }: P
     });
     // 메인 편집 미리보기 · 관리자가 편집한 한국어 원본 그대로 검수하도록 강제 한국어
     if (page === "mainTop") params.set("forceLang", "ko");
+    // 「큰 화면 편집」 모드 · shop 클릭 차단 리스너 비활성 · react-moveable 편집 클릭 통과
+    if (bigEditor) params.set("bigEditor", "1");
     return `${getShopUrl()}${path}?${params.toString()}`;
-  }, [debouncedConfig, device, page, sampleProductId]);
+  }, [debouncedConfig, device, page, sampleProductId, bigEditor]);
 
   // PC 모드에서 · wrapper 폭 감지해 scale 자동 계산
   // 콜백 ref · device 전환 시 wrapper가 언마운트/재마운트되어도 · 새 DOM에 옵저버 재부착됨
@@ -109,19 +136,11 @@ export default function ShopPreview({ config, device, page, sampleProductId }: P
             height={MOBILE_VIEWPORT_HEIGHT}
             style={{ border: "none", display: "block" }}
             title="매장 화면 실시간 미리보기 (모바일)"
+            onLoad={postSection}
           />
-          {/* 클릭 삼킴 · 스크롤 통과 오버레이 · 사장님 요구 「미리보기는 보기만」 · shop 원 링크 이동 차단 */}
-          <div
-            style={{ position: "absolute", inset: 0, zIndex: 10, cursor: "not-allowed" }}
-            onClickCapture={(e) => { e.preventDefault(); e.stopPropagation(); }}
-            onMouseDownCapture={(e) => { e.preventDefault(); e.stopPropagation(); }}
-            onWheel={(e) => {
-              e.preventDefault();
-              try {
-                iframeRef.current?.contentWindow?.scrollBy({ top: e.deltaY, left: e.deltaX, behavior: "auto" });
-              } catch {}
-            }}
-          />
+          {/* 원 shop hover · cursor · 스크롤 100% 통과 · 링크 이동/클릭 실행은 shop 안 리스너(ShopUiContext)가 innerFrame 조건으로 preventDefault */}
+          {/* 편집기 오버레이 슬롯 · 모바일은 scale=1 (실제 뷰포트 그대로) */}
+          {renderOverlay && renderOverlay({ scale: 1 })}
         </div>
       </div>
     );
@@ -159,19 +178,11 @@ export default function ShopPreview({ config, device, page, sampleProductId }: P
             transformOrigin: "top left",
           }}
           title="매장 화면 실시간 미리보기 (PC)"
+          onLoad={postSection}
         />
-        {/* 클릭 삼킴 · 스크롤 통과 오버레이 · 사장님 요구 「미리보기는 보기만」 · shop 원 링크 이동 차단 */}
-        <div
-          style={{ position: "absolute", inset: 0, zIndex: 10, cursor: "not-allowed" }}
-          onClickCapture={(e) => { e.preventDefault(); e.stopPropagation(); }}
-          onMouseDownCapture={(e) => { e.preventDefault(); e.stopPropagation(); }}
-          onWheel={(e) => {
-            e.preventDefault();
-            try {
-              iframeRef.current?.contentWindow?.scrollBy({ top: e.deltaY, left: e.deltaX, behavior: "auto" });
-            } catch {}
-          }}
-        />
+        {/* 원 shop hover · cursor · 스크롤 100% 통과 · 링크 이동/클릭 실행은 shop 안 리스너(ShopUiContext)가 innerFrame 조건으로 preventDefault */}
+        {/* 편집기 오버레이 슬롯 · PC iframe 스케일 반영 · react-moveable target 배치용 */}
+        {renderOverlay && renderOverlay({ scale })}
       </div>
     </div>
   );

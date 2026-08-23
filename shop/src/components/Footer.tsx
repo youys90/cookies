@@ -5,7 +5,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useShopUi } from "@/contexts/ShopUiContext";
 
 export default function Footer() {
-  const { config } = useShopUi();
+  const { config, isInnerFrame, previewSection } = useShopUi();
   const { language, t } = useLanguage();
   const footer = config.footer;
   // 편집 값의 빈 문자열 fallback (원래 하드코딩된 「―」 대체)
@@ -13,8 +13,13 @@ export default function Footer() {
   const bizNo = footer.bizNo?.trim() || "―";
   const address = footer.address?.trim() || "―";
 
+  // 관리자 미리보기 iframe · 스포트라이트 (footer 세부 영역)
+  const spotlight = (!isInnerFrame || !previewSection)
+    ? ""
+    : previewSection === "footer" ? "shop-section-selected" : "shop-section-dimmed";
+
   return (
-    <footer className="bg-[var(--color-bg-soft)] border-t border-[var(--color-line)] mt-20">
+    <footer data-section="footer" className={`bg-[var(--color-bg-soft)] border-t border-[var(--color-line)] mt-20 ${spotlight}`}>
       <div className="max-w-[1400px] mx-auto px-4 lg:px-8 py-12 lg:py-16">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8 lg:gap-12">
           {/* 1. 회사 정보 */}

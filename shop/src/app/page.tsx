@@ -97,7 +97,12 @@ function CategoryIcon({ name }: { name: string }) {
 
 export default function Home() {
   const { language, t } = useLanguage();
-  const { config: shopUi, isInnerFrame, previewPage } = useShopUi();
+  const { config: shopUi, isInnerFrame, previewPage, previewSection } = useShopUi();
+  // 관리자 미리보기 iframe · 「메인」 편집 세부 영역 스포트라이트
+  const spotlight = (section: "hero" | "benefits" | "categories") => {
+    if (!isInnerFrame || !previewSection) return "";
+    return previewSection === section ? "shop-section-selected" : "shop-section-dimmed";
+  };
   const pageSizeOptions = shopUi.pagination.options.length > 0 ? shopUi.pagination.options : DEFAULT_PAGE_SIZE_OPTIONS;
   const defaultPageSize = shopUi.pagination.default || pageSizeOptions[0] || 25;
   const searchParams = useSearchParams();
@@ -158,7 +163,7 @@ export default function Home() {
 
   useEffect(() => {
     const page = Number(searchParams.get("page")) || 1;
-    const size = Number(searchParams.get("size")) || 25;
+    const size = Number(searchParams.get("size")) || defaultPageSize;
     const cat = searchParams.get("cat") || "all";
     const search = searchParams.get("search") || "";
     setCurrentPage(page);
@@ -166,7 +171,7 @@ export default function Home() {
     setSelectedMignonCat(cat);
     setSearchKeyword(search);
     setSearchInput(search);
-  }, [searchParams]);
+  }, [searchParams, defaultPageSize]);
 
   useEffect(() => {
     const params = new URLSearchParams();
@@ -420,12 +425,19 @@ export default function Home() {
         };
         const gridCols = layout === "grid-2x2" ? "md:grid-cols-2 md:grid-rows-2" : layout === "hero-3col" || layout === "mosaic-5" ? "md:grid-cols-3 md:grid-rows-3" : "md:grid-cols-3 md:grid-rows-2";
         return (
-      <section className="bg-white">
+      <section data-section="hero" className={`bg-white ${spotlight("hero")}`}>
         <div className="max-w-[1400px] mx-auto px-4 lg:px-8 pt-6 lg:pt-8 pb-10 lg:pb-12">
           <div className={`grid grid-cols-1 ${gridCols} gap-3 lg:gap-4 h-[420px] md:h-[560px] lg:h-[640px]`}>
             {/* 첫 슬롯 · 큰 이미지 + 텍스트 오버레이 */}
             {imgs[0] && (
-            <Link href={imgs[0].link || "/?cat=all"} className={`relative bg-[var(--color-bg-cream)] overflow-hidden group ${(slotClass[layout] || slotClass["hero-2col"])[0] || ""}`}>
+            <Link
+              href={imgs[0].link || "/?cat=all"}
+              style={{
+                width: imgs[0].width ? `${imgs[0].width}px` : undefined,
+                height: imgs[0].height ? `${imgs[0].height}px` : undefined,
+              }}
+              className={`relative bg-[var(--color-bg-cream)] overflow-hidden group ${(slotClass[layout] || slotClass["hero-2col"])[0] || ""}`}
+            >
               {imgs[0].url && (
                 <Image src={imgs[0].url} alt={imgs[0].alt || "hero"} fill className={`${imgs[0].fit === "contain" ? "object-contain" : "object-cover"} group-hover:scale-[1.02] transition-transform duration-700`} sizes="(max-width: 768px) 100vw, 66vw" priority />
               )}
@@ -475,7 +487,15 @@ export default function Home() {
 
             {/* 나머지 슬롯 · 배열 순회 · 각 이미지 URL/링크/fit 반영 */}
             {imgs.slice(1).map((im, i) => (
-              <Link key={i + 1} href={im.link || "#"} className={`relative bg-[var(--color-bg-soft)] overflow-hidden group ${(slotClass[layout] || slotClass["hero-2col"])[i + 1] || "hidden md:block"}`}>
+              <Link
+                key={i + 1}
+                href={im.link || "#"}
+                style={{
+                  width: im.width ? `${im.width}px` : undefined,
+                  height: im.height ? `${im.height}px` : undefined,
+                }}
+                className={`relative bg-[var(--color-bg-soft)] overflow-hidden group ${(slotClass[layout] || slotClass["hero-2col"])[i + 1] || "hidden md:block"}`}
+              >
                 {im.url ? (
                   <Image src={im.url} alt={im.alt || `slot-${i + 2}`} fill className={`${im.fit === "contain" ? "object-contain" : "object-cover"} group-hover:scale-[1.04] transition-transform duration-700`} sizes="33vw" />
                 ) : (
@@ -500,7 +520,7 @@ export default function Home() {
 
       {/* ─── 혜택 강조 (슬림) ─── · 「메인」 편집 중일 때만 노출 · 항목 수 · 아이콘은 슬롯 기반 (0=배송, 1=통관보장, 그 외=원형 별) */}
       {(!isInnerFrame || previewPage === "mainTop") && shopUi.mainTop.benefits.length > 0 && (
-      <section className="bg-[var(--color-bg-cream)] border-y border-[var(--color-line-soft)]">
+      <section data-section="benefits" className={`bg-[var(--color-bg-cream)] border-y border-[var(--color-line-soft)] ${spotlight("benefits")}`}>
         <div className="max-w-[1400px] mx-auto px-4 lg:px-8 py-5 md:py-7">
           <div className="flex items-center justify-center gap-6 md:gap-16 flex-wrap">
             {shopUi.mainTop.benefits.map((b, i) => (
@@ -539,7 +559,7 @@ export default function Home() {
       )}
 
       {/* ─── 카테고리 8개 (슬림) ─── */}
-      <section className="border-b border-[var(--color-line-soft)] bg-white">
+      <section data-section="categories" className={`border-b border-[var(--color-line-soft)] bg-white ${spotlight("categories")}`}>
         <div className="max-w-[1400px] mx-auto px-4 lg:px-8 py-7 lg:py-9">
           {/* dbCategories(adm 카테고리 관리)가 있으면 그것 우선 렌더, 없으면 하드코딩 fallback */}
           {/* 그리드 폭: 실제 카테고리 개수가 사장님 설정한 「한 줄에 몇 개」보다 적으면 · 개수만큼 균등 (왼쪽 쏠림 방지) */}
