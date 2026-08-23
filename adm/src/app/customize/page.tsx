@@ -1460,8 +1460,6 @@ export default function CustomizePage() {
                   device={previewDevice}
                   page={previewPage}
                   sampleProductId={sampleProductId}
-                  section={previewPage === "mainTop" ? mainSection : null}
-                  onSectionClick={(s) => { setPreviewPage("mainTop"); setMainSection(s); }}
                 />
               </div>
             </div>
