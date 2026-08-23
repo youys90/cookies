@@ -134,7 +134,7 @@ export default function ShopPreview({ config, device, page, sampleProductId, sec
           src={src}
           width={MOBILE_VIEWPORT_WIDTH}
           height={MOBILE_VIEWPORT_HEIGHT}
-          style={{ border: "none", display: "block" }}
+          style={{ border: "none", display: "block", pointerEvents: "none" }}
           title="매장 화면 실시간 미리보기 (모바일)"
         />
       </div>
@@ -169,6 +169,7 @@ export default function ShopPreview({ config, device, page, sampleProductId, sec
           style={{
             border: "none",
             display: "block",
+            pointerEvents: "none",
             transform: `scale(${scale})`,
             transformOrigin: "top left",
           }}
