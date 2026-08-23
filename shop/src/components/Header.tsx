@@ -52,8 +52,8 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-50 bg-white">
       {/* ─── 상단 슬림바 (텍스트 무한 루프) · 사장님 설정에 따라 표시/숨김 ─── */}
+      {/* [2026-08 무력화] isInnerFrame 시 cursor-pointer 제거 · 클릭 이동 기능 비활성화 (편집 흐름 유지) · data-section은 스포트라이트에 유지 */}
       {promoBarEnabled && (
-        {/* [2026-08 무력화] isInnerFrame 시 cursor-pointer 제거 · 클릭 이동 기능 비활성화 (편집 흐름 유지) · data-section은 스포트라이트에 유지 */}
         <div data-section="promoBar" className={`bg-[var(--color-text)] text-white text-[11px] tracking-widest h-8 flex items-center overflow-hidden transition ${spotlightClass("promoBar")}`}>
           <div className="marquee-track">
             {Array.from({ length: 2 }).flatMap((_, dup) =>
