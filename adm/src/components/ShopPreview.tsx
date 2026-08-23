@@ -39,6 +39,8 @@ export default function ShopPreview({ config, device, page, sampleProductId }: P
   const isMobile = device === "mobile";
   const [debouncedConfig, setDebouncedConfig] = useState<ShopUiConfig>(config);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // 미리보기 iframe · overlay div의 wheel 리스너에서 iframe 안 window에 scrollBy 발동용
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
   useEffect(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => setDebouncedConfig(config), 350);
@@ -98,14 +100,29 @@ export default function ShopPreview({ config, device, page, sampleProductId }: P
           </div>
           <div className="text-[9px] text-gray-400">📱 390px</div>
         </div>
-        <iframe
-          key={src}
-          src={src}
-          width={MOBILE_VIEWPORT_WIDTH}
-          height={MOBILE_VIEWPORT_HEIGHT}
-          style={{ border: "none", display: "block" }}
-          title="매장 화면 실시간 미리보기 (모바일)"
-        />
+        <div style={{ position: "relative", width: MOBILE_VIEWPORT_WIDTH, height: MOBILE_VIEWPORT_HEIGHT }}>
+          <iframe
+            ref={iframeRef}
+            key={src}
+            src={src}
+            width={MOBILE_VIEWPORT_WIDTH}
+            height={MOBILE_VIEWPORT_HEIGHT}
+            style={{ border: "none", display: "block" }}
+            title="매장 화면 실시간 미리보기 (모바일)"
+          />
+          {/* 클릭 삼킴 · 스크롤 통과 오버레이 · 사장님 요구 「미리보기는 보기만」 · shop 원 링크 이동 차단 */}
+          <div
+            style={{ position: "absolute", inset: 0, zIndex: 10, cursor: "not-allowed" }}
+            onClickCapture={(e) => { e.preventDefault(); e.stopPropagation(); }}
+            onMouseDownCapture={(e) => { e.preventDefault(); e.stopPropagation(); }}
+            onWheel={(e) => {
+              e.preventDefault();
+              try {
+                iframeRef.current?.contentWindow?.scrollBy({ top: e.deltaY, left: e.deltaX, behavior: "auto" });
+              } catch {}
+            }}
+          />
+        </div>
       </div>
     );
   }
@@ -130,6 +147,7 @@ export default function ShopPreview({ config, device, page, sampleProductId }: P
         style={{ height: displayedHeight, overflow: "hidden", position: "relative", width: "100%" }}
       >
         <iframe
+          ref={iframeRef}
           key={src}
           src={src}
           width={PC_VIEWPORT_WIDTH}
@@ -141,6 +159,18 @@ export default function ShopPreview({ config, device, page, sampleProductId }: P
             transformOrigin: "top left",
           }}
           title="매장 화면 실시간 미리보기 (PC)"
+        />
+        {/* 클릭 삼킴 · 스크롤 통과 오버레이 · 사장님 요구 「미리보기는 보기만」 · shop 원 링크 이동 차단 */}
+        <div
+          style={{ position: "absolute", inset: 0, zIndex: 10, cursor: "not-allowed" }}
+          onClickCapture={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          onMouseDownCapture={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          onWheel={(e) => {
+            e.preventDefault();
+            try {
+              iframeRef.current?.contentWindow?.scrollBy({ top: e.deltaY, left: e.deltaX, behavior: "auto" });
+            } catch {}
+          }}
         />
       </div>
     </div>
