@@ -15,7 +15,8 @@ export default function Footer() {
   const address = footer.address?.trim() || "―";
 
   return (
-    <footer data-section="footer" className={`bg-[var(--color-bg-soft)] border-t border-[var(--color-line)] mt-20 transition ${spotlight} ${isInnerFrame ? "cursor-pointer" : ""}`}>
+    // [2026-08 무력화] cursor-pointer 제거 · 클릭 이동 기능 비활성화 · data-section 유지 (스포트라이트)
+    <footer data-section="footer" className={`bg-[var(--color-bg-soft)] border-t border-[var(--color-line)] mt-20 transition ${spotlight}`}>
       <div className="max-w-[1400px] mx-auto px-4 lg:px-8 py-12 lg:py-16">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8 lg:gap-12">
           {/* 1. 회사 정보 */}

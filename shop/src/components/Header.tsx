@@ -53,7 +53,8 @@ export default function Header() {
     <header className="sticky top-0 z-50 bg-white">
       {/* ─── 상단 슬림바 (텍스트 무한 루프) · 사장님 설정에 따라 표시/숨김 ─── */}
       {promoBarEnabled && (
-        <div data-section="promoBar" className={`bg-[var(--color-text)] text-white text-[11px] tracking-widest h-8 flex items-center overflow-hidden transition ${spotlightClass("promoBar")} ${isInnerFrame ? "cursor-pointer" : ""}`}>
+        {/* [2026-08 무력화] isInnerFrame 시 cursor-pointer 제거 · 클릭 이동 기능 비활성화 (편집 흐름 유지) · data-section은 스포트라이트에 유지 */}
+        <div data-section="promoBar" className={`bg-[var(--color-text)] text-white text-[11px] tracking-widest h-8 flex items-center overflow-hidden transition ${spotlightClass("promoBar")}`}>
           <div className="marquee-track">
             {Array.from({ length: 2 }).flatMap((_, dup) =>
               promoMsgs.map((m, i) => (
@@ -65,7 +66,8 @@ export default function Header() {
       )}
 
       {/* ─── 메인 헤더 ─── */}
-      <div data-section="header" className={`border-b border-[var(--color-line)] transition ${spotlightClass("header")} ${isInnerFrame ? "cursor-pointer" : ""}`}>
+      {/* [2026-08 무력화] cursor-pointer 제거 · 클릭 이동 기능 비활성화 */}
+      <div data-section="header" className={`border-b border-[var(--color-line)] transition ${spotlightClass("header")}`}>
         <div className="max-w-[1400px] mx-auto px-4 lg:px-8 h-16 lg:h-[72px] grid grid-cols-[1fr_auto_1fr] items-center gap-6">
           {/* 좌: 로고 + 모바일 햄버거 */}
           <div className="flex items-center gap-2">
