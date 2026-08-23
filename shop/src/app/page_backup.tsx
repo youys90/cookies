@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import Banner from "@/components/Banner";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import ProductCard from "@/components/ProductCard";
 import StaffPasswordModal from "@/components/StaffPasswordModal";
@@ -174,9 +173,6 @@ export default function Home() {
 
   return (
     <div>
-      {/* Banner */}
-      <Banner />
-
       {/* Language Switcher - 배너 바로 아래 */}
       <LanguageSwitcher />
 

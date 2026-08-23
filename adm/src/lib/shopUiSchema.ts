@@ -47,14 +47,6 @@ export interface ShopUiConfig {
       title: { ko: string; ja: string };
       body: { ko: string; ja: string };
       footer: { ko: string; ja: string };
-      /** 제목 색상 · hex (빈 문자열이면 기본 텍스트 색상) */
-      titleColor: string;
-      /** 제목 굵게 */
-      titleBold: boolean;
-      /** 본문 기본 색상 */
-      bodyColor: string;
-      /** 본문 **강조** 마크다운 부분 색상 (기본: 포인트 색상) */
-      bodyAccentColor: string;
       /** 본문 텍스트 박스 배경색 hex */
       boxBgColor: string;
       /** 본문 텍스트 박스 배경 투명도 0~100 */
@@ -77,19 +69,36 @@ export interface ShopUiConfig {
         fit: "cover" | "contain";
       }>;
     };
-    /** 혜택 강조 슬림바 · 항목 리스트 (라벨/색상/굵게) */
+    /** 혜택 강조 슬림바 · 항목 리스트 (WYSIWYG 마커로 색상/굵게 표현) */
     benefits: Array<{
       ko: string; ja: string; en: string;
-      color: string;
-      bold: boolean;
     }>;
-    /** 로고 · 브랜드 워드마크 + 태그라인 + 색상 */
+    /** 로고 · 브랜드 워드마크 + 태그라인 (색상은 WYSIWYG 마커로 표현) */
     logo: {
       brand: string;
       tagline: { ko: string; ja: string };
-      brandColor: string;
-      taglineColor: string;
     };
+  };
+  /** 하단바 · 회사 소개 · 운영시간 · 사업자 정보 · (라벨은 고정 · 값만 편집) */
+  footer: {
+    /** 회사 소개 (일본어) · 개행 그대로 반영 */
+    aboutJa: string;
+    /** 회사 소개 (한국어) */
+    aboutKo: string;
+    /** 운영시간 (일본어) · 예) 月〜金 10:00 - 18:00 */
+    hoursJa: string;
+    /** 운영시간 (한국어) */
+    hoursKo: string;
+    /** 휴무 안내 (일본어) · 예) 土日祝 定休 */
+    closedJa: string;
+    /** 휴무 안내 (한국어) */
+    closedKo: string;
+    /** 대표자명 · 라벨(CEO)은 고정 · 값만 · 빈 값이면 shop에서 「―」 표시 */
+    ceo: string;
+    /** 사업자등록번호 · 빈 값이면 「―」 */
+    bizNo: string;
+    /** 주소 · 빈 값이면 「―」 */
+    address: string;
   };
 }
 
@@ -149,10 +158,6 @@ export const DEFAULT_CONFIG: ShopUiConfig = {
         ko: "항상 감사합니다.",
         ja: "いつもご愛顧いただきありがとうございます.",
       },
-      titleColor: "",
-      titleBold: false,
-      bodyColor: "",
-      bodyAccentColor: "",
       boxBgColor: "#FAF7F0",
       boxBgOpacity: 70,
       boxMaxWidth: 820,
@@ -167,15 +172,25 @@ export const DEFAULT_CONFIG: ShopUiConfig = {
       ],
     },
     benefits: [
-      { ko: "배송비 무료", ja: "送料無料", en: "FREE SHIPPING", color: "", bold: false },
-      { ko: "통관보장 무료", ja: "通関保証無料", en: "CUSTOMS COVERED", color: "", bold: false },
+      { ko: "배송비 무료", ja: "送料無料", en: "FREE SHIPPING" },
+      { ko: "통관보장 무료", ja: "通関保証無料", en: "CUSTOMS COVERED" },
     ],
     logo: {
       brand: "CREAM",
       tagline: { ko: "작은 행복", ja: "little happiness" },
-      brandColor: "",
-      taglineColor: "",
     },
+  },
+  // ⚠ 초기값 = 현재 shop/src/components/Footer.tsx 하드코딩 값과 동일 · 「디폴트 = 지금 보이는 화면」 유지
+  footer: {
+    aboutJa: "東京から、ときめくアイテムを\nあなたへお届けします。",
+    aboutKo: "도쿄에서, 두근거리는 아이템을\n당신에게 전달합니다.",
+    hoursJa: "月〜金 10:00 - 18:00",
+    hoursKo: "월-금 10:00 - 18:00",
+    closedJa: "土日祝 定休",
+    closedKo: "주말·공휴일 정기휴무",
+    ceo: "",
+    bizNo: "",
+    address: "",
   },
 };
 
@@ -321,10 +336,6 @@ export function mergeWithDefaults(input: unknown): ShopUiConfig {
         title: pickPair(hero.title, out.mainTop.hero.title),
         body: pickPair(hero.body, out.mainTop.hero.body),
         footer: pickPair(hero.footer, out.mainTop.hero.footer),
-        titleColor: typeof hero.titleColor === "string" ? hero.titleColor : out.mainTop.hero.titleColor,
-        titleBold: typeof hero.titleBold === "boolean" ? hero.titleBold : out.mainTop.hero.titleBold,
-        bodyColor: typeof hero.bodyColor === "string" ? hero.bodyColor : out.mainTop.hero.bodyColor,
-        bodyAccentColor: typeof hero.bodyAccentColor === "string" ? hero.bodyAccentColor : out.mainTop.hero.bodyAccentColor,
         boxBgColor: typeof hero.boxBgColor === "string" ? hero.boxBgColor : out.mainTop.hero.boxBgColor,
         boxBgOpacity: typeof hero.boxBgOpacity === "number" ? hero.boxBgOpacity : out.mainTop.hero.boxBgOpacity,
         boxMaxWidth: typeof hero.boxMaxWidth === "number" ? hero.boxMaxWidth : out.mainTop.hero.boxMaxWidth,
@@ -349,11 +360,9 @@ export function mergeWithDefaults(input: unknown): ShopUiConfig {
             ko: String(o.ko ?? ""),
             ja: String(o.ja ?? o.ko ?? ""),
             en: String(o.en ?? ""),
-            color: typeof o.color === "string" ? o.color : "",
-            bold: typeof o.bold === "boolean" ? o.bold : false,
           };
         }
-        return { ko: "", ja: "", en: "", color: "", bold: false };
+        return { ko: "", ja: "", en: "" };
       });
     }
     // 로고
@@ -367,8 +376,16 @@ export function mergeWithDefaults(input: unknown): ShopUiConfig {
           ja: String(tag.ja ?? out.mainTop.logo.tagline.ja),
         };
       }
-      if (typeof logo.brandColor === "string") out.mainTop.logo.brandColor = logo.brandColor;
-      if (typeof logo.taglineColor === "string") out.mainTop.logo.taglineColor = logo.taglineColor;
+    }
+  }
+  // footer · 하단바 · 필드별 방어적 병합 (없으면 default 유지)
+  const ft = rec.footer as Record<string, unknown> | undefined;
+  if (ft && typeof ft === "object") {
+    const keys: Array<keyof ShopUiConfig["footer"]> = [
+      "aboutJa", "aboutKo", "hoursJa", "hoursKo", "closedJa", "closedKo", "ceo", "bizNo", "address",
+    ];
+    for (const k of keys) {
+      if (typeof ft[k] === "string") out.footer[k] = ft[k] as string;
     }
   }
   return out;

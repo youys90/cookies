@@ -151,11 +151,12 @@ export default function CustomizePage() {
   // 부분 저장 · 지금 편집 중인 화면의 섹션만 · 나머지는 서버 원본 유지
   const buildScopedConfig = (scope: "current" | "all"): ShopUiConfig => {
     if (scope === "all") return config;
-    // 메인 화면 (mainTop) 편집 중
+    // 메인 화면 (mainTop) 편집 중 · 하단바(footer) 편집도 이 뷰 안에서 이뤄지므로 함께 저장
     if (previewPage === "mainTop") {
       return {
         ...originalConfig,
         mainTop: config.mainTop,
+        footer: config.footer,
       };
     }
     // current 편집 화면에 해당하는 섹션만 · 나머지는 originalConfig에서
@@ -620,11 +621,11 @@ export default function CustomizePage() {
           </div>
           <div className={`grid grid-cols-1 gap-6 transition-all ${
             editorMode === "split"
-              ? "xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
-              : "xl:grid-cols-[minmax(0,320px)_minmax(0,1fr)]"
+              ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
+              : "lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)]"
           }`}>
             {/* 편집 폼 · 선택된 화면에 해당하는 섹션만 노출 */}
-            <div className={`space-y-4 ${editorMode === "preview" ? "xl:max-h-[calc(100vh-6rem)] xl:overflow-y-auto xl:pr-2" : ""}`}>
+            <div className={`space-y-4 ${editorMode === "preview" ? "lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto lg:pr-2" : ""}`}>
               {previewPage === "mainTop" && (
                 <>
                   {/* ─── 2뎁스 · 세부 영역 선택 · 사장님 요구 (스포트라이트 UX) ─── */}
@@ -1144,7 +1145,7 @@ export default function CustomizePage() {
                         </div>
                       ))}
                       <button
-                        onClick={() => updateField("mainTop", "benefits", [...config.mainTop.benefits, { ko: "", ja: "", en: "", color: "", bold: false }])}
+                        onClick={() => updateField("mainTop", "benefits", [...config.mainTop.benefits, { ko: "", ja: "", en: "" }])}
                         className="w-full py-2 text-xs border-2 border-dashed border-gray-300 rounded text-gray-500 hover:border-[var(--color-brand)] hover:text-[var(--color-brand-dk)]"
                       >
                         + 혜택 추가
@@ -1220,13 +1221,139 @@ export default function CustomizePage() {
                           <span className="text-xl">🦶</span>
                           <div>
                             <h3 className="text-sm font-bold text-gray-900">하단바 · 회사 정보</h3>
-                            <p className="text-[11px] text-gray-500">회사 소개 · 이용약관 · 문의 · 저작권 (편집 기능 · 순차 추가 예정)</p>
+                            <p className="text-[11px] text-gray-500">회사 소개 · 운영시간 · 사업자 정보 (라벨은 고정 · 값만 편집)</p>
                           </div>
                         </div>
                       </div>
-                      <div className="p-4 text-[11px] text-gray-600 bg-blue-50 border-t border-blue-200 rounded-b-2xl">
-                        🚧 푸터 편집 기능은 · 카테고리/헤더 메뉴와 함께 다음 배치에서 붙여드릴게요.<br />
-                        지금은 · 회사 소개 · 이용약관 · 문의 · 저작권 4가지 항목이 shop에 하드코딩 상태입니다.
+                      <div className="p-4 space-y-4">
+                        {/* 안내 · 자동 번역 없이 각 언어별 직접 입력 */}
+                        <div className="p-2.5 rounded-lg bg-sky-50 border border-sky-200 flex items-start gap-2">
+                          <span className="text-lg leading-none">🌐</span>
+                          <div className="flex-1">
+                            <p className="text-[11px] font-bold text-sky-900">한/일 각각 직접 입력</p>
+                            <p className="text-[10px] text-sky-700 mt-0.5">회사 소개 · 운영시간 · 휴무 안내는 · <b>일본어와 한국어를 각각 직접 입력</b> 해주세요 (자동 번역 없음).</p>
+                          </div>
+                        </div>
+
+                        {/* ─── 1) 회사 소개 문구 ─── */}
+                        <div className="pt-1">
+                          <p className="text-[11px] font-bold text-gray-700 mb-2">📄 회사 소개 (메인 컬럼)</p>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                              <label className="text-[11px] font-semibold text-gray-700 mb-1 block">🇯🇵 일본어</label>
+                              <textarea
+                                value={config.footer.aboutJa}
+                                onChange={(e) => updateField("footer", "aboutJa", e.target.value)}
+                                rows={3}
+                                placeholder="例) 東京から、ときめくアイテムを&#10;あなたへお届けします。"
+                                className="w-full px-2 py-1.5 text-[12px] border border-gray-200 rounded-lg focus:outline-none focus:border-[var(--color-brand)] resize-y"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[11px] font-semibold text-gray-700 mb-1 block">🇰🇷 한국어</label>
+                              <textarea
+                                value={config.footer.aboutKo}
+                                onChange={(e) => updateField("footer", "aboutKo", e.target.value)}
+                                rows={3}
+                                placeholder="예) 도쿄에서, 두근거리는 아이템을&#10;당신에게 전달합니다."
+                                className="w-full px-2 py-1.5 text-[12px] border border-gray-200 rounded-lg focus:outline-none focus:border-[var(--color-brand)] resize-y"
+                              />
+                            </div>
+                          </div>
+                          <p className="text-[10px] text-gray-500 mt-1">💡 엔터로 줄바꿈 가능 · shop에 그대로 반영됩니다.</p>
+                        </div>
+
+                        {/* ─── 2) 운영시간 ─── */}
+                        <div className="pt-3 border-t border-gray-200">
+                          <p className="text-[11px] font-bold text-gray-700 mb-2">🕒 운영시간 (CONTACT 컬럼)</p>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                              <label className="text-[11px] font-semibold text-gray-700 mb-1 block">🇯🇵 일본어</label>
+                              <input
+                                type="text"
+                                value={config.footer.hoursJa}
+                                onChange={(e) => updateField("footer", "hoursJa", e.target.value)}
+                                placeholder="例) 月〜金 10:00 - 18:00"
+                                className="w-full px-2 py-1.5 text-[12px] border border-gray-200 rounded-lg focus:outline-none focus:border-[var(--color-brand)]"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[11px] font-semibold text-gray-700 mb-1 block">🇰🇷 한국어</label>
+                              <input
+                                type="text"
+                                value={config.footer.hoursKo}
+                                onChange={(e) => updateField("footer", "hoursKo", e.target.value)}
+                                placeholder="예) 월-금 10:00 - 18:00"
+                                className="w-full px-2 py-1.5 text-[12px] border border-gray-200 rounded-lg focus:outline-none focus:border-[var(--color-brand)]"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* ─── 3) 휴무 안내 ─── */}
+                        <div className="pt-3 border-t border-gray-200">
+                          <p className="text-[11px] font-bold text-gray-700 mb-2">🚫 휴무 안내 (운영시간 아래 작은 글씨)</p>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                              <label className="text-[11px] font-semibold text-gray-700 mb-1 block">🇯🇵 일본어</label>
+                              <input
+                                type="text"
+                                value={config.footer.closedJa}
+                                onChange={(e) => updateField("footer", "closedJa", e.target.value)}
+                                placeholder="例) 土日祝 定休"
+                                className="w-full px-2 py-1.5 text-[12px] border border-gray-200 rounded-lg focus:outline-none focus:border-[var(--color-brand)]"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[11px] font-semibold text-gray-700 mb-1 block">🇰🇷 한국어</label>
+                              <input
+                                type="text"
+                                value={config.footer.closedKo}
+                                onChange={(e) => updateField("footer", "closedKo", e.target.value)}
+                                placeholder="예) 주말·공휴일 정기휴무"
+                                className="w-full px-2 py-1.5 text-[12px] border border-gray-200 rounded-lg focus:outline-none focus:border-[var(--color-brand)]"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* ─── 4) 사업자 정보 (라벨 고정 · 값만 편집) ─── */}
+                        <div className="pt-3 border-t border-gray-200">
+                          <p className="text-[11px] font-bold text-gray-700 mb-2">🏢 사업자 정보 (하단 · 라벨 고정 · 값만 편집)</p>
+                          <div className="space-y-2">
+                            <div>
+                              <label className="text-[11px] font-semibold text-gray-700 mb-1 block">대표자명 (CEO)</label>
+                              <input
+                                type="text"
+                                value={config.footer.ceo}
+                                onChange={(e) => updateField("footer", "ceo", e.target.value)}
+                                placeholder="예) 홍길동 (비어있으면 「―」 로 표시)"
+                                className="w-full px-2 py-1.5 text-[12px] border border-gray-200 rounded-lg focus:outline-none focus:border-[var(--color-brand)]"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[11px] font-semibold text-gray-700 mb-1 block">사업자등록번호</label>
+                              <input
+                                type="text"
+                                value={config.footer.bizNo}
+                                onChange={(e) => updateField("footer", "bizNo", e.target.value)}
+                                placeholder="예) 123-45-67890 (비어있으면 「―」 로 표시)"
+                                className="w-full px-2 py-1.5 text-[12px] border border-gray-200 rounded-lg focus:outline-none focus:border-[var(--color-brand)]"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[11px] font-semibold text-gray-700 mb-1 block">주소</label>
+                              <input
+                                type="text"
+                                value={config.footer.address}
+                                onChange={(e) => updateField("footer", "address", e.target.value)}
+                                placeholder="예) 東京都渋谷区... (비어있으면 「―」 로 표시)"
+                                className="w-full px-2 py-1.5 text-[12px] border border-gray-200 rounded-lg focus:outline-none focus:border-[var(--color-brand)]"
+                              />
+                            </div>
+                          </div>
+                          <p className="text-[10px] text-gray-500 mt-1.5">💡 저작권 문구는 언어 파일(t)에서 관리됩니다 · 여기서 편집 안 됩니다.</p>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -1283,7 +1410,7 @@ export default function CustomizePage() {
             </div>
 
             {/* 우 · 실시간 미리보기 · sticky · 선택된 화면 렌더 */}
-            <div className="hidden xl:block">
+            <div className="hidden lg:block">
               <div className="sticky top-6 space-y-3">
                 <div className="flex items-center justify-between bg-white rounded-xl border border-gray-200 px-3 py-2">
                   <div className="text-xs font-semibold text-gray-700">

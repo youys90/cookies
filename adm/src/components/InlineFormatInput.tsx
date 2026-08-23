@@ -53,6 +53,8 @@ const FONT_PRESETS = [
   { label: "고딕체", css: "'Noto Sans KR', sans-serif" },
   { label: "손글씨", css: "'Nanum Pen Script', 'Gaegu', cursive" },
   { label: "고정폭", css: "'D2Coding', 'Menlo', monospace" },
+  // 영문 세리프 · shop layout.tsx에 Playfair_Display 로드됨
+  { label: "영문 세리프", css: "'Playfair Display', 'Times New Roman', serif" },
 ];
 
 // ── 마커 ↔ HTML 변환 ─────────────────────────────────────
@@ -173,6 +175,7 @@ export default function InlineFormatInput({ value, onChange, placeholder, multi,
   const ref = useRef<HTMLDivElement | null>(null);
   const [openMenu, setOpenMenu] = useState<null | "color" | "highlight" | "size" | "font">(null);
   const [focused, setFocused] = useState(false);
+  const [customSize, setCustomSize] = useState<string>(""); // 「직접 입력」 · 8~72
   const lastEmitted = useRef<string>("");
   // 선택 상태 자동 백업 · 툴바 버튼 클릭 순간 브라우저가 선택 놓아도 복원 가능하도록
   const savedRangeRef = useRef<Range | null>(null);
@@ -468,6 +471,40 @@ export default function InlineFormatInput({ value, onChange, placeholder, multi,
                   <span className="text-gray-400" style={{ fontSize: Math.min(s.px, 20) }}>{s.px}px</span>
                 </button>
               ))}
+              {/* 직접 입력 · 8~72 · 프리셋에 없는 임의 크기 */}
+              <div className="border-t border-gray-100 mt-1 pt-1.5 px-1">
+                <label className="block text-[10px] text-gray-500 mb-1">직접 입력 (8~72)</label>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    min={8}
+                    max={72}
+                    value={customSize}
+                    placeholder="예) 20"
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onChange={(e) => setCustomSize(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        const px = Math.max(8, Math.min(72, parseInt(customSize, 10) || 0));
+                        if (px >= 8) { wrapSize(px); setCustomSize(""); }
+                      }
+                    }}
+                    className="flex-1 min-w-0 px-1.5 py-0.5 text-xs border border-gray-200 rounded focus:outline-none focus:border-[var(--color-brand)]"
+                  />
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => {
+                      const px = Math.max(8, Math.min(72, parseInt(customSize, 10) || 0));
+                      if (px >= 8) { wrapSize(px); setCustomSize(""); }
+                    }}
+                    className="px-2 py-0.5 text-[11px] bg-[var(--color-brand)] text-white rounded hover:opacity-90"
+                  >
+                    적용
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </div>

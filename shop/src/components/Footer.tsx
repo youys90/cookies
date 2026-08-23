@@ -5,9 +5,14 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useShopUi } from "@/contexts/ShopUiContext";
 
 export default function Footer() {
-  const { isInnerFrame, previewSection } = useShopUi();
+  const { config, isInnerFrame, previewSection } = useShopUi();
   const spotlight = !isInnerFrame || !previewSection ? "" : previewSection === "footer" ? "shop-section-selected" : "shop-section-dimmed";
   const { language, t } = useLanguage();
+  const footer = config.footer;
+  // 편집 값의 빈 문자열 fallback (원래 하드코딩된 「―」 대체)
+  const ceo = footer.ceo?.trim() || "―";
+  const bizNo = footer.bizNo?.trim() || "―";
+  const address = footer.address?.trim() || "―";
 
   return (
     <footer data-section="footer" className={`bg-[var(--color-bg-soft)] border-t border-[var(--color-line)] mt-20 transition ${spotlight} ${isInnerFrame ? "cursor-pointer" : ""}`}>
@@ -18,10 +23,9 @@ export default function Footer() {
             <Link href="/" className="font-serif text-xl tracking-wider text-[var(--color-text)] block mb-3">
               CREAM
             </Link>
-            <p className="text-[12px] text-[var(--color-text-soft)] leading-relaxed">
-              {language === "ja"
-                ? <>東京から、ときめくアイテムを<br />あなたへお届けします。</>
-                : <>도쿄에서, 두근거리는 아이템을<br />당신에게 전달합니다.</>}
+            {/* 개행(\n) 유지: whitespace-pre-line · 관리자 텍스트에어리어 입력 그대로 반영 */}
+            <p className="text-[12px] text-[var(--color-text-soft)] leading-relaxed whitespace-pre-line">
+              {language === "ja" ? footer.aboutJa : footer.aboutKo}
             </p>
           </div>
 
@@ -52,10 +56,10 @@ export default function Footer() {
                 {language === "ja" ? "OPERATING HOURS" : "운영시간"}
               </p>
               <p className="text-[12px]">
-                {language === "ja" ? "月〜金 10:00 - 18:00" : "월-금 10:00 - 18:00"}
+                {language === "ja" ? footer.hoursJa : footer.hoursKo}
               </p>
               <p className="text-[10px] text-[var(--color-text-mute)] mt-0.5">
-                {language === "ja" ? "土日祝 定休" : "주말·공휴일 정기휴무"}
+                {language === "ja" ? footer.closedJa : footer.closedKo}
               </p>
             </div>
           </div>
@@ -64,9 +68,10 @@ export default function Footer() {
         {/* ─── 하단 사업자 정보 ─── */}
         <div className="border-t border-[var(--color-line)] mt-12 pt-8 flex flex-col md:flex-row md:items-center md:justify-between gap-3 text-[11px] text-[var(--color-text-mute)]">
           <div className="space-y-1">
-            <p>{language === "ja" ? "運営会社: CREAM" : "운영 회사: CREAM"} | CEO: ―</p>
-            <p>{language === "ja" ? "事業者番号" : "사업자등록번호"}: ― | {language === "ja" ? "通信販売" : "통신판매신고"}: ―</p>
-            <p>{language === "ja" ? "住所" : "주소"}: ―</p>
+            {/* 라벨(운영 회사 / CEO / 사업자등록번호 / 통신판매 / 주소)은 고정 · CEO/사업자번호/주소 값만 config에서 */}
+            <p>{language === "ja" ? "運営会社: CREAM" : "운영 회사: CREAM"} | CEO: {ceo}</p>
+            <p>{language === "ja" ? "事業者番号" : "사업자등록번호"}: {bizNo} | {language === "ja" ? "通信販売" : "통신판매신고"}: ―</p>
+            <p>{language === "ja" ? "住所" : "주소"}: {address}</p>
           </div>
           <div className="flex items-center gap-4">
             <p>{t("footer.copyright")}</p>
