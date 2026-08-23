@@ -12,12 +12,7 @@ import { renderInlineFormat } from "@/lib/inlineFormat";
 export default function Header() {
   const { totalItems } = useCart();
   const { t, language } = useLanguage();
-  const { isInnerFrame, previewPage, previewSection, config: shopUi } = useShopUi();
-  // 스포트라이트 · 현재 선택된 섹션만 밝음 · 나머지는 어둡게 (내가 만지지 않는 곳도 인지)
-  const spotlightClass = (sec: "promoBar" | "header") => {
-    if (!isInnerFrame || !previewSection) return "";
-    return previewSection === sec ? "shop-section-selected" : "shop-section-dimmed";
-  };
+  const { isInnerFrame, previewPage, config: shopUi } = useShopUi();
   const pathname = usePathname();
   const sp = useSearchParams();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -52,9 +47,8 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-50 bg-white">
       {/* ─── 상단 슬림바 (텍스트 무한 루프) · 사장님 설정에 따라 표시/숨김 ─── */}
-      {/* [2026-08 무력화] isInnerFrame 시 cursor-pointer 제거 · 클릭 이동 기능 비활성화 (편집 흐름 유지) · data-section은 스포트라이트에 유지 */}
       {promoBarEnabled && (
-        <div data-section="promoBar" className={`bg-[var(--color-text)] text-white text-[11px] tracking-widest h-8 flex items-center overflow-hidden transition ${spotlightClass("promoBar")}`}>
+        <div className="bg-[var(--color-text)] text-white text-[11px] tracking-widest h-8 flex items-center overflow-hidden">
           <div className="marquee-track">
             {Array.from({ length: 2 }).flatMap((_, dup) =>
               promoMsgs.map((m, i) => (
@@ -66,8 +60,7 @@ export default function Header() {
       )}
 
       {/* ─── 메인 헤더 ─── */}
-      {/* [2026-08 무력화] cursor-pointer 제거 · 클릭 이동 기능 비활성화 */}
-      <div data-section="header" className={`border-b border-[var(--color-line)] transition ${spotlightClass("header")}`}>
+      <div className="border-b border-[var(--color-line)]">
         <div className="max-w-[1400px] mx-auto px-4 lg:px-8 h-16 lg:h-[72px] grid grid-cols-[1fr_auto_1fr] items-center gap-6">
           {/* 좌: 로고 + 모바일 햄버거 */}
           <div className="flex items-center gap-2">

@@ -8,7 +8,6 @@ import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { CartProvider } from "@/contexts/CartContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { ShopUiProvider } from "@/contexts/ShopUiContext";
-import SectionClickTracker from "@/components/SectionClickTracker";
 
 const notoSansKr = Noto_Sans_KR({
   subsets: ["latin"],
@@ -46,7 +45,6 @@ export default function RootLayout({
         <ShopUiProvider>
           <LanguageProvider>
             <CartProvider>
-              <SectionClickTracker />
               <Header />
               <LanguageSwitcher />
               <main className="min-h-screen">{children}</main>

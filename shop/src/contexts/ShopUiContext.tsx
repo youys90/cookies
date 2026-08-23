@@ -14,15 +14,13 @@ interface Ctx {
   loaded: boolean;
   isPreview: boolean;
   previewDevice: "desktop" | "mobile";
-  /** 관리자 미리보기용 iframe에서 렌더되는 중 · 헤더/히어로/공지 등 상단 요소 숨김 */
+  /** 관리자 미리보기용 iframe에서 렌더되는 중 · 매장 이외 요소(개발 배너 · 언어 스위처) 숨김 */
   isInnerFrame: boolean;
-  /** 미리보기에서 편집 중인 대상 · 관련 영역만 강조 · 나머지 placeholder */
+  /** 미리보기에서 편집 중인 대상 · 관련 영역만 렌더 · 나머지 placeholder */
   previewPage: "list" | "detail" | "mainTop" | null;
-  /** 스포트라이트 · 편집 중인 세부 영역 (메인일 때만 유효) · 이 영역만 밝게 · 나머지 어둡게 */
-  previewSection: "promoBar" | "header" | "hero" | "benefits" | "categories" | "footer" | null;
 }
 
-const ShopUiCtx = createContext<Ctx>({ config: DEFAULT_CONFIG, loaded: false, isPreview: false, previewDevice: "desktop", isInnerFrame: false, previewPage: null, previewSection: null });
+const ShopUiCtx = createContext<Ctx>({ config: DEFAULT_CONFIG, loaded: false, isPreview: false, previewDevice: "desktop", isInnerFrame: false, previewPage: null });
 
 export function useShopUi() { return useContext(ShopUiCtx); }
 
@@ -33,7 +31,6 @@ export function ShopUiProvider({ children }: { children: ReactNode }) {
   const [previewDevice, setPreviewDevice] = useState<"desktop" | "mobile">("desktop");
   const [isInnerFrame, setIsInnerFrame] = useState(false);
   const [previewPage, setPreviewPage] = useState<"list" | "detail" | "mainTop" | null>(null);
-  const [previewSection, setPreviewSection] = useState<Ctx["previewSection"]>(null);
 
   useEffect(() => {
     // 미리보기 모드 우선
@@ -47,20 +44,6 @@ export function ShopUiProvider({ children }: { children: ReactNode }) {
       if (device === "mobile") setPreviewDevice("mobile");
       if (inner === "1") setIsInnerFrame(true);
       if (pv === "list" || pv === "detail" || pv === "mainTop") setPreviewPage(pv);
-      const ps = params.get("previewSection");
-      if (ps === "promoBar" || ps === "header" || ps === "hero" || ps === "benefits" || ps === "categories" || ps === "footer") setPreviewSection(ps);
-      // 부모(customize) 로부터 실시간 · 섹션 변경 메시지 수신
-      const onMsg = (e: MessageEvent) => {
-        if (!e.data || typeof e.data !== "object") return;
-        if (e.data.type === "shop-set-section") {
-          const s = e.data.section;
-          if (s === "promoBar" || s === "header" || s === "hero" || s === "benefits" || s === "categories" || s === "footer" || s === null) {
-            setPreviewSection(s);
-          }
-        }
-      };
-      window.addEventListener("message", onMsg);
-      // 정리는 이 useEffect가 다시 안 도니 · 컴포넌트 언마운트에 자동 정리됨
       if (preview === "draft") {
         // 1) URL 파라미터 c (Base64) 우선 · adm과 origin이 달라 sessionStorage 불가 시
         if (encoded) {
@@ -118,21 +101,8 @@ export function ShopUiProvider({ children }: { children: ReactNode }) {
     root.style.setProperty("--shop-cat-cols-m", String(config.categoryTabs.columnsMobile));
   }, [config]);
 
-  // 스포트라이트 · 선택된 섹션으로 자동 스크롤 (관리자 미리보기 iframe에서만)
-  useEffect(() => {
-    if (!isInnerFrame || !previewSection || typeof document === "undefined") return;
-    // 살짝 지연 · DOM 갱신 대기
-    const t = setTimeout(() => {
-      const el = document.querySelector(`[data-section="${previewSection}"]`);
-      if (el) {
-        el.scrollIntoView({ behavior: "smooth", block: "center" });
-      }
-    }, 100);
-    return () => clearTimeout(t);
-  }, [previewSection, isInnerFrame]);
-
   return (
-    <ShopUiCtx.Provider value={{ config, loaded, isPreview, previewDevice, isInnerFrame, previewPage, previewSection }}>
+    <ShopUiCtx.Provider value={{ config, loaded, isPreview, previewDevice, isInnerFrame, previewPage }}>
       {isPreview && !isInnerFrame && (
         <>
           {/* 상단 스티키 배너 · 눈에 확 띄는 미리보기 표시 (실제 매장과 오해 방지) */}

@@ -5,8 +5,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useShopUi } from "@/contexts/ShopUiContext";
 
 export default function Footer() {
-  const { config, isInnerFrame, previewSection } = useShopUi();
-  const spotlight = !isInnerFrame || !previewSection ? "" : previewSection === "footer" ? "shop-section-selected" : "shop-section-dimmed";
+  const { config } = useShopUi();
   const { language, t } = useLanguage();
   const footer = config.footer;
   // 편집 값의 빈 문자열 fallback (원래 하드코딩된 「―」 대체)
@@ -15,8 +14,7 @@ export default function Footer() {
   const address = footer.address?.trim() || "―";
 
   return (
-    // [2026-08 무력화] cursor-pointer 제거 · 클릭 이동 기능 비활성화 · data-section 유지 (스포트라이트)
-    <footer data-section="footer" className={`bg-[var(--color-bg-soft)] border-t border-[var(--color-line)] mt-20 transition ${spotlight}`}>
+    <footer className="bg-[var(--color-bg-soft)] border-t border-[var(--color-line)] mt-20">
       <div className="max-w-[1400px] mx-auto px-4 lg:px-8 py-12 lg:py-16">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8 lg:gap-12">
           {/* 1. 회사 정보 */}
