@@ -151,22 +151,26 @@ export default function CustomizePage() {
   // 부분 저장 · 지금 편집 중인 화면의 섹션만 · 나머지는 서버 원본 유지
   const buildScopedConfig = (scope: "current" | "all"): ShopUiConfig => {
     if (scope === "all") return config;
-    // 메인 화면 (mainTop) 편집 중 · 하단바(footer) 편집도 이 뷰 안에서 이뤄지므로 함께 저장
+    // 메인 화면 (mainTop) 편집 중 · 하단바(footer) + 카테고리 탭(categoryTabs) 편집도 이 뷰 안에서 이뤄지므로 함께 저장
+    // - categoryTabs 는 mainSection === "categories" 에서 편집 · 사장님 지시로 여기로 이동
+    // - linkMobileToDesktop 은 categoryTabs.columnsMobile 자동 파생과 연동되므로 함께 저장
     if (previewPage === "mainTop") {
       return {
         ...originalConfig,
+        linkMobileToDesktop: config.linkMobileToDesktop,
         mainTop: config.mainTop,
         footer: config.footer,
+        categoryTabs: config.categoryTabs,
       };
     }
     // current 편집 화면에 해당하는 섹션만 · 나머지는 originalConfig에서
+    // 상품 목록 편집 · productList + pagination 만 (categoryTabs 는 메인/카테고리 편집으로 이동)
     if (previewPage === "list") {
       return {
         ...originalConfig,
         linkMobileToDesktop: config.linkMobileToDesktop,
         productList: config.productList,
         pagination: config.pagination,
-        categoryTabs: config.categoryTabs,
       };
     }
     // detail
@@ -1196,23 +1200,56 @@ export default function CustomizePage() {
                   </div>
                   )}
 
-                  {mainSection === "categories" && (
-                    <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-                      <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xl">🗂</span>
-                          <div>
-                            <h3 className="text-sm font-bold text-gray-900">카테고리 탭</h3>
-                            <p className="text-[11px] text-gray-500">상단 메뉴 · 카테고리 이름/순서는 「카테고리 관리」에서 · 여기서는 개수/줄 수만</p>
+                  {mainSection === "categories" && (() => {
+                    // 사장님 지시 · 카테고리 메뉴 편집 카드에서 · categoryTabs 크기/개수 필드를 직접 조절 가능하게
+                    // (예전엔 「상품 목록」 편집으로 이동 안내만 있었음 · 이제 여기서 편집 · 한 곳에서만)
+                    const categorySec = SHOP_UI_SCHEMA.find((s) => s.key === "categoryTabs");
+                    return (
+                      <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                        <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xl">🗂</span>
+                            <div>
+                              <h3 className="text-sm font-bold text-gray-900">카테고리 탭</h3>
+                              <p className="text-[11px] text-gray-500">상단 메뉴 · 여기서 개수/줄 수를 직접 조절해요</p>
+                            </div>
                           </div>
                         </div>
+                        {/* 크기/개수 필드 · categoryTabs 섹션의 FieldControl들 */}
+                        {categorySec && (
+                          <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {categorySec.fields
+                              .filter((f) => {
+                                if (f.hidden && config.linkMobileToDesktop) return false;
+                                return true;
+                              })
+                              .map((field) => {
+                                const isMobileOnly = field.key === "columnsMobile" && !config.linkMobileToDesktop;
+                                return (
+                                  <div key={field.key} className={isMobileOnly ? "p-2 -m-2 rounded-lg bg-amber-50 border border-amber-200 shadow-sm" : ""}>
+                                    <FieldControl
+                                      field={field}
+                                      value={(config.categoryTabs as unknown as Record<string, unknown>)[field.key]}
+                                      onChange={(v) => updateField("categoryTabs", field.key, v)}
+                                    />
+                                    {isMobileOnly && (
+                                      <p className="text-[10px] text-amber-800 font-semibold mt-1 flex items-center gap-1">
+                                        <span>⚡</span>
+                                        <span>이 값은 모바일에서만 적용돼요 · PC는 위에서 별도로</span>
+                                      </p>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                          </div>
+                        )}
+                        {/* 카테고리 이름·아이콘·순서 관리 안내 · 별도 얘기 · 유지 */}
+                        <div className="p-3 text-[11px] text-gray-600 bg-amber-50 border-t border-amber-200 rounded-b-2xl">
+                          💡 카테고리 이름·아이콘·순서 관리는 <a href="/categories" className="underline text-[var(--color-brand-dk)] font-semibold">카테고리 관리</a>에서.
+                        </div>
                       </div>
-                      <div className="p-4 text-[11px] text-gray-600 bg-amber-50 border-t border-amber-200 rounded-b-2xl">
-                        💡 카테고리 이름·아이콘·순서 관리는 <a href="/categories" className="underline text-[var(--color-brand-dk)] font-semibold">카테고리 관리</a>에서.<br />
-                        여기서 조절할 크기/개수 설정은 <b>「상품 목록」 화면</b> 편집으로 이동해서 해주세요.
-                      </div>
-                    </div>
-                  )}
+                    );
+                  })()}
 
                   {mainSection === "footer" && (
                     <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
@@ -1361,11 +1398,11 @@ export default function CustomizePage() {
               )}
               {SHOP_UI_SCHEMA
                 .filter((sec) => {
-                  // 상품 목록 화면 편집 중 → productList + pagination + categoryTabs 만
+                  // 상품 목록 화면 편집 중 → productList + pagination 만 (categoryTabs 는 메인/카테고리 편집으로 이동 · 사장님 지시)
                   // 상품 상세 화면 편집 중 → productDetail 만
-                  // 메인 상단 편집 중 → 아직 스키마 필드 없음 (안내만 노출)
+                  // 메인 상단 편집 중 → 세부 영역별 렌더 (mainTop 위쪽) · categoryTabs 는 mainSection === "categories" 에서 직접 편집
                   if (previewPage === "mainTop") return false;
-                  if (previewPage === "list") return sec.key !== "productDetail";
+                  if (previewPage === "list") return sec.key === "productList" || sec.key === "pagination";
                   return sec.key === "productDetail";
                 })
                 .map((sec) => (
@@ -1436,12 +1473,14 @@ export default function CustomizePage() {
               if (msg) return <span className="text-emerald-700 font-medium">{msg}</span>;
               if (!dirty) return <span>변경사항 없음</span>;
               // 화면별 실제 dirty 여부 · 메인/상품 목록/상품 상세 각각 판정
+              // categoryTabs 편집은 「메인」 뷰 안으로 이동됐으므로 mainTopDirty 에 포함 (사장님 지시)
               const mainTopDirty =
-                JSON.stringify(config.mainTop) !== JSON.stringify(originalConfig.mainTop);
+                JSON.stringify(config.mainTop) !== JSON.stringify(originalConfig.mainTop) ||
+                JSON.stringify(config.categoryTabs) !== JSON.stringify(originalConfig.categoryTabs) ||
+                JSON.stringify(config.footer) !== JSON.stringify(originalConfig.footer);
               const listDirty =
                 JSON.stringify(config.productList) !== JSON.stringify(originalConfig.productList) ||
-                JSON.stringify(config.pagination) !== JSON.stringify(originalConfig.pagination) ||
-                JSON.stringify(config.categoryTabs) !== JSON.stringify(originalConfig.categoryTabs);
+                JSON.stringify(config.pagination) !== JSON.stringify(originalConfig.pagination);
               const detailDirty =
                 JSON.stringify(config.productDetail) !== JSON.stringify(originalConfig.productDetail);
               return (
