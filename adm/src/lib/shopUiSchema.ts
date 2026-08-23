@@ -258,11 +258,13 @@ export const SHOP_UI_SCHEMA: SectionMeta[] = [
     key: "pagination",
     label: "한 페이지 상품 수",
     icon: "📄",
-    hint: "한 페이지에 보여줄 상품 개수를 설정할 수 있어요.",
+    hint: "한 페이지에 보여줄 상품 개수를 설정할 수 있어요. 첫 번째로 입력하신 개수가 자동으로 「처음 표시할 개수」가 돼요.",
     fields: [
-      { key: "options", label: "선택할 개수", type: "numberList", count: 3, min: 1, max: 500,
-        hint: "예) 25, 50, 100처럼 원하는 개수를 설정할 수 있어요." },
-      { key: "default", label: "처음 표시할 개수", type: "number", min: 1, max: 500 },
+      // 선택할 개수 배열 (예: 30 · 50 · 100)
+      // 「처음 표시할 개수」는 별도 필드 없이 · 이 배열의 첫 값을 자동으로 사용 (mergeWithDefaults에서 동기화)
+      // 사장님 지적 · 두 필드가 어긋나는 문제 해결
+      { key: "options", label: "선택할 개수 (첫 값이 처음 표시 개수)", type: "numberList", count: 3, min: 1, max: 500,
+        hint: "예) 30, 50, 100처럼 원하는 개수를 설정할 수 있어요. 맨 앞 값이 매장 첫 화면의 상품 수가 됩니다." },
     ],
   },
   {
@@ -304,6 +306,24 @@ export function mergeWithDefaults(input: unknown): ShopUiConfig {
       for (const f of sec.fields) {
         if (secRec[f.key] !== undefined) outSec[f.key] = secRec[f.key];
       }
+    }
+  }
+  // pagination 특별 처리 · 옛 스키마의 pageSizeInitial / default 하위 호환 + 자동 동기화
+  // - DB 옛 draft에 pagination.default 값이 있어도 조용히 무시 (options[0] 우선)
+  // - options 배열이 있으면 · 첫 값을 default에 자동 반영
+  // - options가 비어있으면 · 기존 default 유지 (DEFAULT_CONFIG의 25)
+  {
+    const p = rec.pagination as Record<string, unknown> | undefined;
+    if (p && typeof p === "object") {
+      const rawOpts = p.options;
+      if (Array.isArray(rawOpts)) {
+        const cleaned = rawOpts.map((v) => Number(v)).filter((n) => Number.isFinite(n) && n > 0);
+        if (cleaned.length > 0) out.pagination.options = cleaned;
+      }
+    }
+    // 「처음 표시할 개수」는 배열 첫 값과 자동 동기화 (사장님 요청 · 어긋남 방지)
+    if (out.pagination.options.length > 0) {
+      out.pagination.default = out.pagination.options[0];
     }
   }
   // mainTop 은 SHOP_UI_SCHEMA에 편집 폼이 없으므로 별도 병합

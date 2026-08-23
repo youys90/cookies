@@ -151,10 +151,10 @@ export function ShopUiProvider({ children }: { children: ReactNode }) {
           </div>
           {/* 화면 테두리 · 미리보기 상태를 지속 시각화 */}
           <div className="fixed inset-0 pointer-events-none z-[9999] border-4 border-amber-500 animate-pulse-slow" style={{ boxShadow: "inset 0 0 0 3px rgba(255,255,255,0.7)" }} />
-          {/* 좌측 하단 플로팅 뱃지 */}
+          {/* 좌측 하단 플로팅 뱃지 · 사장님 요청 · 「미리보기 화면 입니다」 서브 라벨 */}
           <div className="fixed bottom-4 left-4 z-[9999] bg-amber-500 text-white px-3 py-2 rounded-lg shadow-2xl flex items-center gap-2 border-2 border-white">
             <span className="text-sm font-black">🔍 미리보기</span>
-            <span className="text-[10px] opacity-90">실제 매장 아님</span>
+            <span className="text-[10px] opacity-90">미리보기 화면 입니다</span>
           </div>
         </>
       )}

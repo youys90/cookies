@@ -365,6 +365,9 @@ export default function NewProductPage() {
         description: finalData.descriptionJa || finalData.descriptionKo,
         description_ja: finalData.descriptionJa,
         description_ko: finalData.descriptionKo,
+        // 등록 채널 표시 · 개별 등록은 「일반」 (bulk-new: "일괄" · excel-import: "CSV" 와 짝)
+        // 사장님 지적 · 이 필드 누락 시 상품 관리에서 「-」 표시 · 재발 방지용
+        source: "일반",
       })
       .select()
       .single();

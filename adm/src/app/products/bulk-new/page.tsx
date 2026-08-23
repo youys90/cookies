@@ -142,16 +142,21 @@ export default function BulkNewProductsPage() {
     setAutoSaveEnabled(true);
   };
 
-  // 마지막 저장 시각 · 사장님에게 표시용
+  // 마지막 「임시저장 버튼」 누른 시각 · 사장님에게 표시용
+  // ⚠ 주의: 아래 sessionStorage 자동 저장 (브라우저 새로고침 대비용) 은 · 이 값에 영향을 주지 않음
+  //         → 사장님이 「💾 임시 저장」 버튼을 명시적으로 눌러야만 lastSavedAt 갱신
+  //         → 「저장한 목록 불러오기」에 실제 항목이 남는 것도 · 명시 저장 시에만
+  //         (이전 버그: 자동저장에서도 lastSavedAt을 세팅해서 · 배지는 「방금 저장됨」인데 목록은 비어있는 불일치)
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [savedTick, setSavedTick] = useState(0); // 「방금 저장됨」 애니메이션 트리거
 
-  // rows 자동 저장 (500ms debounce) · 업로드 중/팝업 대기 중엔 저장 스킵
+  // rows 자동 저장 (500ms debounce) · 브라우저 새로고침 시 복원용 sessionStorage 저장
+  // - 실제 「임시저장 목록」에는 반영 안 됨 (그건 manualSave에서만)
+  // - lastSavedAt 도 세팅 안 함 (사장님이 명시 저장 안 눌렀는데 「방금 저장됨」 배지 뜨는 문제 방지)
   useEffect(() => {
     if (uploading || !autoSaveEnabled) return;
     const t = setTimeout(() => {
       saveSession(SESSION_KEYS.BULK_NEW_ROWS, toSerializable(rows));
-      setLastSavedAt(new Date());
     }, 500);
     return () => clearTimeout(t);
   }, [rows, uploading, autoSaveEnabled]);

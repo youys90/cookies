@@ -183,6 +183,15 @@ export function mergeWithDefaults(input: unknown): ShopUiConfig {
       }
     }
   }
+  // 「처음 표시할 개수」는 · 배열 첫 값과 자동 동기화 (사장님 요청 · 어긋남 방지 · adm과 동일)
+  // 옛 draft에 pagination.default 값이 남아있어도 · options[0]가 우선 (하위 호환)
+  if (Array.isArray(out.pagination.options) && out.pagination.options.length > 0) {
+    const cleaned = out.pagination.options.map((v) => Number(v)).filter((n) => Number.isFinite(n) && n > 0);
+    if (cleaned.length > 0) {
+      out.pagination.options = cleaned;
+      out.pagination.default = cleaned[0];
+    }
+  }
   // mainTop · 한/일 이중 언어 + 히어로/혜택/로고 · 하위 호환 마이그레이션 (string[] → { ko, ja })
   const mt = rec.mainTop as Record<string, unknown> | undefined;
   if (mt && typeof mt === "object") {

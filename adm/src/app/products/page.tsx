@@ -72,7 +72,8 @@ export default function ProductsPage() {
   const [productList, setProductList] = useState<Product[]>([]);
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get("cat") || "전체");
   const [selectedSubCategory, setSelectedSubCategory] = useState(searchParams.get("sub") || "");
-  const [imageFilter, setImageFilter] = useState<"all" | "missing" | "attached">((searchParams.get("img") as "all" | "missing" | "attached") || "all");
+  // ⚠ 「이미지 필터」 (전체/미첨부/첨부됨) 는 사장님 지시로 삭제됨 (2026-08 · 이제 이미지 없는 상품이 안 생김)
+  //    옛 URL 파라미터 ?img=... 이 남아있어도 · 여기서 읽지 않아 조용히 무시됨 (하위 호환 안전)
   // 보기 모드 · 간편(기존) vs 상세(등록방식/등록일 등 확장 컬럼) · LocalStorage 유지
   const [viewMode, setViewMode] = useState<"simple" | "detail">(() => {
     if (typeof window === "undefined") return "detail";
@@ -163,7 +164,7 @@ export default function ProductsPage() {
 
   useEffect(() => {
     fetchProducts();
-  }, [selectedCategory, selectedSubCategory, currentPage, pageSize, searchKeyword, imageFilter]);
+  }, [selectedCategory, selectedSubCategory, currentPage, pageSize, searchKeyword]);
 
   // 카테고리 DB 조회 · 최상위 + 하위 전부 · 한국어 표시 (필터 값은 name_ja)
   useEffect(() => {
@@ -214,12 +215,8 @@ export default function ProductsPage() {
       );
     }
 
-    // 이미지 필터 · 미첨부 = image NULL & images NULL · 첨부 = image NOT NULL
-    if (imageFilter === "missing") {
-      query = query.is("image", null);
-    } else if (imageFilter === "attached") {
-      query = query.not("image", "is", null);
-    }
+    // 이미지 필터 · 사장님 지시로 삭제 (2026-08) · 이미지 없는 상품 케이스는 이제 안 생김
+    // → 항상 「전부 표시」 · image NULL/NOT NULL 필터링 로직 제거됨
 
     const from = (currentPage - 1) * pageSize;
     const to = from + pageSize - 1;
@@ -566,39 +563,8 @@ export default function ProductsPage() {
             />
           )}
 
-          {/* 이미지 첨부 상태 필터 */}
-          <div className="flex items-center gap-2 pt-1">
-            <span className="text-xs font-medium text-gray-500 whitespace-nowrap">이미지</span>
-            {[
-              { v: "all" as const, ko: "전체" },
-              { v: "missing" as const, ko: "미첨부", color: "red" },
-              { v: "attached" as const, ko: "첨부됨", color: "emerald" },
-            ].map((opt) => (
-              <button
-                key={opt.v}
-                onClick={() => { setImageFilter(opt.v); setCurrentPage(1); }}
-                className={`px-3 py-1 text-xs rounded-full border transition ${
-                  imageFilter === opt.v
-                    ? opt.color === "red"
-                      ? "bg-red-500 text-white border-red-500"
-                      : opt.color === "emerald"
-                        ? "bg-emerald-500 text-white border-emerald-500"
-                        : "bg-gray-900 text-white border-gray-900"
-                    : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
-                }`}
-              >
-                {opt.ko}
-              </button>
-            ))}
-            {imageFilter === "missing" && (
-              <Link
-                href="/products/bulk-new"
-                className="ml-2 text-xs text-[var(--color-brand-dk)] hover:text-[var(--color-brand)] underline"
-              >
-                → 일괄 등록에서 상품 이미지 연결하기
-              </Link>
-            )}
-          </div>
+          {/* 이미지 첨부 상태 필터 · 사장님 지시로 완전 제거 (2026-08) · 이제 이미지 없는 상품 케이스가 안 생김 */}
+          {/* 「+ 상품 등록」 · 「📦 일괄 등록」 버튼은 페이지 상단에 이미 있음 · 여기서는 추가 안내 불필요 */}
 
           <div className="flex flex-wrap items-center gap-4 pt-1">
             {/* 검색 · 브랜드 focus 링 */}
