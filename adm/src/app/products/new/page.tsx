@@ -153,6 +153,49 @@ export default function NewProductPage() {
   };
   const onDragEnd = () => { setDragIndex(null); setDragOverIndex(null); };
 
+  // ── COLOR 옵션 재정렬 (화살표 + 드래그) ─────────────────────
+  // 이미지 재정렬과 동일 패턴 · 옵션 객체 전체(옵션명+추가금액+stock)를 하나의 단위로 이동
+  const moveOptionUp = (index: number) => {
+    if (index === 0) return;
+    setTempOptions((prev) => {
+      const arr = [...prev];
+      [arr[index - 1], arr[index]] = [arr[index], arr[index - 1]];
+      return arr;
+    });
+  };
+  const moveOptionDown = (index: number) => {
+    if (index === tempOptions.length - 1) return;
+    setTempOptions((prev) => {
+      const arr = [...prev];
+      [arr[index], arr[index + 1]] = [arr[index + 1], arr[index]];
+      return arr;
+    });
+  };
+  const [optDragIndex, setOptDragIndex] = useState<number | null>(null);
+  const [optDragOverIndex, setOptDragOverIndex] = useState<number | null>(null);
+  const onOptDragStart = (i: number) => setOptDragIndex(i);
+  const onOptDragOver = (e: React.DragEvent, i: number) => {
+    e.preventDefault();
+    if (optDragIndex !== null && optDragIndex !== i && optDragOverIndex !== i) setOptDragOverIndex(i);
+  };
+  const onOptDragLeave = () => setOptDragOverIndex(null);
+  const onOptDrop = (targetIndex: number) => {
+    if (optDragIndex === null || optDragIndex === targetIndex) {
+      setOptDragIndex(null);
+      setOptDragOverIndex(null);
+      return;
+    }
+    setTempOptions((prev) => {
+      const arr = [...prev];
+      const [moved] = arr.splice(optDragIndex, 1);
+      arr.splice(targetIndex, 0, moved);
+      return arr;
+    });
+    setOptDragIndex(null);
+    setOptDragOverIndex(null);
+  };
+  const onOptDragEnd = () => { setOptDragIndex(null); setOptDragOverIndex(null); };
+
   const uploadImage = async (file: File): Promise<string> => {
     // 2026-08-03 fix: 실패 조용히 넘기지 않고 throw (수정 페이지와 일관)
     const fileExt = (file.name.split('.').pop() || 'bin').toLowerCase();
@@ -822,9 +865,34 @@ export default function NewProductPage() {
             {tempOptions.length === 0 ? (
               <p className="text-sm text-gray-500 text-center py-4">등록된 옵션이 없습니다</p>
             ) : (
-              tempOptions.map((opt, idx) => (
-                <div key={idx} className="border border-gray-200 rounded-lg p-3 space-y-2">
-                  <div className="flex items-center justify-between">
+              tempOptions.map((opt, idx) => {
+                const isOptDragging = optDragIndex === idx;
+                const isOptOver = optDragOverIndex === idx && optDragIndex !== null && optDragIndex !== idx;
+                return (
+                <div
+                  key={idx}
+                  data-testid={`color-option-row-${idx}`}
+                  onDragOver={(e) => onOptDragOver(e, idx)}
+                  onDragLeave={onOptDragLeave}
+                  onDrop={() => onOptDrop(idx)}
+                  onDragEnd={onOptDragEnd}
+                  className={`relative border border-gray-200 rounded-lg p-3 space-y-2 transition-all ${
+                    isOptDragging ? "opacity-40 scale-95" : ""
+                  } ${isOptOver ? "border-blue-500 ring-2 ring-blue-200 shadow-md" : ""}`}
+                >
+                  {isOptOver && <div className="absolute -left-1 top-0 bottom-0 w-1 bg-blue-500 rounded-full z-20"></div>}
+                  <div className="flex items-center justify-between gap-2">
+                    {/* 드래그 핸들 · 이 영역만 draggable · input 편집과 충돌 없음 */}
+                    <span
+                      draggable
+                      onDragStart={() => onOptDragStart(idx)}
+                      className="cursor-move text-gray-400 hover:text-gray-700 px-1 select-none"
+                      title="드래그로 순서 변경"
+                      aria-label="드래그 핸들"
+                      data-testid={`color-drag-handle-${idx}`}
+                    >
+                      ⋮⋮
+                    </span>
                     <input
                       type="text"
                       value={opt.option_name}
@@ -835,10 +903,36 @@ export default function NewProductPage() {
                       }}
                       className="text-sm font-medium text-gray-900 border-none p-0 focus:ring-0 flex-1"
                     />
+                    {/* 화살표 · 첫/끝 disabled · 모바일 · 접근성 */}
+                    <div className="flex gap-0.5">
+                      <button
+                        type="button"
+                        onClick={() => moveOptionUp(idx)}
+                        disabled={idx === 0}
+                        className="w-6 h-6 flex items-center justify-center text-gray-500 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+                        title="위로"
+                        aria-label="위로 이동"
+                        data-testid={`color-move-up-${idx}`}
+                      >
+                        ▲
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => moveOptionDown(idx)}
+                        disabled={idx === tempOptions.length - 1}
+                        className="w-6 h-6 flex items-center justify-center text-gray-500 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+                        title="아래로"
+                        aria-label="아래로 이동"
+                        data-testid={`color-move-down-${idx}`}
+                      >
+                        ▼
+                      </button>
+                    </div>
                     <button
                       type="button"
                       onClick={() => setTempOptions(tempOptions.filter((_, i) => i !== idx))}
                       className="text-red-500 hover:text-red-700 p-1"
+                      title="삭제"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -862,7 +956,8 @@ export default function NewProductPage() {
                     {/* 재고 필드 · 사장님 요청으로 UI 숨김 · 저장 시 기본값 유지 */}
                   </div>
                 </div>
-              ))
+                );
+              })
             )}
           </div>
 

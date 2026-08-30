@@ -82,11 +82,12 @@ function BulkEditInner() {
         .select("id, name_ja, name_ko, parent_id, sort_order")
         .eq("is_active", true)
         .order("sort_order");
-      // 옵션 로드 · 개별 편집과 동일
+      // 옵션 로드 · 개별 편집과 동일 · sort_order로 정렬
       const { data: opts } = await supabase
         .from("product_options")
-        .select("id, product_id, option_name, additional_price, stock, is_active")
-        .in("product_id", ids);
+        .select("id, product_id, option_name, additional_price, stock, is_active, sort_order")
+        .in("product_id", ids)
+        .order("sort_order", { ascending: true });
       const optionsByPid = new Map<number, ProductOption[]>();
       ((opts || []) as Array<{ id: number; product_id: number; option_name: string; additional_price: number; stock: number; is_active: boolean }>).forEach((o) => {
         const arr = optionsByPid.get(o.product_id) || [];
@@ -165,6 +166,53 @@ function BulkEditInner() {
       ? { ...p, options: (p.options || []).filter((_, i) => i !== idx) }
       : p));
   };
+
+  // ── COLOR 옵션 재정렬 (화살표 + 드래그) ─────────────────────
+  // 옵션 객체 전체(옵션명+추가금액+stock+is_active+id)를 하나의 단위로 이동
+  const moveOptionUp = (id: number, idx: number) => {
+    if (idx === 0) return;
+    setProducts((prev) => prev.map((p) => {
+      if (p.id !== id) return p;
+      const arr = [...(p.options || [])];
+      [arr[idx - 1], arr[idx]] = [arr[idx], arr[idx - 1]];
+      return { ...p, options: arr };
+    }));
+  };
+  const moveOptionDown = (id: number, idx: number) => {
+    setProducts((prev) => prev.map((p) => {
+      if (p.id !== id) return p;
+      const list = p.options || [];
+      if (idx === list.length - 1) return p;
+      const arr = [...list];
+      [arr[idx], arr[idx + 1]] = [arr[idx + 1], arr[idx]];
+      return { ...p, options: arr };
+    }));
+  };
+  const [optDrag, setOptDrag] = useState<{ pid: number | null; index: number | null; overIndex: number | null }>({ pid: null, index: null, overIndex: null });
+  const onProdOptDragStart = (pid: number, i: number) => setOptDrag({ pid, index: i, overIndex: null });
+  const onProdOptDragOver = (e: React.DragEvent, pid: number, i: number) => {
+    e.preventDefault();
+    if (optDrag.pid === pid && optDrag.index !== null && optDrag.index !== i && optDrag.overIndex !== i) {
+      setOptDrag((prev) => ({ ...prev, overIndex: i }));
+    }
+  };
+  const onProdOptDragLeave = () => setOptDrag((prev) => ({ ...prev, overIndex: null }));
+  const onProdOptDrop = (pid: number, targetIndex: number) => {
+    if (optDrag.pid !== pid || optDrag.index === null || optDrag.index === targetIndex) {
+      setOptDrag({ pid: null, index: null, overIndex: null });
+      return;
+    }
+    const from = optDrag.index;
+    setProducts((prev) => prev.map((p) => {
+      if (p.id !== pid) return p;
+      const arr = [...(p.options || [])];
+      const [moved] = arr.splice(from, 1);
+      arr.splice(targetIndex, 0, moved);
+      return { ...p, options: arr };
+    }));
+    setOptDrag({ pid: null, index: null, overIndex: null });
+  };
+  const onProdOptDragEnd = () => setOptDrag({ pid: null, index: null, overIndex: null });
 
   // 세션 풀 (bulk-new와 동일 · 여러 상품에서 재사용)
   const [sessionPool, setSessionPool] = useState<string[]>(() => loadSession<string[]>(SESSION_KEYS.IMAGE_POOL, []));
@@ -307,12 +355,13 @@ function BulkEditInner() {
       await supabase.from("product_options").delete().eq("product_id", p.id);
       const validOptions = (p.options || []).filter((o) => o.option_name.trim());
       if (validOptions.length > 0) {
-        const optPayload = validOptions.map((o) => ({
+        const optPayload = validOptions.map((o, oi) => ({
           product_id: p.id,
           option_name: o.option_name.trim(),
           additional_price: Number(o.additional_price) || 0,
           stock: Number(o.stock) || 99,
           is_active: o.is_active !== false,
+          sort_order: oi,
         }));
         const { error: optErr } = await supabase.from("product_options").insert(optPayload);
         if (optErr) { fail++; continue; }
@@ -587,23 +636,73 @@ function BulkEditInner() {
                     <p className="text-[11px] text-gray-400 text-center py-2">등록된 옵션이 없습니다. 필요시 「+ 옵션 추가」</p>
                   ) : (
                     <div className="space-y-1.5">
-                      {(p.options || []).map((opt, oi) => (
-                        <div key={oi} className="grid grid-cols-12 gap-1.5 items-center bg-white border border-gray-200 rounded p-1.5">
+                      {(p.options || []).map((opt, oi) => {
+                        const optionsLen = (p.options || []).length;
+                        const isOptDragging = optDrag.pid === p.id && optDrag.index === oi;
+                        const isOptOver = optDrag.pid === p.id && optDrag.overIndex === oi && optDrag.index !== null && optDrag.index !== oi;
+                        return (
+                        <div
+                          key={oi}
+                          data-testid={`color-option-row-${p.id}-${oi}`}
+                          onDragOver={(e) => onProdOptDragOver(e, p.id, oi)}
+                          onDragLeave={onProdOptDragLeave}
+                          onDrop={() => onProdOptDrop(p.id, oi)}
+                          onDragEnd={onProdOptDragEnd}
+                          className={`relative grid grid-cols-12 gap-1.5 items-center bg-white border rounded p-1.5 transition-all ${
+                            isOptDragging ? "opacity-40 scale-95" : ""
+                          } ${isOptOver ? "border-blue-500 ring-1 ring-blue-200 shadow" : "border-gray-200"}`}
+                        >
+                          {isOptOver && <div className="absolute -left-1 top-0 bottom-0 w-1 bg-blue-500 rounded-full z-20"></div>}
+                          {/* 드래그 핸들 · 이 영역만 draggable */}
+                          <span
+                            draggable
+                            onDragStart={() => onProdOptDragStart(p.id, oi)}
+                            className="col-span-1 cursor-move text-gray-400 hover:text-gray-700 text-center select-none"
+                            title="드래그로 순서 변경"
+                            aria-label="드래그 핸들"
+                            data-testid={`color-drag-handle-${p.id}-${oi}`}
+                          >
+                            ⋮⋮
+                          </span>
                           <input
                             type="text"
                             placeholder="옵션명 (예: ゴールド)"
                             value={opt.option_name}
                             onChange={(e) => updateOption(p.id, oi, { option_name: e.target.value })}
-                            className="col-span-7 text-[12px] px-2 py-1 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-gray-900"
+                            className="col-span-5 text-[12px] px-2 py-1 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-gray-900"
                           />
                           <input
                             type="number"
                             placeholder="추가금액"
                             value={opt.additional_price || ""}
                             onChange={(e) => updateOption(p.id, oi, { additional_price: Number(e.target.value) })}
-                            className="col-span-4 text-[12px] px-2 py-1 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-gray-900"
+                            className="col-span-3 text-[12px] px-2 py-1 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-gray-900"
                           />
                           {/* 재고 필드 · 사장님 요청으로 UI 숨김 · 기존 stock 값 그대로 유지 */}
+                          <div className="col-span-2 flex gap-0.5 justify-center">
+                            <button
+                              type="button"
+                              onClick={() => moveOptionUp(p.id, oi)}
+                              disabled={oi === 0}
+                              className="w-5 h-5 flex items-center justify-center text-[10px] text-gray-500 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+                              title="위로"
+                              aria-label="위로 이동"
+                              data-testid={`color-move-up-${p.id}-${oi}`}
+                            >
+                              ▲
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => moveOptionDown(p.id, oi)}
+                              disabled={oi === optionsLen - 1}
+                              className="w-5 h-5 flex items-center justify-center text-[10px] text-gray-500 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+                              title="아래로"
+                              aria-label="아래로 이동"
+                              data-testid={`color-move-down-${p.id}-${oi}`}
+                            >
+                              ▼
+                            </button>
+                          </div>
                           <button
                             type="button"
                             onClick={() => removeOption(p.id, oi)}
@@ -613,7 +712,8 @@ function BulkEditInner() {
                             <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 18L18 6M6 6l12 12" /></svg>
                           </button>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>

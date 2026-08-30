@@ -448,6 +448,53 @@ export default function BulkNewProductsPage() {
       : r));
   };
 
+  // ── COLOR 옵션 재정렬 (화살표 + 드래그) ─────────────────────
+  // 옵션 객체 전체(옵션명+추가금액+stock+is_active)를 하나의 단위로 이동
+  const moveRowOptionUp = (key: number, idx: number) => {
+    if (idx === 0) return;
+    setRows((prev) => prev.map((r) => {
+      if (r.key !== key) return r;
+      const arr = [...r.options];
+      [arr[idx - 1], arr[idx]] = [arr[idx], arr[idx - 1]];
+      return { ...r, options: arr };
+    }));
+  };
+  const moveRowOptionDown = (key: number, idx: number) => {
+    setRows((prev) => prev.map((r) => {
+      if (r.key !== key) return r;
+      if (idx === r.options.length - 1) return r;
+      const arr = [...r.options];
+      [arr[idx], arr[idx + 1]] = [arr[idx + 1], arr[idx]];
+      return { ...r, options: arr };
+    }));
+  };
+  // 행(key)마다 독립적인 드래그 상태 · Map으로 관리
+  const [optDrag, setOptDrag] = useState<{ key: number | null; index: number | null; overIndex: number | null }>({ key: null, index: null, overIndex: null });
+  const onRowOptDragStart = (key: number, i: number) => setOptDrag({ key, index: i, overIndex: null });
+  const onRowOptDragOver = (e: React.DragEvent, key: number, i: number) => {
+    e.preventDefault();
+    if (optDrag.key === key && optDrag.index !== null && optDrag.index !== i && optDrag.overIndex !== i) {
+      setOptDrag((prev) => ({ ...prev, overIndex: i }));
+    }
+  };
+  const onRowOptDragLeave = () => setOptDrag((prev) => ({ ...prev, overIndex: null }));
+  const onRowOptDrop = (key: number, targetIndex: number) => {
+    if (optDrag.key !== key || optDrag.index === null || optDrag.index === targetIndex) {
+      setOptDrag({ key: null, index: null, overIndex: null });
+      return;
+    }
+    const from = optDrag.index;
+    setRows((prev) => prev.map((r) => {
+      if (r.key !== key) return r;
+      const arr = [...r.options];
+      const [moved] = arr.splice(from, 1);
+      arr.splice(targetIndex, 0, moved);
+      return { ...r, options: arr };
+    }));
+    setOptDrag({ key: null, index: null, overIndex: null });
+  };
+  const onRowOptDragEnd = () => setOptDrag({ key: null, index: null, overIndex: null });
+
   const addImagesToRow = (key: number, files: FileList | File[]) => {
     const arr = Array.from(files);
     const readers = arr.map(
@@ -589,12 +636,13 @@ export default function BulkNewProductsPage() {
       // 옵션 insert · 이름 있는 옵션만
       const validOpts = row.options.filter((o) => o.option_name.trim());
       if (validOpts.length > 0) {
-        const optPayload = validOpts.map((o) => ({
+        const optPayload = validOpts.map((o, oi) => ({
           product_id: inserted.id,
           option_name: o.option_name.trim(),
           additional_price: Number(o.additional_price) || 0,
           stock: Number(o.stock) || 99,
           is_active: o.is_active !== false,
+          sort_order: oi,
         }));
         const { error: optErr } = await supabase.from("product_options").insert(optPayload);
         if (optErr) {
@@ -1095,23 +1143,72 @@ export default function BulkNewProductsPage() {
                     <p className="text-[11px] text-gray-400 text-center py-2">등록된 옵션이 없습니다. 필요시 「+ 옵션 추가」</p>
                   ) : (
                     <div className="space-y-1.5">
-                      {row.options.map((opt, oi) => (
-                        <div key={oi} className="grid grid-cols-12 gap-1.5 items-center bg-white border border-gray-200 rounded p-1.5">
+                      {row.options.map((opt, oi) => {
+                        const isOptDragging = optDrag.key === row.key && optDrag.index === oi;
+                        const isOptOver = optDrag.key === row.key && optDrag.overIndex === oi && optDrag.index !== null && optDrag.index !== oi;
+                        return (
+                        <div
+                          key={oi}
+                          data-testid={`color-option-row-${row.key}-${oi}`}
+                          onDragOver={(e) => onRowOptDragOver(e, row.key, oi)}
+                          onDragLeave={onRowOptDragLeave}
+                          onDrop={() => onRowOptDrop(row.key, oi)}
+                          onDragEnd={onRowOptDragEnd}
+                          className={`relative grid grid-cols-12 gap-1.5 items-center bg-white border rounded p-1.5 transition-all ${
+                            isOptDragging ? "opacity-40 scale-95" : ""
+                          } ${isOptOver ? "border-blue-500 ring-1 ring-blue-200 shadow" : "border-gray-200"}`}
+                        >
+                          {isOptOver && <div className="absolute -left-1 top-0 bottom-0 w-1 bg-blue-500 rounded-full z-20"></div>}
+                          {/* 드래그 핸들 · 이 영역만 draggable */}
+                          <span
+                            draggable
+                            onDragStart={() => onRowOptDragStart(row.key, oi)}
+                            className="col-span-1 cursor-move text-gray-400 hover:text-gray-700 text-center select-none"
+                            title="드래그로 순서 변경"
+                            aria-label="드래그 핸들"
+                            data-testid={`color-drag-handle-${row.key}-${oi}`}
+                          >
+                            ⋮⋮
+                          </span>
                           <input
                             type="text"
                             placeholder="옵션명 (예: ゴールド)"
                             value={opt.option_name}
                             onChange={(e) => updateRowOption(row.key, oi, { option_name: e.target.value })}
-                            className="col-span-7 text-[12px] px-2 py-1 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-gray-900"
+                            className="col-span-5 text-[12px] px-2 py-1 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-gray-900"
                           />
                           <input
                             type="number"
                             placeholder="추가금액"
                             value={opt.additional_price || ""}
                             onChange={(e) => updateRowOption(row.key, oi, { additional_price: Number(e.target.value) })}
-                            className="col-span-4 text-[12px] px-2 py-1 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-gray-900"
+                            className="col-span-3 text-[12px] px-2 py-1 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-gray-900"
                           />
                           {/* 재고 필드 · 사장님 요청으로 UI 숨김 · 옵션 생성 시 stock 기본 99로 저장 */}
+                          <div className="col-span-2 flex gap-0.5 justify-center">
+                            <button
+                              type="button"
+                              onClick={() => moveRowOptionUp(row.key, oi)}
+                              disabled={oi === 0}
+                              className="w-5 h-5 flex items-center justify-center text-[10px] text-gray-500 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+                              title="위로"
+                              aria-label="위로 이동"
+                              data-testid={`color-move-up-${row.key}-${oi}`}
+                            >
+                              ▲
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => moveRowOptionDown(row.key, oi)}
+                              disabled={oi === row.options.length - 1}
+                              className="w-5 h-5 flex items-center justify-center text-[10px] text-gray-500 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+                              title="아래로"
+                              aria-label="아래로 이동"
+                              data-testid={`color-move-down-${row.key}-${oi}`}
+                            >
+                              ▼
+                            </button>
+                          </div>
                           <button
                             type="button"
                             onClick={() => removeRowOption(row.key, oi)}
@@ -1121,7 +1218,8 @@ export default function BulkNewProductsPage() {
                             <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 18L18 6M6 6l12 12" /></svg>
                           </button>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
