@@ -145,7 +145,7 @@ export default function CustomizePage() {
       setConfig(mergeWithDefaults(data));
       setCurrentDraftId(draftId);
       setDirty(true);
-      setMsg("불러왔어요. 저장을 눌러야 매장에 반영됩니다.");
+      setMsg("불러왔어요. 저장을 눌러야 적용돼요.");
     }
   };
 
@@ -202,19 +202,19 @@ export default function CustomizePage() {
     setPresetLoading(false);
   };
   const presetActivate = async (row: PresetRow) => {
-    if (!confirm(`「${row.name}」 화면을 불러옵니다.\n\n현재 수정 중인 내용은 불러온 화면의 설정으로 바뀝니다.\n계속하시겠어요?`)) return;
+    if (!confirm(`「${row.name}」 화면을 불러옵니다.\n\n지금 편집 중인 내용은 사라집니다.\n계속할까요?`)) return;
     setPresetBusyId(row.id);
     // 실제 매장에는 반영 안 함 · 저장한 프리셋의 config만 편집 상태로 로드
     const { data, error } = await supabase.from("shop_ui_presets").select("config").eq("id", row.id).maybeSingle();
     setPresetBusyId(null);
     if (error || !data?.config) {
-      alert("화면을 불러오지 못했습니다.\n다시 시도해주세요.");
+      alert("화면을 불러오지 못했어요.\n다시 시도해주세요.");
       return;
     }
     const loaded = mergeWithDefaults(data.config);
     setConfig(loaded);
     setDirty(JSON.stringify(loaded) !== JSON.stringify(originalConfig));
-    setMsg(`「${row.name}」 화면을 불러왔습니다.`);
+    setMsg(`「${row.name}」 화면을 불러왔어요.`);
     setShowPresetsModal(false);
   };
   const presetRename = async (row: PresetRow) => {
@@ -228,8 +228,8 @@ export default function CustomizePage() {
   };
   const presetDelete = async (row: PresetRow) => {
     if (row.is_default) return alert("기본 화면은 삭제할 수 없어요");
-    if (row.is_active) return alert("지금 매장에 반영된 화면은 삭제할 수 없어요.\n먼저 다른 화면을 활성화해주세요.");
-    if (!confirm(`「${row.name}」 을 휴지통으로 옮깁니다.\n\n20일 안에 되돌릴 수 있어요.\n\n계속하시겠어요?`)) return;
+    if (row.is_active) return alert("지금 적용된 화면은 삭제할 수 없어요.\n먼저 다른 화면을 불러와주세요.");
+    if (!confirm(`「${row.name}」 을 휴지통으로 옮깁니다.\n\n20일 안에 되돌릴 수 있어요.\n\n계속할까요?`)) return;
     setPresetBusyId(row.id);
     const { error } = await supabase.from("shop_ui_presets").update({ deleted_at: new Date().toISOString() }).eq("id", row.id);
     setPresetBusyId(null);
@@ -256,7 +256,7 @@ export default function CustomizePage() {
   // 「현재 적용된 화면으로 돌아가기」 · 활성 프리셋 config를 편집 상태로 복구 · 실제 적용 상태는 그대로
   const restoreLastLive = () => {
     if (!active) return;
-    if (!confirm("현재 적용된 화면으로 돌아갈까요?\n\n지금까지 바꾼 내용은 사라지고, 현재 적용된 화면으로 돌아갑니다.")) return;
+    if (!confirm("현재 적용된 화면으로 돌아갈까요?\n\n지금까지 바꾼 내용은 사라집니다.")) return;
     setConfig(active.config);
     setDirty(false);
     setMsg("↺ 현재 적용된 화면으로 돌아갔어요.");
@@ -308,9 +308,9 @@ export default function CustomizePage() {
     finalConfig = await autoTranslateMainTop(finalConfig);
     const currentLabel = previewPage === "mainTop" ? "메인" : previewPage === "list" ? "상품 목록" : "상품 상세";
     const scopeLabel = scope === "all"
-      ? "전체 저장 · 메인 화면 + 상품 목록 화면 + 상품 상세 화면 · 지금 편집한 내용 모두 저장됩니다"
-      : `이번 저장 · 「${currentLabel} 화면」만 변경 · 다른 화면 설정은 그대로 유지됩니다`;
-    if (!confirm(`${scopeLabel}\n\n계속하시겠어요?`)) return;
+      ? "모든 화면 저장 · 메인 · 상품 목록 · 상품 상세 편집 내용 모두 저장됩니다"
+      : `「${currentLabel} 화면」만 저장 · 다른 화면 설정은 그대로 유지됩니다`;
+    if (!confirm(`${scopeLabel}\n\n계속할까요?`)) return;
     setSaving(true);
     // 저장 전 · 현재 매장 반영 config를 이전 스냅샷으로 백업 · 「마지막 운영 화면으로 복원」 기능용
     savePrevLiveSnapshot(active.id, active.config, active.name);
@@ -336,7 +336,7 @@ export default function CustomizePage() {
     if (error) {
       setMsg("저장 실패: " + error.message);
     } else {
-      setMsg("💾 저장 완료 · 실제 매장에 반영되었습니다 (매장 탭을 새로고침하면 확인 가능)");
+      setMsg("💾 저장 완료 · 바로 적용되었어요 (매장 페이지 새로고침 필요)");
       setDirty(false);
       if (currentDraftId) { deleteDraft(currentDraftId); setCurrentDraftId(null); }
       setLastSavedAt(null);
@@ -364,7 +364,7 @@ export default function CustomizePage() {
     if (error) {
       setMsg("저장 실패: " + error.message);
     } else {
-      setMsg(`💾 「${name}」 스냅샷으로 저장되었어요 (실제 매장에는 반영 안 됨 · 「저장된 매장 화면 목록」에서 「이 화면으로 바꾸기」를 눌러야 반영돼요)`);
+      setMsg(`💾 「${name}」(으)로 저장되었어요 (아직 적용 안 됨 · 「저장한 화면 불러오기」에서 「불러오기」를 눌러야 적용돼요)`);
       setShowSaveAs(false);
       setNewName("");
       // dirty 유지 · 사장님이 편집한 값이 현재 매장 활성 프리셋과 여전히 다르므로
@@ -373,7 +373,7 @@ export default function CustomizePage() {
   };
 
   const resetToDefault = () => {
-    if (!confirm("기본값으로 되돌릴까요?\n\n화면 꾸미기에서 변경한 설정이 처음 제공된 값으로 돌아갑니다.\n※ 저장 전이므로 아직 적용되지 않아요.")) return;
+    if (!confirm("기본값으로 되돌릴까요?\n\n지금까지 바꾼 설정이 처음 값으로 돌아갑니다.\n※ 저장을 눌러야 적용돼요.")) return;
     const def = mergeWithDefaults(DEFAULT_CONFIG);
     setConfig(def);
     setDirty(JSON.stringify(def) !== JSON.stringify(originalConfig));
@@ -443,7 +443,7 @@ export default function CustomizePage() {
             type="button"
             onClick={() => { setShowPresetsModal(true); loadPresets(); }}
             className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-[var(--color-brand-dk)] bg-white border-2 border-[var(--color-brand)] rounded-full hover:bg-[var(--color-brand)]/10 shadow-sm transition"
-            title="이전에 저장해둔 매장 화면들을 모아봅니다"
+            title="저장한 화면 목록"
           >
             📚 저장한 화면 불러오기
           </button>
@@ -463,7 +463,7 @@ export default function CustomizePage() {
             <div className="text-sm text-emerald-800 flex items-center gap-2 flex-wrap">
               <span>🟢 현재 적용된 화면:</span>
               <b>{shownLabel}</b>
-              {dirty && <span className="text-[10px] px-2 py-0.5 bg-amber-500 text-white rounded-full font-semibold animate-pulse">꾸미는 중 · 저장 안 함</span>}
+              {dirty && <span className="text-[10px] px-2 py-0.5 bg-amber-500 text-white rounded-full font-semibold animate-pulse">변경사항 있음 · 저장 안 됨</span>}
             </div>
             <div className="text-[11px] text-emerald-700">
               마지막 변경: <span className="font-mono">{new Date(active.updated_at).toLocaleString("ko-KR")}</span>
@@ -490,7 +490,7 @@ export default function CustomizePage() {
             <div className="grid grid-cols-1 md:grid-cols-2">
               {/* 좌측 · 어느 화면 편집 · 큰 세로 탭 2개 */}
               <div className="p-3 bg-gradient-to-br from-gray-50 to-white border-b md:border-b-0 md:border-r border-gray-200">
-                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 pl-1">📝 꾸밀 화면을 선택해주세요</p>
+                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 pl-1">📝 편집할 화면을 선택하세요</p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <button
                     onClick={() => setPreviewPage("mainTop")}
@@ -502,7 +502,7 @@ export default function CustomizePage() {
                         <p className="text-sm font-bold text-gray-900">메인</p>
                         <p className="text-[10px] text-gray-500">메인 배너 · 상단바 · 하단바 · 문구띠</p>
                       </div>
-                      {previewPage === "mainTop" && <span className="ml-auto text-[10px] font-semibold text-[var(--color-brand-dk)]">● 꾸미는 중</span>}
+                      {previewPage === "mainTop" && <span className="ml-auto text-[10px] font-semibold text-[var(--color-brand-dk)]">● 편집 중</span>}
                     </div>
                   </button>
                   <button
@@ -515,7 +515,7 @@ export default function CustomizePage() {
                         <p className="text-sm font-bold text-gray-900">상품 목록</p>
                         <p className="text-[10px] text-gray-500">상품을 둘러보는 화면</p>
                       </div>
-                      {previewPage === "list" && <span className="ml-auto text-[10px] font-semibold text-[var(--color-brand-dk)]">● 꾸미는 중</span>}
+                      {previewPage === "list" && <span className="ml-auto text-[10px] font-semibold text-[var(--color-brand-dk)]">● 편집 중</span>}
                     </div>
                   </button>
                   <button
@@ -528,14 +528,14 @@ export default function CustomizePage() {
                         <p className="text-sm font-bold text-gray-900">상품 상세</p>
                         <p className="text-[10px] text-gray-500">상품을 눌렀을 때 보이는 화면</p>
                       </div>
-                      {previewPage === "detail" && <span className="ml-auto text-[10px] font-semibold text-[var(--color-brand-dk)]">● 꾸미는 중</span>}
+                      {previewPage === "detail" && <span className="ml-auto text-[10px] font-semibold text-[var(--color-brand-dk)]">● 편집 중</span>}
                     </div>
                   </button>
                 </div>
               </div>
               {/* 우측 · 어느 기기 미리보기 · PC/모바일 */}
               <div className="p-3">
-                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 pl-1">👁 미리보기 화면</p>
+                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 pl-1">👁 미리보기 기기</p>
                 <div className="grid grid-cols-2 gap-2 mb-2">
                   <button
                     onClick={() => setPreviewDevice("desktop")}
@@ -647,7 +647,7 @@ export default function CustomizePage() {
                         <span className="text-lg">🎯</span>
                         <div>
                           <h3 className="text-sm font-bold text-gray-900">메인 화면 · 세부 영역 선택</h3>
-                          <p className="text-[11px] text-gray-500">고칠 영역을 고르면 · 미리보기에서 그 부분만 밝게 표시돼요</p>
+                          <p className="text-[11px] text-gray-500">선택한 영역만 오른쪽에서 밝게 표시돼요</p>
                         </div>
                       </div>
                     </div>
@@ -710,8 +710,8 @@ export default function CustomizePage() {
                           <div className="mb-3 p-2.5 rounded-lg bg-amber-50 border border-amber-200 flex items-start gap-2">
                             <span className="text-lg leading-none">🌐</span>
                             <div className="flex-1">
-                              <p className="text-[11px] font-bold text-amber-900">한국어로만 입력해주세요 · 저장 시 일본어는 자동으로 번역돼요</p>
-                              <p className="text-[10px] text-amber-700 mt-0.5">한국어 손님에게는 한국어로 · 일본어 손님에게는 번역된 문구로 자동 노출됩니다.</p>
+                              <p className="text-[11px] font-bold text-amber-900">한국어로만 입력 · 저장 시 일본어는 자동 번역돼요</p>
+                              <p className="text-[10px] text-amber-700 mt-0.5">한국어 사용자에게는 한국어로 · 일본어 사용자에게는 번역된 문구로 자동 노출돼요.</p>
                             </div>
                           </div>
                           <p className="text-xs text-gray-500 mb-2">프로모 문구 · {config.mainTop.promoBarMessages.length}개</p>
@@ -1493,7 +1493,7 @@ export default function CustomizePage() {
                 JSON.stringify(config.productDetail) !== JSON.stringify(originalConfig.productDetail);
               return (
                 <span className="text-amber-700 inline-flex items-center gap-2 flex-wrap">
-                  🔸 저장하지 않은 변경사항이 있어요
+                  🔸 변경사항 있음 · 저장 안 됨
                   {mainTopDirty && (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-100 border border-amber-200 rounded-full text-[11px] font-medium text-amber-800">
                       📣 메인
@@ -1534,7 +1534,7 @@ export default function CustomizePage() {
           <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-gray-900 mb-2">💾 다른 이름으로 저장</h3>
             <p className="text-xs text-gray-500 mb-4">
-              나중에 「저장한 화면 불러오기」 목록에서 이 이름을 선택해 다시 불러올 수 있어요.
+              저장한 이름으로 나중에 다시 불러올 수 있어요.
             </p>
             <input
               type="text"
@@ -1574,7 +1574,7 @@ export default function CustomizePage() {
               ) : presetList.length === 0 ? (
                 <div className="text-center py-16 text-gray-400 text-sm">
                   <p>저장된 화면이 없어요</p>
-                  <p className="text-[11px] mt-1">「💾 다른 이름으로 저장」을 눌러 지금 꾸민 화면을 저장해보세요.</p>
+                  <p className="text-[11px] mt-1">「💾 다른 이름으로 저장」으로 지금 편집한 화면을 저장해보세요.</p>
                 </div>
               ) : (
                 <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">

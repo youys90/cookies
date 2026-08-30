@@ -23,9 +23,11 @@ interface Ctx {
   previewPage: "list" | "detail" | "mainTop" | null;
   /** 관리자 「메인」 편집 세부 영역 · 스포트라이트 대상 · 해당 영역만 밝게, 다른 영역은 dim 처리 */
   previewSection: PreviewSection;
+  /** 「큰 화면 편집」 모드 (adm bigEditor=1) · 편집용 클릭 후크 발동 조건 */
+  isBigEditor: boolean;
 }
 
-const ShopUiCtx = createContext<Ctx>({ config: DEFAULT_CONFIG, loaded: false, isPreview: false, previewDevice: "desktop", isInnerFrame: false, previewPage: null, previewSection: null });
+const ShopUiCtx = createContext<Ctx>({ config: DEFAULT_CONFIG, loaded: false, isPreview: false, previewDevice: "desktop", isInnerFrame: false, previewPage: null, previewSection: null, isBigEditor: false });
 
 export function useShopUi() { return useContext(ShopUiCtx); }
 
@@ -176,7 +178,7 @@ export function ShopUiProvider({ children }: { children: ReactNode }) {
   }, [config]);
 
   return (
-    <ShopUiCtx.Provider value={{ config, loaded, isPreview, previewDevice, isInnerFrame, previewPage, previewSection }}>
+    <ShopUiCtx.Provider value={{ config, loaded, isPreview, previewDevice, isInnerFrame, previewPage, previewSection, isBigEditor }}>
       {isPreview && !isInnerFrame && (
         <>
           {/* 상단 스티키 배너 · 눈에 확 띄는 미리보기 표시 (실제 매장과 오해 방지) */}

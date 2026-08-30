@@ -10,6 +10,7 @@
 import { useState } from "react";
 import dynamic from "next/dynamic";
 import type { ShopUiConfig } from "@/lib/shopUiSchema";
+import type { CookiesEditClickRect } from "@/lib/editorPostMessage";
 
 // react-moveable · ssr:false + dynamic · 서버 렌더 시 로드 안 함 · 초기 번들 방어
 const Moveable = dynamic(() => import("react-moveable"), { ssr: false });
@@ -29,6 +30,9 @@ interface Props {
   updateField: (section: string, key: string, value: unknown) => void;
   /** 편집 종료 (호출부에서 target=null 처리) */
   onDeselect: () => void;
+  /** shop → adm postMessage로 넘어온 실 rect (shop iframe 뷰포트 상대 · unscaled)
+   *  있으면 DEFAULT_HERO_LAYOUT 하드코딩 대신 우선 사용 · 툴바 썸네일 선택은 null → fallback 사용 (하위호환) */
+  overrideRect?: CookiesEditClickRect | null;
 }
 
 // MVP 1단계 · 기본 위치/크기 (shop 실측이 없을 때) · 사장님이 리사이즈하면 이후는 저장된 값 사용
@@ -41,7 +45,7 @@ const DEFAULT_HERO_LAYOUT: Record<number, { x: number; y: number; w: number; h: 
   4: { x: 40, y: 780, w: 400, h: 200 },
 };
 
-export default function MoveableOverlay({ target, scale, config, updateField, onDeselect }: Props) {
+export default function MoveableOverlay({ target, scale, config, updateField, onDeselect, overrideRect }: Props) {
   // 콜백 ref 패턴 · useState로 DOM 노드 보관 (React 19 · ref during render 회피)
   const [targetEl, setTargetEl] = useState<HTMLDivElement | null>(null);
   // 실시간 시각 반영용 · onResize 중 크기 · target 인덱스와 함께 저장 (target 변경 시 자동 무시)
@@ -58,20 +62,31 @@ export default function MoveableOverlay({ target, scale, config, updateField, on
   const initShopH = img.height && img.height > 0 ? img.height : fallback.h;
   // liveSize 인덱스가 다르면 무시 (다른 target으로 이동한 경우 stale 데이터 사용 방지)
   const staleSafe = liveSize?.idx === idx ? liveSize : null;
-  const shopW = staleSafe?.w ?? initShopW;
-  const shopH = staleSafe?.h ?? initShopH;
+  // overrideRect 있으면 실 shop 좌표 · 없으면 툴바 썸네일 선택 흐름 → 하드코딩 fallback
+  // 크기는 · 사용자가 리사이즈 중이면 liveSize 우선 · 그 다음 override.w/h · 마지막으로 initShopW/H
+  const originX = overrideRect ? overrideRect.x : fallback.x;
+  const originY = overrideRect ? overrideRect.y : fallback.y;
+  const baseW = overrideRect ? overrideRect.w : initShopW;
+  const baseH = overrideRect ? overrideRect.h : initShopH;
+  const shopW = staleSafe?.w ?? baseW;
+  const shopH = staleSafe?.h ?? baseH;
 
   // 오버레이 좌표계 = shop 좌표계 * scale
+  // MVP · shop 스크롤 0 가정 (hero는 페이지 상단 · 사장님 지시 · 배너 이미지 1개만)
   const box = {
-    left: fallback.x * scale,
-    top: fallback.y * scale,
+    left: originX * scale,
+    top: originY * scale,
     width: shopW * scale,
     height: shopH * scale,
   };
 
   return (
     <>
-      {/* 배경 · target 밖 클릭 시 편집 종료 · zIndex 20 (오버레이의 클릭 삼킴 zIndex 10보다 위) */}
+      {/* 배경 · target 밖 클릭 시 편집 종료
+       * zIndex 30 · FormActionBar (sticky bottom-0 z-20) 위에 뜨도록 상향
+       * - 이전엔 z-20 같음 → DOM order상 FormActionBar가 뒤라 SW/S/SE handle 가림
+       * - z-40/z-50은 다른 fixed 모달(BulkActionBar/ProfileModal 등) 관행 · 그 아래로 유지
+       * - react-moveable control-box는 이 div의 자식으로 렌더 · 부모 stacking 상속 · handle 함께 위로 */}
       <div
         onMouseDown={(e) => {
           if (e.target === e.currentTarget) onDeselect();
@@ -79,7 +94,7 @@ export default function MoveableOverlay({ target, scale, config, updateField, on
         style={{
           position: "absolute",
           inset: 0,
-          zIndex: 20,
+          zIndex: 30,
           background: "transparent",
         }}
       >

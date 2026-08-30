@@ -13,6 +13,11 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useShopUi } from "@/contexts/ShopUiContext";
 import { renderInlineFormat } from "@/lib/inlineFormat";
 
+// adm 「큰 화면 편집」 (PPT식 편집기) postMessage 계약
+// - shop → adm 방향으로만 발동 · adm의 editorPostMessage.ts와 동일 문자열 유지
+// - rect 필드 이름 (x, y, w, h) · adm isCookiesEditClick 판별함수와 정합
+const EDIT_CLICK_TYPE = "cookies:edit-click" as const;
+
 interface Product {
   id: number;
   name: string;
@@ -97,7 +102,28 @@ function CategoryIcon({ name }: { name: string }) {
 
 export default function Home() {
   const { language, t } = useLanguage();
-  const { config: shopUi, isInnerFrame, previewPage, previewSection } = useShopUi();
+  const { config: shopUi, isInnerFrame, previewPage, previewSection, isBigEditor } = useShopUi();
+
+  // adm 「큰 화면 편집」 모드에서만 편집 클릭 후크 발동
+  // - 실 매장 방문자 · 일반 미리보기 방문자 → 원 링크 정상 이동 (조건 false → 기본 동작)
+  // - bigEditor+innerFrame → e.preventDefault + rect postMessage · adm이 MoveableOverlay target 배치
+  const canEditHook = isInnerFrame && isBigEditor;
+  const onEditHeroClick = (key: string) => (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (!canEditHook) return; // 조건 미달 · 기본 이동 그대로
+    e.preventDefault();
+    e.stopPropagation();
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    try {
+      window.parent?.postMessage(
+        {
+          type: EDIT_CLICK_TYPE,
+          key,
+          rect: { x: r.x, y: r.y, w: r.width, h: r.height },
+        },
+        "*"
+      );
+    } catch {}
+  };
   // 관리자 미리보기 iframe · 「메인」 편집 세부 영역 스포트라이트
   const spotlight = (section: "hero" | "benefits" | "categories") => {
     if (!isInnerFrame || !previewSection) return "";
@@ -107,7 +133,9 @@ export default function Home() {
   const defaultPageSize = shopUi.pagination.default || pageSizeOptions[0] || 25;
   const searchParams = useSearchParams();
   const [products, setProducts] = useState<Product[]>([]);
-  const [heroItems, setHeroItems] = useState<Product[]>([]); // 히어로 모자이크 3장용
+  // 히어로 슬롯 폴백 이미지 · [null, 슬롯1 카테고리 대표 상품, 슬롯2 카테고리 대표 상품] · 인덱스 정합
+  // - null 허용 · 해당 카테고리에 활성 상품 없으면 null · 이미지 없음 fallback으로 렌더
+  const [heroItems, setHeroItems] = useState<Array<Product | null>>([]);
   const [selectedMignonCat, setSelectedMignonCat] = useState<string>(searchParams.get("cat") || "all");
   const [subCategories, setSubCategories] = useState<string[]>([]);
   // name_ja → categories.id 매핑 (2026-08-03 FK 리팩터: adm 카테고리 이동 시 자동 반영용)
@@ -145,10 +173,16 @@ export default function Home() {
         setSessionLoaded(true);
       }
     })();
-    fetchHero();
     fetchDbCategories();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // dbCategories 로드 완료 후 · 각 카테고리(SPECIAL 제외 앞 2개) 대표 상품 이미지 조회
+  // - 사장님 확정 옵션 A · 슬롯 1, 2 배경 이미지 = 해당 카테고리 첫 활성 상품
+  useEffect(() => {
+    fetchHero();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dbCategories]);
 
   // adm에서 편집한 카테고리 실시간 반영 (categories 테이블 조회)
   const fetchDbCategories = async () => {
@@ -192,17 +226,25 @@ export default function Home() {
   }, [selectedMignonCat, selectedSubCat, currentPage, pageSize, searchKeyword, dbCategories, unlockedCatIds, sessionLoaded, lockedView]);
 
   const fetchHero = async () => {
-    // 히어로 모자이크 3장용 — 최신 상품 중 이미지 있는 것
-    const { data } = await supabase
-      .from("products")
-      .select("*")
-      .eq("is_active", true)
-      //.neq("category", "➡ Premium High-Quality ✨")
-      .neq("category", "Premium High-Quality")
-      .not("image", "is", null)
-      .order("created_at", { ascending: false })
-      .limit(3);
-    setHeroItems((data as Product[]) || []);
+    // 옵션 A · 히어로 슬롯 1, 2 배경 = SPECIAL 제외 앞 2개 카테고리 각각의 첫 활성 상품 이미지
+    // - dbCategories 정렬 (sort_order ASC)이 소스오브트루스 · adm에서 카테고리 순서 바꾸면 자동 반영
+    // - 카테고리 상품 없으면 · null → 슬롯은 config url 유지 (없으면 「이미지 없음」 렌더)
+    // - heroItems[0]는 배경 슬롯(hero-bg.png)용 · null 고정 (fallback 무시)
+    const cats = dbCategories.filter((c) => !c.is_special).slice(0, 2);
+    if (cats.length === 0) { setHeroItems([]); return; }
+    const results: Array<Product | null> = [];
+    for (const cat of cats) {
+      const { data } = await supabase
+        .from("products")
+        .select("*")
+        .eq("category_id", cat.id)
+        .eq("is_active", true)
+        .not("image", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(1);
+      results.push((data?.[0] as Product) || null);
+    }
+    setHeroItems([null, ...results]);
   };
 
   const fetchProducts = async () => {
@@ -411,9 +453,39 @@ export default function Home() {
         const hero = shopUi.mainTop.hero;
         const layout = hero.layout || "hero-2col";
         // 방어 · 구 데이터 · images 없을 수 있음 · 최소 1장 (히어로 배경) 보장
-        const imgs = Array.isArray(hero.images) && hero.images.length > 0
+        const rawImgs = Array.isArray(hero.images) && hero.images.length > 0
           ? hero.images
           : [{ url: "/hero-bg.png", alt: "hero", link: "/?cat=all", fit: "cover" as const }];
+        // 카테고리 슬롯 (인덱스 1, 2) 자동 매핑 · dbCategories · SPECIAL 제외 · sort_order 앞에서 2개
+        // - alt/link는 dbCategories로 항상 override (카테고리명·순서 변경 시 자동 반영 · 하드코딩 X)
+        //   · alt = name_en 우선 · 없으면 언어별 name_ko/name_ja (카테고리 탭 라벨 규칙과 동일)
+        //   · link = `/?cat=<name_ja>` (page.tsx 카테고리 탭 클릭과 동일한 selectedMignonCat 규약)
+        // - url은 사장님 config 설정 있으면 유지 · 없으면 heroItems 폴백 (기존 동작 그대로)
+        const heroCatSlots = dbCategories.filter((c) => !c.is_special).slice(0, 2);
+        const catLabel = (c: typeof heroCatSlots[number]) =>
+          c.name_en || (language === "ja" ? c.name_ja : c.name_ko);
+        const imgs = rawImgs.map((im, i) => {
+          let base = im;
+          // 슬롯 1, 2 · dbCategories 매칭 카테고리 있으면 alt/link 동적 override
+          if (i >= 1 && i <= 2) {
+            const catForSlot = heroCatSlots[i - 1];
+            if (catForSlot) {
+              base = {
+                ...im,
+                alt: catLabel(catForSlot),
+                link: `/?cat=${encodeURIComponent(catForSlot.name_ja)}`,
+              };
+            }
+          }
+          if (base.url) return base;
+          // heroItems 인덱스 정합 · [null, 슬롯1 카테고리 상품, 슬롯2 카테고리 상품] · fetchHero()에서 세팅
+          // - 슬롯 0(배경)은 항상 null → hero-bg.png (또는 사장님 설정 url) 유지
+          const fallbackProduct = heroItems[i];
+          if (fallbackProduct?.image) {
+            return { ...base, url: fallbackProduct.image };
+          }
+          return base;
+        });
         // 슬롯 그리드 클래스 · 첫 슬롯이 큰 이미지 + 텍스트 오버레이 · 나머지는 우측 세로 스택 (또는 격자)
         const slotClass: Record<string, string[]> = {
           "single": ["md:col-span-3 md:row-span-2"],
@@ -432,10 +504,11 @@ export default function Home() {
             {imgs[0] && (
             <Link
               href={imgs[0].link || "/?cat=all"}
-              style={{
-                width: imgs[0].width ? `${imgs[0].width}px` : undefined,
-                height: imgs[0].height ? `${imgs[0].height}px` : undefined,
-              }}
+              data-edit-key="mainTop.hero.images.0"
+              onClick={onEditHeroClick("mainTop.hero.images.0")}
+              // ⚠ inline width/height 부여 금지 (grid track 밖으로 삐져나가 우측 slot 침범)
+              // - Tailwind grid-cols-* 트랙은 minmax(0, 1fr) · item의 width는 트랙을 늘리지 않음
+              // - 리사이즈 값은 config에 저장 (편집 오버레이 좌표계용) · 실 shop grid 시각 반영은 다음 단계 (grid-template-columns/rows CSS variable 반영)
               className={`relative bg-[var(--color-bg-cream)] overflow-hidden group ${(slotClass[layout] || slotClass["hero-2col"])[0] || ""}`}
             >
               {imgs[0].url && (
@@ -490,10 +563,9 @@ export default function Home() {
               <Link
                 key={i + 1}
                 href={im.link || "#"}
-                style={{
-                  width: im.width ? `${im.width}px` : undefined,
-                  height: im.height ? `${im.height}px` : undefined,
-                }}
+                data-edit-key={`mainTop.hero.images.${i + 1}`}
+                onClick={onEditHeroClick(`mainTop.hero.images.${i + 1}`)}
+                // ⚠ inline width/height 부여 금지 (grid track 밖 삐져나가 인접 slot 침범 · 위 첫 슬롯 주석 참고)
                 className={`relative bg-[var(--color-bg-soft)] overflow-hidden group ${(slotClass[layout] || slotClass["hero-2col"])[i + 1] || "hidden md:block"}`}
               >
                 {im.url ? (

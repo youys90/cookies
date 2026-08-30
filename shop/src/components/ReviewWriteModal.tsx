@@ -37,6 +37,10 @@ export default function ReviewWriteModal({ isOpen, onClose, onSuccess }: ReviewW
   const [searchingOrders, setSearchingOrders] = useState(false);
   const [orderSearched, setOrderSearched] = useState(false);
 
+  // LINE NAME 없이 이름 직접 입력 옵션
+  const [useCustomName, setUseCustomName] = useState(false);
+  const [customName, setCustomName] = useState("");
+
   if (!isOpen) return null;
 
   const t = {
@@ -73,6 +77,12 @@ export default function ReviewWriteModal({ isOpen, onClose, onSuccess }: ReviewW
       ? "주문 내역이 조회되지 않나요? LINE NAME 오타 여부를 확인하시거나, 공식 LINE 채널로 문의해 주세요."
       : "注文履歴が見つかりませんか？LINE NAMEの入力ミスをご確認いただくか、公式LINEチャンネルまでお問い合わせください。",
     contactChannel: language === "ko" ? "LINE으로 문의하기" : "LINEで問い合わせる",
+    useCustomNameLabel: language === "ko"
+      ? "(LINE NAME이 없는 경우 체크)"
+      : "(LINE NAMEがない場合はチェック)",
+    customNameLabel: language === "ko" ? "이름" : "お名前",
+    customNamePlaceholder: language === "ko" ? "이름을 입력해주세요" : "お名前を入力してください",
+    customNameRequired: language === "ko" ? "이름을 입력해주세요." : "お名前を入力してください。",
   };
 
   // LINE NAME으로 주문내역 조회 (이미 리뷰 작성한 상품 제외)
@@ -214,18 +224,28 @@ export default function ReviewWriteModal({ isOpen, onClose, onSuccess }: ReviewW
       alert(t.contentRequired);
       return;
     }
+    // 체크박스 ON + 이름 필수 검증 (사장님 정책 F01: 익명 등록 차단)
+    if (useCustomName && !customName.trim()) {
+      alert(t.customNameRequired);
+      return;
+    }
 
     setSubmitting(true);
 
-    // LINE NAME 마스킹 (없으면 빈 문자열 · 사장님 정책 · 익명 표시 사용 안 함)
+    // 이름 처리 (없으면 빈 문자열 · 사장님 정책 · 익명 표시 사용 안 함)
+    // - 커스텀 이름과 LINE NAME 모두 동일한 마스킹 규칙 적용 (사장님 정책 F01)
     const trimmedLineName = lineName.trim();
-    const maskedName = !trimmedLineName
-      ? ""
-      : trimmedLineName.length > 3
-        ? trimmedLineName.slice(0, 3) + "***"
-        : trimmedLineName.length > 1
-          ? trimmedLineName.slice(0, -1) + "*"
+    const trimmedCustomName = customName.trim();
+    const rawName = useCustomName ? trimmedCustomName : trimmedLineName;
+    let maskedName = "";
+    if (rawName) {
+      maskedName = rawName.length > 3
+        ? rawName.slice(0, 3) + "***"
+        : rawName.length > 1
+          ? rawName.slice(0, -1) + "*"
           : "*";
+    }
+    // 둘 다 없으면 maskedName = "" 유지 (useCustomName ON 케이스는 위 필수 검증에서 이미 차단)
 
     const isLowRating = rating <= 3;
 
@@ -282,6 +302,8 @@ export default function ReviewWriteModal({ isOpen, onClose, onSuccess }: ReviewW
     setOrderItems([]);
     setSelectedProducts([]);
     setOrderSearched(false);
+    setUseCustomName(false);
+    setCustomName("");
   };
 
   const handleClose = () => {
@@ -303,28 +325,55 @@ export default function ReviewWriteModal({ isOpen, onClose, onSuccess }: ReviewW
         </div>
 
         <form onSubmit={handleSubmit} className="p-4 space-y-5">
-          {/* LINE NAME 입력 + 주문 조회 */}
+          {/* LINE NAME 입력 + 주문 조회 (또는 이름 직접 입력) */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              {t.lineNameLabel}            </label>
-            <div className="flex gap-2">
+              {useCustomName ? t.customNameLabel : t.lineNameLabel}
+            </label>
+            {useCustomName ? (
               <input
                 type="text"
-                value={lineName}
-                onChange={(e) => setLineName(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), searchOrdersByLineName())}
-                placeholder={t.lineNamePlaceholder}
-                className="flex-1 px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+                value={customName}
+                onChange={(e) => setCustomName(e.target.value)}
+                placeholder={t.customNamePlaceholder}
+                maxLength={20}
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
               />
-              <button
-                type="button"
-                onClick={searchOrdersByLineName}
-                disabled={searchingOrders}
-                className="px-4 py-2.5 bg-gray-900 text-white rounded-lg text-sm hover:bg-gray-800 disabled:bg-gray-400 whitespace-nowrap"
-              >
-                {searchingOrders ? t.searching : t.searchOrders}
-              </button>
-            </div>
+            ) : (
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={lineName}
+                  onChange={(e) => setLineName(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), searchOrdersByLineName())}
+                  placeholder={t.lineNamePlaceholder}
+                  className="flex-1 px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+                />
+                <button
+                  type="button"
+                  onClick={searchOrdersByLineName}
+                  disabled={searchingOrders}
+                  className="px-4 py-2.5 bg-gray-900 text-white rounded-lg text-sm hover:bg-gray-800 disabled:bg-gray-400 whitespace-nowrap"
+                >
+                  {searchingOrders ? t.searching : t.searchOrders}
+                </button>
+              </div>
+            )}
+            <label className="flex items-center gap-2 mt-2 text-sm text-gray-600 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={useCustomName}
+                onChange={(e) => {
+                  setUseCustomName(e.target.checked);
+                  // 체크 전환 시 조회 결과 초기화 (혼동 방지)
+                  setOrderItems([]);
+                  setSelectedProducts([]);
+                  setOrderSearched(false);
+                }}
+                className="w-4 h-4"
+              />
+              <span>{t.useCustomNameLabel}</span>
+            </label>
           </div>
 
           {/* 구매 상품 선택 (다중 선택) */}

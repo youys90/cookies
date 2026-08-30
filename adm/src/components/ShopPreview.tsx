@@ -9,6 +9,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { ShopUiConfig } from "@/lib/shopUiSchema";
 import { getShopUrl } from "@/lib/shopUrl";
+import { isCookiesEditClick, type CookiesEditClickRect } from "@/lib/editorPostMessage";
 
 /** 관리자가 편집 중인 「메인」 세부 영역 · shop 스포트라이트 대상 · null이면 스포트라이트 안 함 */
 export type PreviewSection = "promoBar" | "header" | "hero" | "benefits" | "categories" | "footer" | null;
@@ -24,6 +25,8 @@ interface Props {
   section?: PreviewSection;
   /** 「큰 화면 편집」 모드 · shop 링크 이동/클릭 차단 리스너 비활성 (react-moveable 편집 클릭 통과) */
   bigEditor?: boolean;
+  /** 「큰 화면 편집」 · shop hero 이미지 클릭 시 · adm이 편집 대상 지정 (target + rect) */
+  onElementClick?: (payload: { key: string; index: number; rect: CookiesEditClickRect }) => void;
 }
 
 // shop URL · 런타임 자동 감지 (매장 PC 등 · 별도 설정 없이 동작)
@@ -44,7 +47,7 @@ function encodeConfig(config: ShopUiConfig): string {
   }
 }
 
-export default function ShopPreview({ config, device, page, sampleProductId, renderOverlay, section, bigEditor }: Props) {
+export default function ShopPreview({ config, device, page, sampleProductId, renderOverlay, section, bigEditor, onElementClick }: Props) {
   const isMobile = device === "mobile";
   const [debouncedConfig, setDebouncedConfig] = useState<ShopUiConfig>(config);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -71,6 +74,27 @@ export default function ShopPreview({ config, device, page, sampleProductId, ren
     postSection();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [section]);
+
+  // shop → adm postMessage 수신 · 「큰 화면 편집」 시 shop hero 이미지 클릭 → target 지정
+  // - bigEditor 활성 + onElementClick 콜백 있을 때만 등록
+  // - event.source가 이 iframe인지 검증 · 다른 iframe/window 메시지 무시
+  // - key 문자열 (mainTop.hero.images.{i}) → index 추출 · 콜백 전달
+  useEffect(() => {
+    if (!bigEditor || !onElementClick) return;
+    if (typeof window === "undefined") return;
+    const handler = (event: MessageEvent) => {
+      const iframeWin = iframeRef.current?.contentWindow;
+      if (!iframeWin || event.source !== iframeWin) return; // 다른 iframe 격리
+      if (!isCookiesEditClick(event.data)) return;
+      const m = /^mainTop\.hero\.images\.(\d+)$/.exec(event.data.key);
+      if (!m) return; // 알려진 key 형식이 아니면 무시 (MVP: hero만 대응)
+      const index = Number(m[1]);
+      if (!Number.isFinite(index) || index < 0) return;
+      onElementClick({ key: event.data.key, index, rect: event.data.rect });
+    };
+    window.addEventListener("message", handler);
+    return () => window.removeEventListener("message", handler);
+  }, [bigEditor, onElementClick]);
 
   const src = useMemo(() => {
     const encoded = encodeConfig(debouncedConfig);

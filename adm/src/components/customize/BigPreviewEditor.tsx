@@ -10,6 +10,7 @@ import { useState } from "react";
 import ShopPreview, { type PreviewSection } from "@/components/ShopPreview";
 import MoveableOverlay from "@/components/customize/MoveableOverlay";
 import type { ShopUiConfig } from "@/lib/shopUiSchema";
+import type { CookiesEditClickRect } from "@/lib/editorPostMessage";
 
 interface Props {
   config: ShopUiConfig;
@@ -28,6 +29,10 @@ type SelectedTarget =
 
 export default function BigPreviewEditor({ config, device, page, sampleProductId, updateField, section }: Props) {
   const [target, setTarget] = useState<SelectedTarget>(null);
+  // shop → adm postMessage 로 넘어온 · shop iframe 안 rect (getBoundingClientRect · shop 뷰포트 상대)
+  // - MoveableOverlay가 DEFAULT_HERO_LAYOUT 하드코딩 대신 실 좌표 사용
+  // - 툴바 썸네일로 target 지정된 경우 → null 유지 → MoveableOverlay는 fallback (하위호환)
+  const [selectedRect, setSelectedRect] = useState<CookiesEditClickRect | null>(null);
 
   // hero 이미지 리스트 · 사장님이 대상 선택하는 툴바 항목
   const heroImages = config.mainTop?.hero?.images || [];
@@ -39,11 +44,11 @@ export default function BigPreviewEditor({ config, device, page, sampleProductId
         <div className="flex items-center gap-2 min-w-0">
           <span className="text-xl">🖌</span>
           <div className="min-w-0">
-            <p className="text-sm font-bold text-gray-900">내 매장 편집 · 지금 편집 중</p>
+            <p className="text-sm font-bold text-gray-900">직접 편집</p>
             <p className="text-[11px] text-gray-500 truncate">
               {target
-                ? "가장자리 파란 손잡이를 드래그해서 크기를 조절해요 · 아래 「편집 종료」 로 마무리"
-                : "아래 「사진」 버튼을 눌러 크기를 조절할 사진을 선택해주세요"}
+                ? "가장자리 손잡이를 드래그해서 크기를 조절해요"
+                : "크기를 조절할 사진을 선택하세요"}
             </p>
           </div>
         </div>
@@ -51,7 +56,7 @@ export default function BigPreviewEditor({ config, device, page, sampleProductId
           {target && (
             <button
               type="button"
-              onClick={() => setTarget(null)}
+              onClick={() => { setTarget(null); setSelectedRect(null); }}
               className="px-3 py-1.5 text-xs font-semibold text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
               title="편집 종료 · 선택 해제"
             >
@@ -59,7 +64,7 @@ export default function BigPreviewEditor({ config, device, page, sampleProductId
             </button>
           )}
           <span className="hidden md:inline-flex px-2.5 py-1 text-[11px] font-medium text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-full">
-            💾 저장하면 매장에 바로 반영돼요
+            💾 저장하면 바로 적용돼요
           </span>
         </div>
       </div>
@@ -75,7 +80,7 @@ export default function BigPreviewEditor({ config, device, page, sampleProductId
                 <button
                   key={i}
                   type="button"
-                  onClick={() => setTarget({ kind: "hero-image", index: i })}
+                  onClick={() => { setTarget({ kind: "hero-image", index: i }); setSelectedRect(null); }}
                   className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg border-2 transition text-left ${
                     active
                       ? "border-[var(--color-brand)] bg-[var(--color-brand)]/10"
@@ -117,13 +122,18 @@ export default function BigPreviewEditor({ config, device, page, sampleProductId
         sampleProductId={sampleProductId}
         section={section}
         bigEditor
+        onElementClick={({ index, rect }) => {
+          setTarget({ kind: "hero-image", index });
+          setSelectedRect(rect);
+        }}
         renderOverlay={({ scale }) => (
           <MoveableOverlay
             target={target}
             scale={scale}
             config={config}
             updateField={updateField}
-            onDeselect={() => setTarget(null)}
+            onDeselect={() => { setTarget(null); setSelectedRect(null); }}
+            overrideRect={selectedRect}
           />
         )}
       />
