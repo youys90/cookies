@@ -204,14 +204,8 @@ export default function ReviewWriteModal({ isOpen, onClose, onSuccess }: ReviewW
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (selectedProducts.length === 0) {
-      alert(t.productRequired);
-      return;
-    }
-    if (!lineName.trim()) {
-      alert(t.lineNameRequired);
-      return;
-    }
+    // 구매 내역/LINE NAME 필수 검증 제거: 누구나 등록 가능 (사장님 정책)
+    // 구매 상품 선택 및 LINE NAME은 선택 사항으로 남김
     if (!password.trim()) {
       alert(t.passwordRequired);
       return;
@@ -223,12 +217,15 @@ export default function ReviewWriteModal({ isOpen, onClose, onSuccess }: ReviewW
 
     setSubmitting(true);
 
-    // LINE NAME 마스킹
-    const maskedName = lineName.length > 3
-      ? lineName.slice(0, 3) + "***"
-      : lineName.length > 1
-        ? lineName.slice(0, -1) + "*"
-        : "*";
+    // LINE NAME 마스킹 (없으면 빈 문자열 · 사장님 정책 · 익명 표시 사용 안 함)
+    const trimmedLineName = lineName.trim();
+    const maskedName = !trimmedLineName
+      ? ""
+      : trimmedLineName.length > 3
+        ? trimmedLineName.slice(0, 3) + "***"
+        : trimmedLineName.length > 1
+          ? trimmedLineName.slice(0, -1) + "*"
+          : "*";
 
     const isLowRating = rating <= 3;
 
@@ -238,9 +235,14 @@ export default function ReviewWriteModal({ isOpen, onClose, onSuccess }: ReviewW
       autoReplyAt = new Date(Date.now() + delayMinutes * 60 * 1000).toISOString();
     }
 
-    // 선택된 상품들의 ID 배열과 이름 배열
-    const productIds = selectedProducts.map((p) => parseInt(p.product_id));
-    const productNames = selectedProducts.map((p) => p.product_name);
+    // 선택된 상품들의 ID 배열과 이름 배열 (선택 안 하면 null)
+    const hasSelectedProducts = selectedProducts.length > 0;
+    const productIds = hasSelectedProducts
+      ? selectedProducts.map((p) => parseInt(p.product_id))
+      : null;
+    const productNames = hasSelectedProducts
+      ? selectedProducts.map((p) => p.product_name)
+      : null;
 
     const { error } = await supabase.from("reviews").insert({
       images: imageUrls.length > 0 ? imageUrls : null,
@@ -252,7 +254,7 @@ export default function ReviewWriteModal({ isOpen, onClose, onSuccess }: ReviewW
       is_active: false, // 손님 리뷰도 관리자 승인 후 노출 (판석이형 정책)
       sort_order: 999,
       auto_reply_at: autoReplyAt,
-      product_id: productIds[0], // 첫 번째 상품 (기존 호환성)
+      product_id: productIds ? productIds[0] : null, // 첫 번째 상품 (기존 호환성)
       product_ids: productIds, // 전체 상품 ID 배열
       product_names: productNames, // 상품명 배열 (해시태그용)
     });
