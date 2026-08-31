@@ -173,7 +173,7 @@ export default function AccountPage() {
         ) : users.length === 0 ? (
           <div className="p-8 text-center text-gray-500">등록된 계정이 없습니다.</div>
         ) : (
-          <table className="w-full">
+          <div className="overflow-x-auto"><table className="w-full min-w-[720px]">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">아이디</th>
@@ -228,7 +228,7 @@ export default function AccountPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         )}
       </div>
 

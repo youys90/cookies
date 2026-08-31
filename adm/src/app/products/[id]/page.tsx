@@ -515,9 +515,9 @@ export default function EditProductPage() {
   }
 
   return (
-    <div className="pb-8 -mx-8 -mt-8 px-8 pt-4 min-h-screen bg-gradient-to-br from-amber-50/60 via-white to-amber-50/40">
+    <div className="pb-8 -mx-4 -mt-[72px] sm:-mx-6 lg:-mx-8 lg:-mt-8 px-4 sm:px-6 lg:px-8 pt-4 min-h-screen bg-gradient-to-br from-amber-50/60 via-white to-amber-50/40">
       {/* 수정 모드 · 상단 굵은 앰버 스트라이프 · 경고 톤 · 실수 방지 */}
-      <div className="-mx-8 -mt-4 mb-0 h-2 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-500 shadow-md"></div>
+      <div className="-mx-4 sm:-mx-6 lg:-mx-8 -mt-4 mb-0 h-2 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-500 shadow-md"></div>
 
       {/* 헤더 배너 · 진한 앰버 · 흰 텍스트 · 수정 임팩트 */}
       <div className="mt-6 mb-8 relative overflow-hidden rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 shadow-xl">
@@ -669,7 +669,7 @@ export default function EditProductPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   카테고리 (日本語) <span className="text-red-500">*</span>
@@ -723,7 +723,7 @@ export default function EditProductPage() {
             </div>
 
             {(subCategoriesJa[getCategoryIndex()] || []).length > 0 && (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     하위 카테고리 (日本語)
@@ -775,7 +775,7 @@ export default function EditProductPage() {
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   판매가 (₩) <span className="text-red-500">*</span>
@@ -938,7 +938,7 @@ export default function EditProductPage() {
                         </svg>
                       </button>
                     </div>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <div>
                         <label className="text-xs text-gray-500">추가금액 (₩)</label>
                         <input
@@ -986,7 +986,7 @@ export default function EditProductPage() {
                   onChange={(e) => setNewOption({ ...newOption, option_name: e.target.value })}
                   className="w-full text-sm px-3 py-2 border border-gray-200 rounded-lg"
                 />
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <input
                     type="number"
                     placeholder="추가금액"

@@ -384,9 +384,9 @@ function BulkEditInner() {
   }
 
   return (
-    <div className="pb-8 -mx-8 -mt-8 px-8 pt-4 min-h-screen bg-gradient-to-br from-amber-50/60 via-white to-amber-50/40">
+    <div className="pb-8 -mx-4 -mt-[72px] sm:-mx-6 lg:-mx-8 lg:-mt-8 px-4 sm:px-6 lg:px-8 pt-4 min-h-screen bg-gradient-to-br from-amber-50/60 via-white to-amber-50/40">
       {/* 수정 모드 · 상단 굵은 앰버 스트라이프 · 개별 편집과 동일 · 실수 방지 */}
-      <div className="-mx-8 -mt-4 mb-0 h-2 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-500 shadow-md"></div>
+      <div className="-mx-4 sm:-mx-6 lg:-mx-8 -mt-4 mb-0 h-2 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-500 shadow-md"></div>
 
       {/* 헤더 배너 · 진한 앰버 · 흰 텍스트 · 일괄 수정 임팩트 */}
       <div className="mt-6 mb-6 relative overflow-hidden rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 shadow-xl">

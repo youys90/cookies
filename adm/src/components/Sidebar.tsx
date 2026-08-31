@@ -24,17 +24,39 @@ const adminOnlyMenuItems = [
   { name: "계정관리", href: "/account", icon: "M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" },
 ];
 
-export default function Sidebar() {
+interface SidebarProps {
+  /** Mobile drawer 열림 여부 · PC(lg 이상)에선 무시됨 */
+  mobileOpen?: boolean;
+  /** Mobile drawer 닫기 핸들러 (backdrop 클릭 · 메뉴 선택 · 로그아웃 시 호출) */
+  onCloseMobile?: () => void;
+}
+
+export default function Sidebar({ mobileOpen = false, onCloseMobile }: SidebarProps = {}) {
   const pathname = usePathname();
   const { username, isAdmin, logout } = useAuth();
   const { language, setLanguage } = useAdmLanguage();
   const [showProfileModal, setShowProfileModal] = useState(false);
 
   const allMenuItems = isAdmin ? [...menuItems, ...adminOnlyMenuItems] : menuItems;
+  const closeMobile = () => onCloseMobile?.();
 
   return (
     <>
-      <aside className="w-64 bg-gray-900 min-h-screen fixed left-0 top-0">
+      {/* Mobile Backdrop · drawer 열림 시만 렌더 · lg 이상에선 숨김 */}
+      {mobileOpen && (
+        <div
+          className="lg:hidden fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+          onClick={closeMobile}
+          aria-hidden="true"
+        />
+      )}
+
+      <aside
+        id="adm-mobile-sidebar"
+        className={`w-64 bg-gray-900 fixed left-0 top-0 h-screen max-h-screen overflow-y-auto z-50 lg:z-30 transition-transform duration-300 ease-in-out ${
+          mobileOpen ? "translate-x-0" : "-translate-x-full"
+        } lg:translate-x-0`}
+      >
         {/* Logo — CREAM 브랜드 강조 */}
         <div className="h-16 flex items-center justify-between px-6 border-b border-gray-800">
           <div className="flex items-baseline gap-2">
@@ -49,7 +71,7 @@ export default function Sidebar() {
         <div className="px-4 py-4 border-b border-gray-800">
           <div className="flex items-center justify-between">
             <button
-              onClick={() => setShowProfileModal(true)}
+              onClick={() => { closeMobile(); setShowProfileModal(true); }}
               className="flex items-center hover:opacity-80 transition-opacity"
             >
               <div className="w-9 h-9 bg-gray-700 rounded-full flex items-center justify-center">
@@ -63,7 +85,7 @@ export default function Sidebar() {
               </div>
             </button>
             <button
-              onClick={logout}
+              onClick={() => { closeMobile(); logout(); }}
               className="p-2 text-gray-400 hover:text-white transition-colors"
               title="로그아웃"
             >
@@ -110,7 +132,7 @@ export default function Sidebar() {
         </div>
 
         {/* Menu */}
-        <nav className="mt-4 px-3">
+        <nav className="mt-4 px-3 pb-8">
           {allMenuItems.map((item) => {
             const isActive = pathname === item.href ||
               (item.href !== "/" && pathname.startsWith(item.href));
@@ -119,6 +141,7 @@ export default function Sidebar() {
               <Link
                 key={item.name}
                 href={item.href}
+                onClick={closeMobile}
                 className={`flex items-center px-4 py-3 mb-1 rounded-lg transition-colors ${
                   isActive
                     ? "bg-gray-800 text-white"
