@@ -746,7 +746,7 @@ export default function ReviewsPage() {
         </div>
       ) : viewMode === "compact" ? (
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-          <table className="w-full">
+          <div className="overflow-x-auto"><table className="w-full min-w-[820px]">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
                 <th className="px-4 py-4 text-center w-12">
@@ -859,7 +859,7 @@ export default function ReviewsPage() {
                   );
                 })}
             </tbody>
-          </table>
+          </table></div>
         </div>
       ) : (
         <div

@@ -167,7 +167,7 @@ export default function DraftsPage() {
             <p className="text-[11px] mt-1">각 편집 화면에서 「💾 임시저장」을 누르시면 여기에 담겨요</p>
           </div>
         ) : (
-          <table className="w-full">
+          <div className="overflow-x-auto"><table className="w-full min-w-[720px]">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
                 <th className="px-4 py-4 text-center w-12">
@@ -239,7 +239,7 @@ export default function DraftsPage() {
                 );
               })}
             </tbody>
-          </table>
+          </table></div>
         )}
       </div>
 

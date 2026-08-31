@@ -422,6 +422,14 @@ export default function CustomizePage() {
 
   return (
     <div className="p-6 max-w-[1800px] mx-auto">
+      {/* Mobile 안내 · PC 편집기 필요 화면 · lg 이하에서만 노출 */}
+      <div className="lg:hidden mb-4 p-3 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-2 text-[13px] text-amber-900 leading-snug">
+        <span className="text-lg leading-none">💻</span>
+        <div>
+          <p className="font-semibold">화면꾸미기 · PC 권장</p>
+          <p className="mt-0.5 text-amber-800 text-[12px]">큰 편집 미리보기 · 정밀 드래그 조작이 많아요. 태블릿 이상 화면에서 편안히 편집하실 수 있어요. 모바일에서는 저장한 화면 확인 · 되돌리기 · 휴지통 관리 정도로 활용하세요.</p>
+        </div>
+      </div>
       {/* 헤더 */}
       <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
         <div>

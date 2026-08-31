@@ -671,7 +671,7 @@ export default function ProductsPage() {
         ) : productList.length === 0 ? (
           <div className="p-8 text-center text-gray-500">등록된 상품이 없습니다.</div>
         ) : (
-          <table className="w-full">
+          <div className="overflow-x-auto"><table className="w-full min-w-[720px]">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
                 <th className="px-4 py-4 text-center w-12">
@@ -854,7 +854,7 @@ export default function ProductsPage() {
                 );
               })}
             </tbody>
-          </table>
+          </table></div>
         )}
       </div>
 
