@@ -422,6 +422,8 @@ export default function NewProductPage() {
     }
 
     // 옵션 저장
+    // ※ product_options 테이블에는 source 컬럼 없음 · 상품 수정/일괄등록/일괄수정 payload와 동일 shape 유지
+    // ※ optError 발생 시 은폐 금지 · 사장님께 즉시 알림 (재발 방지)
     if (tempOptions.length > 0) {
       const optionsToInsert = tempOptions.map((opt, idx) => ({
         product_id: insertedProduct.id,
@@ -429,7 +431,6 @@ export default function NewProductPage() {
         additional_price: opt.additional_price,
         stock: opt.stock,
         is_active: true,
-        source: "일반",
         sort_order: idx,
       }));
 
@@ -439,6 +440,10 @@ export default function NewProductPage() {
 
       if (optError) {
         console.error('옵션 저장 실패:', optError);
+        setUploading(false);
+        alert('상품은 등록되었으나 COLOR 옵션 저장에 실패했습니다.\n\n' + optError.message + '\n\n상품 수정 화면에서 옵션을 다시 등록해주세요.');
+        router.push(`/products/${insertedProduct.id}`);
+        return;
       }
     }
 
