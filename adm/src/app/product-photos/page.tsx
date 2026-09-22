@@ -6,7 +6,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAdmLanguage } from "@/contexts/LanguageContext";
@@ -47,6 +47,8 @@ export default function ProductPhotosListPage() {
   const [searchInput, setSearchInput] = useState(searchParams.get("search") || "");
 
   const [categories, setCategories] = useState<Array<{ id: number; name_ja: string; name_ko: string; parent_id: number | null }>>([]);
+  const [showRegisterHint, setShowRegisterHint] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   // URL 동기화
   useEffect(() => {
@@ -212,15 +214,51 @@ export default function ProductPhotosListPage() {
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
         <div>
           <h1 className="text-2xl font-medium text-gray-900">상품 실사진</h1>
           <p className="text-sm text-gray-500 mt-1">
-            관리자용 실사진 자료실 · 고객 응대·재입고 판단 참고
-            <span className="ml-2">· 총 {totalCount}개 상품 중 {startIndex}-{endIndex}번</span>
+            상품을 선택하면 해당 상품의 실사진을 등록·조회할 수 있습니다.
+            <span className="ml-2 text-gray-400">· 총 {totalCount}개 상품 중 {startIndex}-{endIndex}번</span>
           </p>
         </div>
+        <button
+          type="button"
+          onClick={() => {
+            setShowRegisterHint(true);
+            searchInputRef.current?.focus();
+            searchInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+          }}
+          className="inline-flex items-center gap-1.5 px-4 py-2 text-sm bg-[var(--color-brand)] text-white rounded-full hover:bg-[var(--color-brand-dk)] font-medium shadow-sm transition whitespace-nowrap self-start sm:self-auto"
+          title="등록할 상품을 검색해서 선택하세요"
+        >
+          <span className="text-base leading-none">+</span>
+          실사진 등록
+        </button>
       </div>
+
+      {/* 등록 안내 배너 · 「+ 실사진 등록」 클릭 시 표시 */}
+      {showRegisterHint && (
+        <div className="bg-[var(--color-brand)]/10 border border-[var(--color-brand)]/30 text-gray-800 rounded-xl p-4 mb-4 flex items-start justify-between gap-3">
+          <div className="flex items-start gap-2 text-sm">
+            <span className="text-lg leading-none">💡</span>
+            <div>
+              <p className="font-medium">실사진을 등록할 상품을 먼저 선택하세요.</p>
+              <p className="text-xs text-gray-600 mt-0.5">
+                아래 검색창에 상품명을 입력하거나 카드에서 상품을 클릭하면 해당 상품의 실사진 등록 화면으로 이동합니다.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowRegisterHint(false)}
+            className="text-gray-400 hover:text-gray-700 text-lg leading-none flex-shrink-0"
+            aria-label="닫기"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
@@ -280,6 +318,7 @@ export default function ProductPhotosListPage() {
               <div className="relative">
                 <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                 <input
+                  ref={searchInputRef}
                   type="text"
                   placeholder="상품명 검색..."
                   value={searchInput}
@@ -381,8 +420,8 @@ export default function ProductPhotosListPage() {
                         📸 {count}
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 bg-gray-900/60 backdrop-blur text-white text-[10px] font-semibold px-2 py-1 rounded-full">
-                        없음
+                      <span className="inline-flex items-center gap-0.5 bg-gray-900/70 backdrop-blur text-white text-[10px] font-semibold px-2 py-1 rounded-full group-hover:bg-[var(--color-brand)] transition-colors">
+                        <span className="text-xs leading-none">+</span> 등록
                       </span>
                     )}
                   </div>
