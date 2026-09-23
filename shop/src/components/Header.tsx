@@ -1,9 +1,11 @@
 "use client";
 // 셀렉트샵 패턴 헤더 (분석 기반 자체 구현)
 // 구조: 상단 슬림바(루프) → 좌측 로고 / 중앙 메뉴 / 우측 카트만 노출 (LOGIN/JOIN/MY/SEARCH/SHIP TO 제거됨 - 2026-08 리디자인)
+// P-01 (2026-09-23) · 햄버거 완전 제거 · 모바일도 가로 nav 상시 노출 (sub-row) · 4개 메뉴 (SHOP · 실사진 · REVIEW · BRAND)
+//   - 실사진 메뉴: 페이지 아직 미완 · href="#" + preventDefault + alert (한/일)
+//   - 실사진 label만 이중언어 · SHOP/REVIEW/BRAND는 브랜드 컨셉상 영문 고정 유지
 import Link from "next/link";
-import { useState } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useCart } from "@/contexts/CartContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useShopUi } from "@/contexts/ShopUiContext";
@@ -21,8 +23,6 @@ export default function Header() {
     return previewSection === section ? "shop-section-selected" : "shop-section-dimmed";
   };
   const pathname = usePathname();
-  const sp = useSearchParams();
-  const [mobileOpen, setMobileOpen] = useState(false);
 
   // 관리자 미리보기 iframe · 「메인 상단」 편집 중이면 헤더 노출 (편집 대상)
   // 나머지 편집 대상 (상품 목록/상품 상세) 에서는 · 헤더 숨김 (상단 스크롤 최소화)
@@ -39,17 +39,28 @@ export default function Header() {
       : ["2026 S/S 신제품 출시", "2만엔 이상 구매 시 배송비 무료", "2만엔 이상 구매 시 통관보장 무료"];
   const promoBarEnabled = shopUi.mainTop?.promoBarEnabled !== false;
 
-  // 메뉴 정의 + active 매처 (현재 URL/쿼리 기준) - 3개 메뉴 (SHOP/REVIEW/BRAND)
-  // 리뷰 진입점: 헤더 REVIEW 메뉴 (2026-08 판석이형 피드백 반영)
-  // 영문 브랜드 표기 정책: mainNav label은 브랜드 컨셉상 영문 고정 (i18n 미적용)
-  const cat = sp?.get("cat") || "";
-  const sort = sp?.get("sort") || "";
+  // 메뉴 정의 + active 매처 (현재 URL/쿼리 기준) - 4개 메뉴 (SHOP · 실사진 · REVIEW · BRAND)
+  // - 실사진 (P-01): 페이지 아직 없음 · href="#" · preventDefault + alert 「준비중」 안내
+  //   · 사장님 판단 대기 · 완료 보고에서 3가지 옵션 명시 (준비중 alert / disabled 시각 / 페이지 완성 후 노출)
+  //   · label 이중언어 (실사진 / 実写真) · 관리자 실사진 자료실과 표기 일관
+  // - SHOP / REVIEW / BRAND · 브랜드 컨셉상 영문 고정 (i18n 미적용) · 기존 정책 유지
   const onMain = pathname === "/";
-  const mainNav = [
+  const previewingMsg = language === "ja"
+    ? "実写真ページは準備中です"
+    : "실사진 페이지는 준비 중입니다";
+  const mainNav: Array<{ label: string; href: string; active: boolean; preparing?: boolean }> = [
     { label: "SHOP",   href: "/",         active: onMain },
+    { label: language === "ja" ? "実写真" : "실사진", href: "#", active: false, preparing: true },
     { label: "REVIEW", href: "/reviews",  active: pathname === "/reviews" },
     { label: "BRAND",  href: "/about",    active: pathname === "/about" },
   ];
+
+  const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, preparing?: boolean) => {
+    if (preparing) {
+      e.preventDefault();
+      alert(previewingMsg);
+    }
+  };
 
   return (
     <header className="sticky top-0 z-50 bg-white">
@@ -68,30 +79,27 @@ export default function Header() {
 
       {/* ─── 메인 헤더 ─── */}
       <div data-section="header" className={`border-b border-[var(--color-line)] ${spotlight("header")}`}>
-        <div className="max-w-[1400px] mx-auto px-4 lg:px-8 h-16 lg:h-[72px] grid grid-cols-[1fr_auto_1fr] items-center gap-6">
-          {/* 좌: 로고 + 모바일 햄버거 */}
-          <div className="flex items-center gap-2">
-            <button onClick={() => setMobileOpen(v => !v)} className="lg:hidden p-1.5 -ml-1.5" aria-label="menu">
-              <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <path d="M4 7h16M4 12h16M4 17h16" />
-              </svg>
-            </button>
-            <Link href="/" className="flex items-baseline gap-2">
+        <div className="max-w-[1400px] mx-auto px-4 lg:px-8 h-14 lg:h-[72px] grid grid-cols-[1fr_auto_1fr] items-center gap-4 lg:gap-6">
+          {/* 좌: 로고 (P-01 · 햄버거 제거) */}
+          <div className="flex items-center min-w-0">
+            <Link href="/" className="flex items-baseline gap-2 min-w-0">
               <span className="font-serif text-2xl lg:text-[28px] tracking-[0.05em] text-[var(--color-text)] leading-none">
                 {renderInlineFormat(shopUi.mainTop.logo.brand || "CREAM")}
               </span>
-              <span className="hidden sm:inline font-serif italic text-[10px] text-[var(--color-text-mute)] leading-none">
+              <span className="hidden sm:inline font-serif italic text-[10px] text-[var(--color-text-mute)] leading-none truncate">
                 {renderInlineFormat(language === "ja" ? (shopUi.mainTop.logo.tagline.ja || shopUi.mainTop.logo.tagline.ko) : (shopUi.mainTop.logo.tagline.ko || shopUi.mainTop.logo.tagline.ja))}
               </span>
             </Link>
           </div>
 
-          {/* 중: 메인 메뉴 (PC) */}
+          {/* 중: 메인 메뉴 (PC · 기존 그대로 · 4개 메뉴) */}
           <nav className="hidden lg:flex items-center gap-8 text-[13px] tracking-[0.15em] text-[var(--color-text)]">
             {mainNav.map(n => (
               <Link
                 key={n.label}
                 href={n.href}
+                onClick={(e) => handleNavClick(e, n.preparing)}
+                aria-disabled={n.preparing || undefined}
                 className={`relative pb-1 transition ${
                   n.active
                     ? "text-[var(--color-text)] after:absolute after:left-0 after:right-0 after:bottom-0 after:h-px after:bg-[var(--color-text)]"
@@ -116,25 +124,34 @@ export default function Header() {
             </Link>
           </div>
         </div>
-      </div>
 
-      {/* ─── 모바일 드로어 ─── */}
-      {mobileOpen && (
-        <div className="lg:hidden border-b border-[var(--color-line)] bg-white">
-          <nav className="px-4 py-4 flex flex-col gap-3 text-sm">
-            {mainNav.map(n => (
+        {/* ─── 모바일 sub-row · 4개 메뉴 상시 노출 (P-01) ───
+            - lg:hidden · 320~430px 모두 한 줄 · 각 메뉴 균등
+            - min-w-0 · flex-1 · text-center · 폰트 축소 (10~11px) · tracking-tight
+            - 각 항목 아래 얇은 밑줄 (active) · 비활성 항목은 밑줄 없음
+            - preparing (실사진) 은 opacity 낮춰서 「준비중」 시각 힌트 · 다만 클릭은 가능 (alert 뜸) */}
+        <nav className="lg:hidden border-t border-[var(--color-line-soft)]">
+          <div className="max-w-[1400px] mx-auto px-2 flex items-stretch">
+            {mainNav.map((n) => (
               <Link
                 key={n.label}
                 href={n.href}
-                onClick={() => setMobileOpen(false)}
-                className={`py-1 tracking-[0.15em] ${n.active ? "font-medium text-[var(--color-text)]" : "text-[var(--color-text)]"}`}
+                onClick={(e) => handleNavClick(e, n.preparing)}
+                aria-disabled={n.preparing || undefined}
+                className={`flex-1 min-w-0 text-center text-[11px] tracking-[0.12em] py-2.5 relative transition ${
+                  n.active
+                    ? "text-[var(--color-text)] after:absolute after:left-1/4 after:right-1/4 after:bottom-0 after:h-px after:bg-[var(--color-text)]"
+                    : n.preparing
+                      ? "text-[var(--color-text-mute)]"
+                      : "text-[var(--color-text-soft)] hover:text-[var(--color-text)]"
+                }`}
               >
-                {n.label}{n.active && <span className="ml-2 text-[var(--color-point)]">·</span>}
+                <span className="truncate inline-block max-w-full align-middle">{n.label}</span>
               </Link>
             ))}
-          </nav>
-        </div>
-      )}
+          </div>
+        </nav>
+      </div>
     </header>
   );
 }
