@@ -4,6 +4,9 @@
 // P-01 (2026-09-23) · 햄버거 완전 제거 · 모바일도 가로 nav 상시 노출 (sub-row) · 4개 메뉴 (SHOP · 실사진 · REVIEW · BRAND)
 // P-02 (2026-09-24) · 実写真 메뉴 정상 링크 (/real-photos) · alert stub 제거 · active state 매치
 //   - 실사진 label만 이중언어 · SHOP/REVIEW/BRAND는 브랜드 컨셉상 영문 고정 유지
+// P-04 (2026-09-24) · 모바일 sub-row 비활성 색상을 PC nav와 동일한 text-text로 통일
+//   - 이전: text-text-soft (회색) · 실사진이 준비중처럼 보인다는 사장님 피드백
+//   - 4개 메뉴 시각적 균일 · active만 밑줄로 구분
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCart } from "@/contexts/CartContext";
@@ -127,7 +130,7 @@ export default function Header() {
                 className={`flex-1 min-w-0 text-center text-[11px] tracking-[0.12em] py-2.5 relative transition ${
                   n.active
                     ? "text-[var(--color-text)] after:absolute after:left-1/4 after:right-1/4 after:bottom-0 after:h-px after:bg-[var(--color-text)]"
-                    : "text-[var(--color-text-soft)] hover:text-[var(--color-text)]"
+                    : "text-[var(--color-text)] hover:text-[var(--color-point)]"
                 }`}
               >
                 <span className="truncate inline-block max-w-full align-middle">{n.label}</span>
