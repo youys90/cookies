@@ -4,7 +4,7 @@
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { useCart } from "@/contexts/CartContext";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -60,10 +60,16 @@ export default function ProductDetail() {
   // 모바일 터치 스와이프 · 이미지 갤러리 좌/우 넘김
   // 세로 우세 or 짧은 이동은 무시 · 브라우저 세로 스크롤 그대로
   // P-02: 손가락 이동 중 이미지가 dx만큼 따라오는 시각 피드백
+  // P-03: velocity 기반 flick 감지 · lock 없이 연속 flick 즉시 반영
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const [touchStartY, setTouchStartY] = useState<number | null>(null);
+  const [touchStartTime, setTouchStartTime] = useState(0);
   const [dragOffset, setDragOffset] = useState(0);
   const [gestureDir, setGestureDir] = useState<null | "h" | "v">(null);
+  // P-03: 썸네일 filmstrip · 자동 scrollIntoView 는 사장님 손 조작 중이면 억제
+  // (사용자가 filmstrip 직접 스크롤 → auto-scroll 튐 방지)
+  const filmstripRef = useRef<HTMLDivElement | null>(null);
+  const lastUserScrollAtRef = useRef(0);
 
   const getName = (p: Product) => (language === "ja" ? p.name_ja || p.name : p.name_ko || p.name);
   const getCategory = (p: Product) => (language === "ja" ? p.category_ja || p.category : p.category_ko || p.category);
@@ -114,6 +120,24 @@ export default function ProductDetail() {
       setLoading(false);
     })();
   }, [productId, router]);
+
+  // P-03: 선택된 imgIdx가 filmstrip 밖이면 부드럽게 스크롤 · 사용자가 방금 filmstrip을 직접 만졌으면 억제
+  // (조건부 render 이전에 등록해서 Rules of Hooks 준수 · loading/notFound 조기 리턴 위)
+  useEffect(() => {
+    const strip = filmstripRef.current;
+    if (!strip) return;
+    const now = Date.now();
+    if (now - lastUserScrollAtRef.current < 600) return; // 사용자 filmstrip 조작 중 · auto scroll 억제
+    const target = strip.querySelector<HTMLElement>(`[data-thumb-idx="${imgIdx}"]`);
+    if (!target) return;
+    const stripRect = strip.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    const outLeft = targetRect.left < stripRect.left;
+    const outRight = targetRect.right > stripRect.right;
+    if (outLeft || outRight) {
+      target.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
+    }
+  }, [imgIdx]);
 
   const handleAddToCart = () => {
     if (!product) return;
@@ -193,14 +217,18 @@ export default function ProductDetail() {
 
   // 모바일 스와이프 감지 · 화살표 로직(goPrev/goNext) 그대로 재사용
   // P-02: onTouchMove로 dragOffset 갱신 → 이미지가 손가락 따라옴
-  // threshold 50px · gestureDir로 방향 판정 안정화 (한 번 결정되면 gesture 종료까지 유지)
+  // P-03: threshold 50px OR flick velocity > 0.5 px/ms · 둘 중 하나만 만족해도 이동
+  //       gesture 종료 시 즉시 state 리셋 → 연속 flick 재터치 lock 없음
   const SWIPE_THRESHOLD = 50;
+  const FLICK_VELOCITY = 0.5;   // px/ms · 짧고 빠른 flick 감지
   const DIRECTION_LOCK_MIN = 8; // gesture 방향 판정 최소 이동량
   const handleImgTouchStart = (e: React.TouchEvent) => {
     if (galleryImgs.length <= 1) return;
     const t = e.touches[0];
+    // P-03: 이전 gesture 잔재 즉시 초기화 · 연속 flick 재터치 즉시 새 gesture 시작
     setTouchStartX(t.clientX);
     setTouchStartY(t.clientY);
+    setTouchStartTime(Date.now());
     setDragOffset(0);
     setGestureDir(null);
   };
@@ -228,13 +256,18 @@ export default function ProductDetail() {
     }
     const t = e.changedTouches[0];
     const dx = t.clientX - touchStartX;
-    const isHorizontal = gestureDir === "h" || (gestureDir === null && Math.abs(dx) > Math.abs(t.clientY - touchStartY));
+    const dy = t.clientY - touchStartY;
+    const elapsed = Math.max(1, Date.now() - touchStartTime);
+    const velocity = Math.abs(dx) / elapsed; // px/ms
+    const isHorizontal = gestureDir === "h" || (gestureDir === null && Math.abs(dx) > Math.abs(dy));
     setTouchStartX(null);
     setTouchStartY(null);
     setGestureDir(null);
     setDragOffset(0); // 항상 0 리셋 · transition으로 원위치 or 새 이미지 페이드
-    if (!isHorizontal) return;                     // 세로 우세 → 무시
-    if (Math.abs(dx) < SWIPE_THRESHOLD) return;    // 짧은 이동 → 원위치 복귀만
+    if (!isHorizontal) return;
+    // P-03: 거리 임계 OR 빠른 flick (velocity 기반) · 둘 중 하나만 만족해도 넘김
+    const shouldAdvance = Math.abs(dx) >= SWIPE_THRESHOLD || (velocity >= FLICK_VELOCITY && Math.abs(dx) >= DIRECTION_LOCK_MIN);
+    if (!shouldAdvance) return;                    // 짧고 느린 이동 → 원위치 복귀
     if (dx < 0) goNext();                          // 왼쪽 스와이프 → 다음
     else goPrev();                                 // 오른쪽 스와이프 → 이전
   };
@@ -320,9 +353,12 @@ export default function ProductDetail() {
       </nav>
 
       <div className="max-w-[1400px] mx-auto px-4 lg:px-8 pb-20">
-        <div className="grid lg:grid-cols-[1.15fr_1fr] gap-8 lg:gap-14">
+        {/* P-03 root cause fix: grid item 은 default min-width:auto → flex-shrink-0 자식(썸네일 등)이 있으면
+            grid item 이 자식 min-content 만큼 커져서 viewport 를 밀어냄. min-w-0 로 이를 차단.
+            body/html 에 overflow-x:hidden 를 씌우는 은폐 방식이 아닌 · 정확한 원인 지점 수정. */}
+        <div className="grid lg:grid-cols-[1.15fr_1fr] gap-8 lg:gap-14 [&>*]:min-w-0">
           {/* ─── 좌: 이미지 영역 ─── */}
-          <div>
+          <div className="min-w-0">
             <div
               className="relative aspect-square bg-[var(--color-bg-soft)] overflow-hidden"
               onTouchStart={handleImgTouchStart}
@@ -372,12 +408,17 @@ export default function ProductDetail() {
                 </>
               )}
 
-              {/* 페이지 인디케이터 */}
-              {galleryImgs.length > 1 && (
+              {/* 페이지 인디케이터 · P-03: 9장 이상이면 dots 대신 counter (dots 너무 촘촘 방지) */}
+              {galleryImgs.length > 1 && galleryImgs.length <= 8 && (
                 <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5">
                   {galleryImgs.map((_, i) => (
                     <span key={i} className={`w-1.5 h-1.5 rounded-full ${i === imgIdx ? "bg-[var(--color-text)]" : "bg-white/70"}`} />
                   ))}
+                </div>
+              )}
+              {galleryImgs.length > 8 && (
+                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/60 text-white text-[11px] tracking-[0.15em] px-2.5 py-1 rounded-full tabular-nums">
+                  {imgIdx + 1} / {galleryImgs.length}
                 </div>
               )}
             </div>
@@ -385,22 +426,36 @@ export default function ProductDetail() {
             {/* 상품명 라벨 (이미지 하단 중앙) */}
             <p className="text-center text-[11px] tracking-[0.25em] text-[var(--color-text-soft)] mt-3">{displayName}</p>
 
-            {/* 썸네일 · 관리자 설정 반영 (열 수 · 최대 줄 · 크기 · 간격) */}
+            {/* 썸네일 · P-03: filmstrip (flex + overflow-x-auto) · 전체 이미지 렌더 · 슬라이스 제거
+                · 대량 사진(15~20장)도 가로 스크롤로 전부 접근 가능
+                · 부모 컨테이너 폭 내에서만 스크롤 · document overflow 유발 X
+                · momentum scrolling: iOS -webkit-overflow-scrolling · 기타 브라우저 native
+                · 사용자가 filmstrip 직접 스크롤 → lastUserScrollAtRef 갱신 · imgIdx 변경 시 auto scroll 억제
+                · touchAction: pan-x → 가로 스와이프 브라우저에 위임 (세로 페이지 스크롤 방해 X) */}
             {galleryImgs.length > 1 && (
               <div
-                className="mt-3 grid mx-auto"
+                ref={filmstripRef}
+                onScroll={() => { lastUserScrollAtRef.current = Date.now(); }}
+                onTouchStart={() => { lastUserScrollAtRef.current = Date.now(); }}
+                className="mt-3 flex overflow-x-auto no-scrollbar"
                 style={{
-                  gridTemplateColumns: `repeat(${detailUi.thumbColumns}, ${detailUi.thumbSize}px)`,
                   gap: `${detailUi.thumbGap}px`,
-                  justifyContent: "center",
+                  paddingLeft: 4,
+                  paddingRight: 4,
+                  scrollbarWidth: "none",
+                  touchAction: "pan-x",
+                  WebkitOverflowScrolling: "touch",
                 }}
               >
-                {galleryImgs.slice(0, detailUi.thumbColumns * detailUi.thumbMaxRows).map((u, i) => (
+                {galleryImgs.map((u, i) => (
                   <button
                     key={i}
+                    data-thumb-idx={i}
                     onClick={() => setImgIdx(i)}
                     style={{ width: `${detailUi.thumbSize}px`, height: `${detailUi.thumbSize}px` }}
-                    className={`relative bg-[var(--color-bg-soft)] overflow-hidden border ${i === imgIdx ? "border-[var(--color-text)]" : "border-transparent hover:border-[var(--color-line)]"}`}
+                    className={`relative flex-shrink-0 bg-[var(--color-bg-soft)] overflow-hidden border ${i === imgIdx ? "border-[var(--color-text)]" : "border-transparent hover:border-[var(--color-line)]"}`}
+                    aria-label={`image ${i + 1}`}
+                    aria-current={i === imgIdx}
                   >
                     <Image src={u} alt={`thumb-${i}`} fill className="object-cover" sizes="120px" />
                   </button>
@@ -410,7 +465,7 @@ export default function ProductDetail() {
           </div>
 
           {/* ─── 우: 정보 영역 ─── */}
-          <div className="flex flex-col">
+          <div className="flex flex-col min-w-0">
             {/* 브랜드/카테고리 라벨 (상단 작은) */}
             <p className="text-[11px] tracking-[0.25em] text-[var(--color-text)] uppercase">{getCategory(product)}</p>
             <h1 className="text-[18px] lg:text-[20px] tracking-[0.05em] text-[var(--color-text)] mt-1 uppercase">{displayName}</h1>

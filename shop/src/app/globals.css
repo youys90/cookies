@@ -138,3 +138,8 @@ body {
   padding: 0 2rem;
 }
 
+/* P-03: 상품 상세 썸네일 filmstrip · 가로 스크롤 UI · 스크롤바 시각적 제거
+   실 스크롤은 유지 (사용자 손 조작 · scrollIntoView 정상 작동) */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
