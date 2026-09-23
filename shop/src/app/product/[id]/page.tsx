@@ -57,6 +57,13 @@ export default function ProductDetail() {
   const [selectedOption, setSelectedOption] = useState<ProductOption | null>(null);
   const [imgIdx, setImgIdx] = useState(0);
   const [openAcc, setOpenAcc] = useState<AccordionKey | null>("info");
+  // 모바일 터치 스와이프 · 이미지 갤러리 좌/우 넘김
+  // 세로 우세 or 짧은 이동은 무시 · 브라우저 세로 스크롤 그대로
+  // P-02: 손가락 이동 중 이미지가 dx만큼 따라오는 시각 피드백
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
+  const [touchStartY, setTouchStartY] = useState<number | null>(null);
+  const [dragOffset, setDragOffset] = useState(0);
+  const [gestureDir, setGestureDir] = useState<null | "h" | "v">(null);
 
   const getName = (p: Product) => (language === "ja" ? p.name_ja || p.name : p.name_ko || p.name);
   const getCategory = (p: Product) => (language === "ja" ? p.category_ja || p.category : p.category_ko || p.category);
@@ -184,6 +191,54 @@ export default function ProductDetail() {
   const goPrev = () => setImgIdx((i) => (i - 1 + galleryImgs.length) % galleryImgs.length);
   const goNext = () => setImgIdx((i) => (i + 1) % galleryImgs.length);
 
+  // 모바일 스와이프 감지 · 화살표 로직(goPrev/goNext) 그대로 재사용
+  // P-02: onTouchMove로 dragOffset 갱신 → 이미지가 손가락 따라옴
+  // threshold 50px · gestureDir로 방향 판정 안정화 (한 번 결정되면 gesture 종료까지 유지)
+  const SWIPE_THRESHOLD = 50;
+  const DIRECTION_LOCK_MIN = 8; // gesture 방향 판정 최소 이동량
+  const handleImgTouchStart = (e: React.TouchEvent) => {
+    if (galleryImgs.length <= 1) return;
+    const t = e.touches[0];
+    setTouchStartX(t.clientX);
+    setTouchStartY(t.clientY);
+    setDragOffset(0);
+    setGestureDir(null);
+  };
+  const handleImgTouchMove = (e: React.TouchEvent) => {
+    if (galleryImgs.length <= 1) return;
+    if (touchStartX === null || touchStartY === null) return;
+    const t = e.touches[0];
+    const dx = t.clientX - touchStartX;
+    const dy = t.clientY - touchStartY;
+    // 방향 판정 (한 번만) · undecided 상태에서 최소 이동량 넘으면 lock
+    if (gestureDir === null) {
+      if (Math.abs(dx) < DIRECTION_LOCK_MIN && Math.abs(dy) < DIRECTION_LOCK_MIN) return;
+      setGestureDir(Math.abs(dx) > Math.abs(dy) ? "h" : "v");
+      if (Math.abs(dx) > Math.abs(dy)) setDragOffset(dx);
+      return;
+    }
+    if (gestureDir === "h") setDragOffset(dx);
+    // gestureDir === "v" → 아무것도 하지 않음 (페이지 세로 스크롤 그대로)
+  };
+  const handleImgTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX === null || touchStartY === null) {
+      setDragOffset(0);
+      setGestureDir(null);
+      return;
+    }
+    const t = e.changedTouches[0];
+    const dx = t.clientX - touchStartX;
+    const isHorizontal = gestureDir === "h" || (gestureDir === null && Math.abs(dx) > Math.abs(t.clientY - touchStartY));
+    setTouchStartX(null);
+    setTouchStartY(null);
+    setGestureDir(null);
+    setDragOffset(0); // 항상 0 리셋 · transition으로 원위치 or 새 이미지 페이드
+    if (!isHorizontal) return;                     // 세로 우세 → 무시
+    if (Math.abs(dx) < SWIPE_THRESHOLD) return;    // 짧은 이동 → 원위치 복귀만
+    if (dx < 0) goNext();                          // 왼쪽 스와이프 → 다음
+    else goPrev();                                 // 오른쪽 스와이프 → 이전
+  };
+
   const isNew = product.created_at && Date.now() - new Date(product.created_at).getTime() < 14 * 24 * 60 * 60 * 1000;
   const onSale = !!product.original_price;
 
@@ -268,18 +323,34 @@ export default function ProductDetail() {
         <div className="grid lg:grid-cols-[1.15fr_1fr] gap-8 lg:gap-14">
           {/* ─── 좌: 이미지 영역 ─── */}
           <div>
-            <div className="relative aspect-square bg-[var(--color-bg-soft)] overflow-hidden">
+            <div
+              className="relative aspect-square bg-[var(--color-bg-soft)] overflow-hidden"
+              onTouchStart={handleImgTouchStart}
+              onTouchMove={handleImgTouchMove}
+              onTouchEnd={handleImgTouchEnd}
+              style={{ touchAction: "pan-y" }}
+            >
               {/* 이미지 위 오버레이 뒤로가기 제거 · 사진 조작 실수 방지 · breadcrumb 우측 뒤로가기 버튼 사용 */}
-              {currentImg && (
-                <Image
-                  src={currentImg}
-                  alt={displayName}
-                  fill
-                  className="object-cover"
-                  sizes="(max-width: 1024px) 100vw, 55vw"
-                  priority
-                />
-              )}
+              {/* P-02: 이미지 wrapper · dragOffset만큼 X translate · 손 놓으면 0으로 복귀(transition on) */}
+              <div
+                className="absolute inset-0"
+                style={{
+                  transform: `translate3d(${dragOffset}px, 0, 0)`,
+                  transition: dragOffset === 0 ? "transform 0.25s ease-out" : "none",
+                  willChange: dragOffset !== 0 ? "transform" : "auto",
+                }}
+              >
+                {currentImg && (
+                  <Image
+                    src={currentImg}
+                    alt={displayName}
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 1024px) 100vw, 55vw"
+                    priority
+                  />
+                )}
+              </div>
 
               {/* 배지 */}
               {(onSale || isNew) && (
