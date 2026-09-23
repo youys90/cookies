@@ -9,6 +9,7 @@ import { supabase } from "@/lib/supabase";
 import { useCart } from "@/contexts/CartContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useShopUi } from "@/contexts/ShopUiContext";
+import ProductGalleryTrack from "@/components/ProductGalleryTrack";
 
 interface Product {
   id: number;
@@ -57,15 +58,8 @@ export default function ProductDetail() {
   const [selectedOption, setSelectedOption] = useState<ProductOption | null>(null);
   const [imgIdx, setImgIdx] = useState(0);
   const [openAcc, setOpenAcc] = useState<AccordionKey | null>("info");
-  // 모바일 터치 스와이프 · 이미지 갤러리 좌/우 넘김
-  // 세로 우세 or 짧은 이동은 무시 · 브라우저 세로 스크롤 그대로
-  // P-02: 손가락 이동 중 이미지가 dx만큼 따라오는 시각 피드백
-  // P-03: velocity 기반 flick 감지 · lock 없이 연속 flick 즉시 반영
-  const [touchStartX, setTouchStartX] = useState<number | null>(null);
-  const [touchStartY, setTouchStartY] = useState<number | null>(null);
-  const [touchStartTime, setTouchStartTime] = useState(0);
-  const [dragOffset, setDragOffset] = useState(0);
-  const [gestureDir, setGestureDir] = useState<null | "h" | "v">(null);
+  // P-03 (재설계 · 2026-09-24): 손가락 감성 (Samsung/iOS Photos 급) · 3-slide track carousel
+  // 세부 구현은 `ProductGalleryTrack` 공용 컴포넌트로 이관 · 이 파일은 imgIdx 만 관리 · 화살표/썸네일 동일 연동
   // P-03: 썸네일 filmstrip · 자동 scrollIntoView 는 사장님 손 조작 중이면 억제
   // (사용자가 filmstrip 직접 스크롤 → auto-scroll 튐 방지)
   const filmstripRef = useRef<HTMLDivElement | null>(null);
@@ -210,67 +204,8 @@ export default function ProductDetail() {
     }
     return base;
   })();
-  const currentImg = galleryImgs[imgIdx] || product.image || "";
-
   const goPrev = () => setImgIdx((i) => (i - 1 + galleryImgs.length) % galleryImgs.length);
   const goNext = () => setImgIdx((i) => (i + 1) % galleryImgs.length);
-
-  // 모바일 스와이프 감지 · 화살표 로직(goPrev/goNext) 그대로 재사용
-  // P-02: onTouchMove로 dragOffset 갱신 → 이미지가 손가락 따라옴
-  // P-03: threshold 50px OR flick velocity > 0.5 px/ms · 둘 중 하나만 만족해도 이동
-  //       gesture 종료 시 즉시 state 리셋 → 연속 flick 재터치 lock 없음
-  const SWIPE_THRESHOLD = 50;
-  const FLICK_VELOCITY = 0.5;   // px/ms · 짧고 빠른 flick 감지
-  const DIRECTION_LOCK_MIN = 8; // gesture 방향 판정 최소 이동량
-  const handleImgTouchStart = (e: React.TouchEvent) => {
-    if (galleryImgs.length <= 1) return;
-    const t = e.touches[0];
-    // P-03: 이전 gesture 잔재 즉시 초기화 · 연속 flick 재터치 즉시 새 gesture 시작
-    setTouchStartX(t.clientX);
-    setTouchStartY(t.clientY);
-    setTouchStartTime(Date.now());
-    setDragOffset(0);
-    setGestureDir(null);
-  };
-  const handleImgTouchMove = (e: React.TouchEvent) => {
-    if (galleryImgs.length <= 1) return;
-    if (touchStartX === null || touchStartY === null) return;
-    const t = e.touches[0];
-    const dx = t.clientX - touchStartX;
-    const dy = t.clientY - touchStartY;
-    // 방향 판정 (한 번만) · undecided 상태에서 최소 이동량 넘으면 lock
-    if (gestureDir === null) {
-      if (Math.abs(dx) < DIRECTION_LOCK_MIN && Math.abs(dy) < DIRECTION_LOCK_MIN) return;
-      setGestureDir(Math.abs(dx) > Math.abs(dy) ? "h" : "v");
-      if (Math.abs(dx) > Math.abs(dy)) setDragOffset(dx);
-      return;
-    }
-    if (gestureDir === "h") setDragOffset(dx);
-    // gestureDir === "v" → 아무것도 하지 않음 (페이지 세로 스크롤 그대로)
-  };
-  const handleImgTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartX === null || touchStartY === null) {
-      setDragOffset(0);
-      setGestureDir(null);
-      return;
-    }
-    const t = e.changedTouches[0];
-    const dx = t.clientX - touchStartX;
-    const dy = t.clientY - touchStartY;
-    const elapsed = Math.max(1, Date.now() - touchStartTime);
-    const velocity = Math.abs(dx) / elapsed; // px/ms
-    const isHorizontal = gestureDir === "h" || (gestureDir === null && Math.abs(dx) > Math.abs(dy));
-    setTouchStartX(null);
-    setTouchStartY(null);
-    setGestureDir(null);
-    setDragOffset(0); // 항상 0 리셋 · transition으로 원위치 or 새 이미지 페이드
-    if (!isHorizontal) return;
-    // P-03: 거리 임계 OR 빠른 flick (velocity 기반) · 둘 중 하나만 만족해도 넘김
-    const shouldAdvance = Math.abs(dx) >= SWIPE_THRESHOLD || (velocity >= FLICK_VELOCITY && Math.abs(dx) >= DIRECTION_LOCK_MIN);
-    if (!shouldAdvance) return;                    // 짧고 느린 이동 → 원위치 복귀
-    if (dx < 0) goNext();                          // 왼쪽 스와이프 → 다음
-    else goPrev();                                 // 오른쪽 스와이프 → 이전
-  };
 
   const isNew = product.created_at && Date.now() - new Date(product.created_at).getTime() < 14 * 24 * 60 * 60 * 1000;
   const onSale = !!product.original_price;
@@ -359,69 +294,52 @@ export default function ProductDetail() {
         <div className="grid lg:grid-cols-[1.15fr_1fr] gap-8 lg:gap-14 [&>*]:min-w-0">
           {/* ─── 좌: 이미지 영역 ─── */}
           <div className="min-w-0">
-            <div
+            {/* P-03 재설계: 3-slide carousel track (Samsung Gallery / iOS Photos 감성)
+                이동은 트랙 하나 · 인접 이미지 함께 노출 · 1:1 손가락 추적 · release 시 snap
+                내부 gesture 로직 · imperative style · rAF 상세: `ProductGalleryTrack.tsx` 주석 참고 */}
+            <ProductGalleryTrack
+              images={galleryImgs}
+              imgIdx={imgIdx}
+              onIdxChange={setImgIdx}
+              alt={displayName}
+              sizes="(max-width: 1024px) 100vw, 55vw"
+              objectFit="cover"
+              priority
               className="relative aspect-square bg-[var(--color-bg-soft)] overflow-hidden"
-              onTouchStart={handleImgTouchStart}
-              onTouchMove={handleImgTouchMove}
-              onTouchEnd={handleImgTouchEnd}
-              style={{ touchAction: "pan-y" }}
             >
-              {/* 이미지 위 오버레이 뒤로가기 제거 · 사진 조작 실수 방지 · breadcrumb 우측 뒤로가기 버튼 사용 */}
-              {/* P-02: 이미지 wrapper · dragOffset만큼 X translate · 손 놓으면 0으로 복귀(transition on) */}
-              <div
-                className="absolute inset-0"
-                style={{
-                  transform: `translate3d(${dragOffset}px, 0, 0)`,
-                  transition: dragOffset === 0 ? "transform 0.25s ease-out" : "none",
-                  willChange: dragOffset !== 0 ? "transform" : "auto",
-                }}
-              >
-                {currentImg && (
-                  <Image
-                    src={currentImg}
-                    alt={displayName}
-                    fill
-                    className="object-cover"
-                    sizes="(max-width: 1024px) 100vw, 55vw"
-                    priority
-                  />
-                )}
-              </div>
-
-              {/* 배지 */}
+              {/* 배지 · 화살표 · counter · dots 는 track 위 오버레이 (position:absolute · container 기준) */}
               {(onSale || isNew) && (
-                <div className="absolute top-4 left-4 flex flex-col gap-1.5">
+                <div className="absolute top-4 left-4 flex flex-col gap-1.5 z-10">
                   {isNew && <span className="bg-[var(--color-text)] text-white text-[10px] tracking-[0.25em] px-2.5 py-1">NEW</span>}
                   {onSale && <span className="bg-[var(--color-point)] text-white text-[10px] tracking-[0.25em] px-2.5 py-1">SALE</span>}
                 </div>
               )}
 
-              {/* 좌우 화살표 */}
               {galleryImgs.length > 1 && (
                 <>
-                  <button onClick={goPrev} className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/85 backdrop-blur-sm flex items-center justify-center hover:bg-white transition" aria-label="prev">
+                  <button onClick={goPrev} className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/85 backdrop-blur-sm flex items-center justify-center hover:bg-white transition z-10" aria-label="prev">
                     <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M15 6l-6 6 6 6" /></svg>
                   </button>
-                  <button onClick={goNext} className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/85 backdrop-blur-sm flex items-center justify-center hover:bg-white transition" aria-label="next">
+                  <button onClick={goNext} className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/85 backdrop-blur-sm flex items-center justify-center hover:bg-white transition z-10" aria-label="next">
                     <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M9 6l6 6-6 6" /></svg>
                   </button>
                 </>
               )}
 
-              {/* 페이지 인디케이터 · P-03: 9장 이상이면 dots 대신 counter (dots 너무 촘촘 방지) */}
+              {/* 페이지 인디케이터 · 9장 이상이면 dots 대신 counter (dots 너무 촘촘 방지) */}
               {galleryImgs.length > 1 && galleryImgs.length <= 8 && (
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5">
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
                   {galleryImgs.map((_, i) => (
                     <span key={i} className={`w-1.5 h-1.5 rounded-full ${i === imgIdx ? "bg-[var(--color-text)]" : "bg-white/70"}`} />
                   ))}
                 </div>
               )}
               {galleryImgs.length > 8 && (
-                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/60 text-white text-[11px] tracking-[0.15em] px-2.5 py-1 rounded-full tabular-nums">
+                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/60 text-white text-[11px] tracking-[0.15em] px-2.5 py-1 rounded-full tabular-nums z-10">
                   {imgIdx + 1} / {galleryImgs.length}
                 </div>
               )}
-            </div>
+            </ProductGalleryTrack>
 
             {/* 상품명 라벨 (이미지 하단 중앙) */}
             <p className="text-center text-[11px] tracking-[0.25em] text-[var(--color-text-soft)] mt-3">{displayName}</p>

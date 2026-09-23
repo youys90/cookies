@@ -1,13 +1,13 @@
 "use client";
 
-// 실사진 (REAL PHOTOS) · 사용자용 상세 페이지 · P-02 (2026-09-24)
+// 실사진 (REAL PHOTOS) · 사용자용 상세 페이지
 // - 판매용 상품 상세 (`/product/[id]`) 와는 별개 · 순수 사진 뷰어
 // - product_photos 에서 image_url + sort_order 정렬 순서만 사용
 //   · storage_path · caption · id · created_at · snapshot · product_id orphan 값 등 사용자 노출 X
 // - 상단: 상품명 (판매용 이름 · 언어 스위처 반영)
-// - 메인: 큰 이미지 + 좌/우 화살표 + 손가락 좌우 스와이프 (flick) · P-03 gallery 패턴 인라인 복제
-//   · 회귀 위험 최소화 위해 판매 상품 상세 gallery 는 이번 P-02 에서 손대지 X
-//   · 코드 중복은 추후 유지보수 티켓으로 이관 (완료 보고 항목 9 참고)
+// - 메인: 큰 이미지 + 좌/우 화살표 + 손가락 좌우 스와이프 (3-slide carousel · Samsung/iOS Photos 감성)
+//   · gallery 로직은 `ProductGalleryTrack` 공용 컴포넌트로 이관 (판매 상세와 동일 사용)
+//   · 실사진은 object-contain · unoptimized (원본 비율 보존)
 // - 하단: filmstrip (가로 스크롤) + counter (사진 많을 때만) + 「商品を見る / 상품 보기」 링크
 // - 특수(비밀) 카테고리 상품 URL 직접 진입 차단 · 판매 상세와 동일 정책 적용
 
@@ -17,6 +17,7 @@ import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useLanguage } from "@/contexts/LanguageContext";
+import ProductGalleryTrack from "@/components/ProductGalleryTrack";
 
 interface ProductInfo {
   id: number;
@@ -32,15 +33,12 @@ interface PhotoRow {
   sort_order: number;
 }
 
-// 실사진 상세 · gallery UI 상수 (P-03 productDetail config 와는 별개 · shop 관리자 노출 안 함)
+// 실사진 상세 · filmstrip UI 상수 (판매 상세와는 별개 · shop 관리자 노출 안 함)
 const THUMB_SIZE = 72;
 const THUMB_GAP = 8;
 const COUNTER_MIN = 5; // 5장 초과 시 counter 노출 (dots 대신)
 
-// P-03 gallery 상수 (인라인 복제)
-const SWIPE_THRESHOLD = 50;
-const FLICK_VELOCITY = 0.5;
-const DIRECTION_LOCK_MIN = 8;
+// P-03 재설계 (2026-09-24): 3-slide carousel · 로직 이관 → `ProductGalleryTrack` 공용 컴포넌트
 
 export default function RealPhotosDetailPage() {
   const params = useParams();
@@ -53,13 +51,6 @@ export default function RealPhotosDetailPage() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [imgIdx, setImgIdx] = useState(0);
-
-  // 스와이프/flick · P-03 인라인 복제
-  const [touchStartX, setTouchStartX] = useState<number | null>(null);
-  const [touchStartY, setTouchStartY] = useState<number | null>(null);
-  const [touchStartTime, setTouchStartTime] = useState(0);
-  const [dragOffset, setDragOffset] = useState(0);
-  const [gestureDir, setGestureDir] = useState<null | "h" | "v">(null);
 
   // filmstrip auto-scroll 억제 (사용자가 직접 만졌을 때)
   const filmstripRef = useRef<HTMLDivElement | null>(null);
@@ -182,60 +173,8 @@ export default function RealPhotosDetailPage() {
   const displayName = getName(product);
   const subName = language === "ja" ? product.name_ko : product.name_ja;
 
-  const currentImg = images[imgIdx] || "";
-
   const goPrev = () => setImgIdx((i) => (i - 1 + images.length) % images.length);
   const goNext = () => setImgIdx((i) => (i + 1) % images.length);
-
-  // ── 스와이프/flick (P-03 인라인 복제) ────────────────────────
-  const handleTouchStart = (e: React.TouchEvent) => {
-    if (images.length <= 1) return;
-    const t = e.touches[0];
-    setTouchStartX(t.clientX);
-    setTouchStartY(t.clientY);
-    setTouchStartTime(Date.now());
-    setDragOffset(0);
-    setGestureDir(null);
-  };
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (images.length <= 1) return;
-    if (touchStartX === null || touchStartY === null) return;
-    const t = e.touches[0];
-    const dx = t.clientX - touchStartX;
-    const dy = t.clientY - touchStartY;
-    if (gestureDir === null) {
-      if (Math.abs(dx) < DIRECTION_LOCK_MIN && Math.abs(dy) < DIRECTION_LOCK_MIN) return;
-      setGestureDir(Math.abs(dx) > Math.abs(dy) ? "h" : "v");
-      if (Math.abs(dx) > Math.abs(dy)) setDragOffset(dx);
-      return;
-    }
-    if (gestureDir === "h") setDragOffset(dx);
-  };
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartX === null || touchStartY === null) {
-      setDragOffset(0);
-      setGestureDir(null);
-      return;
-    }
-    const t = e.changedTouches[0];
-    const dx = t.clientX - touchStartX;
-    const dy = t.clientY - touchStartY;
-    const elapsed = Math.max(1, Date.now() - touchStartTime);
-    const velocity = Math.abs(dx) / elapsed;
-    const isHorizontal =
-      gestureDir === "h" || (gestureDir === null && Math.abs(dx) > Math.abs(dy));
-    setTouchStartX(null);
-    setTouchStartY(null);
-    setGestureDir(null);
-    setDragOffset(0);
-    if (!isHorizontal) return;
-    const shouldAdvance =
-      Math.abs(dx) >= SWIPE_THRESHOLD ||
-      (velocity >= FLICK_VELOCITY && Math.abs(dx) >= DIRECTION_LOCK_MIN);
-    if (!shouldAdvance) return;
-    if (dx < 0) goNext();
-    else goPrev();
-  };
 
   return (
     <div className="bg-white text-[var(--color-text)]">
@@ -267,41 +206,25 @@ export default function RealPhotosDetailPage() {
           </div>
         ) : (
           <div className="min-w-0">
-            {/* 큰 이미지 · aspect-square · 좌우 화살표 · 손가락 스와이프 */}
-            <div
+            {/* 큰 이미지 · aspect-square · 3-slide carousel track (판매 상세와 동일 컴포넌트)
+                실사진은 object-contain · unoptimized (원본 비율 · Supabase Storage 직결) */}
+            <ProductGalleryTrack
+              images={images}
+              imgIdx={imgIdx}
+              onIdxChange={setImgIdx}
+              alt={displayName}
+              sizes="(max-width: 900px) 100vw, 900px"
+              objectFit="contain"
+              priority
+              unoptimized
               className="relative aspect-square bg-[var(--color-bg-soft)] overflow-hidden"
-              onTouchStart={handleTouchStart}
-              onTouchMove={handleTouchMove}
-              onTouchEnd={handleTouchEnd}
-              style={{ touchAction: "pan-y" }}
             >
-              <div
-                className="absolute inset-0"
-                style={{
-                  transform: `translate3d(${dragOffset}px, 0, 0)`,
-                  transition: dragOffset === 0 ? "transform 0.25s ease-out" : "none",
-                  willChange: dragOffset !== 0 ? "transform" : "auto",
-                }}
-              >
-                {currentImg && (
-                  <Image
-                    src={currentImg}
-                    alt={`${displayName} · ${imgIdx + 1}`}
-                    fill
-                    className="object-contain"
-                    sizes="(max-width: 900px) 100vw, 900px"
-                    priority
-                    unoptimized
-                  />
-                )}
-              </div>
-
-              {/* 좌우 화살표 (2장 이상일 때) */}
+              {/* 좌우 화살표 (2장 이상일 때) · 오버레이 (position:absolute · container 기준) */}
               {images.length > 1 && (
                 <>
                   <button
                     onClick={goPrev}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/85 backdrop-blur-sm flex items-center justify-center hover:bg-white transition"
+                    className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/85 backdrop-blur-sm flex items-center justify-center hover:bg-white transition z-10"
                     aria-label="prev"
                   >
                     <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -310,7 +233,7 @@ export default function RealPhotosDetailPage() {
                   </button>
                   <button
                     onClick={goNext}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/85 backdrop-blur-sm flex items-center justify-center hover:bg-white transition"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/85 backdrop-blur-sm flex items-center justify-center hover:bg-white transition z-10"
                     aria-label="next"
                   >
                     <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -320,15 +243,15 @@ export default function RealPhotosDetailPage() {
                 </>
               )}
 
-              {/* Counter · 5장 초과일 때만 노출 (사장님 명시 · 예: > 5장) */}
+              {/* Counter · 5장 초과일 때만 노출 */}
               {images.length > COUNTER_MIN && (
-                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/60 text-white text-[11px] tracking-[0.15em] px-2.5 py-1 rounded-full tabular-nums">
+                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/60 text-white text-[11px] tracking-[0.15em] px-2.5 py-1 rounded-full tabular-nums z-10">
                   {imgIdx + 1} / {images.length}
                 </div>
               )}
-              {/* 소량 (2~5장) · dots (P-03 동일) */}
+              {/* 소량 (2~5장) · dots */}
               {images.length > 1 && images.length <= COUNTER_MIN && (
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5">
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
                   {images.map((_, i) => (
                     <span
                       key={i}
@@ -339,7 +262,7 @@ export default function RealPhotosDetailPage() {
                   ))}
                 </div>
               )}
-            </div>
+            </ProductGalleryTrack>
 
             {/* Filmstrip · 사진 여러 장일 때만 · 가로 스크롤 · min-w-0 자연 계승 */}
             {images.length > 1 && (
