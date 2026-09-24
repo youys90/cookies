@@ -1,5 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import crypto from "node:crypto";
+
+// LINE Webhook signature 검증 · HMAC-SHA256(LINE_CHANNEL_SECRET, rawBody) → Base64
+// 반드시 request.text()로 원문 확보 후 검증 · JSON parse 전에 gate 통과 필요
+// (P-02 · 2026-09-24 · P-01 조사에서 signature 검증 미구현 확인 · 보안 gate 추가)
+function verifyLineSignature(rawBody: string, signature: string, secret: string): boolean {
+  const expected = crypto
+    .createHmac("sha256", secret)
+    .update(rawBody, "utf8")
+    .digest("base64");
+  const expectedBuf = Buffer.from(expected, "utf8");
+  const providedBuf = Buffer.from(signature, "utf8");
+  // 길이 다르면 timingSafeEqual이 예외 던짐 · 사전 체크
+  if (expectedBuf.length !== providedBuf.length) return false;
+  return crypto.timingSafeEqual(expectedBuf, providedBuf);
+}
 
 interface LineEvent {
   type: string;
@@ -58,7 +74,31 @@ async function replyMessage(replyToken: string, text: string) {
 
 export async function POST(request: NextRequest) {
   try {
-    const body: LineWebhookBody = await request.json();
+    // ─── Signature 검증 gate (P-02) ────────────────────────────
+    // 1. Channel Secret 필수 · 없으면 fail-close (fail-open 금지)
+    const channelSecret = process.env.LINE_CHANNEL_SECRET;
+    if (!channelSecret) {
+      // credential 값 로그 X · 미설정 사실만 기록
+      console.error("[line-webhook] LINE_CHANNEL_SECRET 미설정 · webhook 처리 거부");
+      return NextResponse.json({ error: "server misconfigured" }, { status: 500 });
+    }
+
+    // 2. x-line-signature header 없으면 거부
+    const signature = request.headers.get("x-line-signature");
+    if (!signature) {
+      return NextResponse.json({ error: "signature required" }, { status: 401 });
+    }
+
+    // 3. 원문 body 확보 (JSON parse 전 · 공백/줄바꿈 원본 그대로 HMAC 대상)
+    const rawBody = await request.text();
+
+    // 4. HMAC-SHA256 · Base64 · timingSafeEqual 비교
+    if (!verifyLineSignature(rawBody, signature, channelSecret)) {
+      return NextResponse.json({ error: "invalid signature" }, { status: 401 });
+    }
+
+    // 5. 검증 성공 후에만 JSON parse · 기존 이벤트 로직 진입
+    const body: LineWebhookBody = JSON.parse(rawBody);
 
     for (const event of body.events) {
       if (event.type !== "message" || event.message?.type !== "text") continue;
